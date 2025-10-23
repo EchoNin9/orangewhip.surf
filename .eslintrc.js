@@ -1,6 +1,6 @@
 module.exports = {
   root: true,
-  extends: ['eslint-config-astro'],
+  extends: ['@typescript-eslint/recommended'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 'latest',
@@ -9,5 +9,8 @@ module.exports = {
   env: {
     node: true,
     es2022: true
+  },
+  rules: {
+    // Add any custom rules here
   }
 }
