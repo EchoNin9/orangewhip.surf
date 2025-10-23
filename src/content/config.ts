@@ -1,14 +1,20 @@
 import { defineCollection, z } from 'astro:content'
 
-const press = defineCollection({
-  type: 'content',
-  schema: z.object({
+const pressSchema = z
+  .object({
     title: z.string(),
     date: z.date(),
     tags: z.array(z.string()).default([]),
     heroImage: z.string().optional(),
-    slug: z.string(),
-  }),
+  })
+  .passthrough()
+
+type PressFrontmatter = z.infer<typeof pressSchema> & { slug?: string }
+
+const press = defineCollection({
+  type: 'content',
+  schema: pressSchema,
+  slug: ({ data, slug }) => (data as PressFrontmatter).slug ?? slug,
 })
 
 const gigs = defineCollection({

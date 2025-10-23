@@ -12,9 +12,7 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.5.4",
-    "@astrojs/image": "^0.18.0",
     "@astrojs/tailwind": "^5.1.0",
-    "@astrojs/typescript": "^1.8.1",
     "astro": "^4.12.4",
     "dayjs": "^1.11.10",
     "ical.js": "^1.5.0",
@@ -26,9 +24,11 @@
   "devDependencies": {
     "@types/node": "^20.10.6",
     "eslint": "^8.56.0",
-    "eslint-config-astro": "^0.28.1",
     "prettier": "^3.1.1",
     "prettier-plugin-astro": "^0.12.0",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "eslint-plugin-astro": "^1.3.1"
   }
 }
