@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.5.4",
-    "@astrojs/image": "^0.18.0",
     "@astrojs/tailwind": "^5.1.0",
     "@astrojs/typescript": "^1.8.1",
     "astro": "^4.12.4",
