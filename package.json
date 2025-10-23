@@ -13,7 +13,6 @@
   "dependencies": {
     "@astrojs/check": "^0.5.4",
     "@astrojs/tailwind": "^5.1.0",
-    "@astrojs/typescript": "^1.8.1",
     "astro": "^4.12.4",
     "dayjs": "^1.11.10",
     "ical.js": "^1.5.0",
