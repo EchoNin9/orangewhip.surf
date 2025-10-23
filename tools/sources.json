@@ -1,0 +1,32 @@
+{
+  "sources": [
+    {
+      "name": "The Commodore Ballroom",
+      "type": "rss",
+      "url": "https://example.com/commodore/feed",
+      "enabled": false,
+      "notes": "Replace with actual RSS feed URL for The Commodore Ballroom events"
+    },
+    {
+      "name": "The Biltmore Cabaret",
+      "type": "ics",
+      "url": "https://example.com/biltmore/events.ics",
+      "enabled": false,
+      "notes": "Replace with actual iCal feed URL for The Biltmore Cabaret events"
+    },
+    {
+      "name": "The Rickshaw Theatre",
+      "type": "rss",
+      "url": "https://example.com/rickshaw/feed",
+      "enabled": false,
+      "notes": "Replace with actual RSS feed URL for The Rickshaw Theatre events"
+    },
+    {
+      "name": "Vancouver Music Events",
+      "type": "rss",
+      "url": "https://example.com/vancouver-music/feed",
+      "enabled": false,
+      "notes": "Replace with actual RSS feed URL for Vancouver music event aggregator"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+---
+export interface Props {
+  url: string;
+}
+
+const { url } = Astro.props;
+---
+
+<div class="bg-white border border-gray-200 rounded-lg p-4">
+  <div class="flex items-center mb-3">
+    <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mr-3"></div>
+    <div>
+      <p class="text-sm font-semibold text-gray-900">Orange Whip</p>
+      <p class="text-xs text-gray-500">Instagram</p>
+    </div>
+  </div>
+  <div class="bg-gray-100 rounded-lg p-8 text-center">
+    <p class="text-gray-600 mb-4">Instagram Post</p>
+    <a 
+      href={url} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
+    >
+      View on Instagram
+    </a>
+  </div>
+</div>

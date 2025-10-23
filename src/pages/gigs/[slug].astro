@@ -1,0 +1,82 @@
+---
+import Layout from '../../components/Layout.astro';
+import Section from '../../components/Section.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const gigs = await getCollection('gigs');
+  return gigs.map(gig => ({
+    params: { slug: gig.slug },
+    props: { gig },
+  }));
+}
+
+const { gig } = Astro.props;
+const gigDate = new Date(gig.data.date);
+const formattedDate = gigDate.toLocaleDateString('en-US', {
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric'
+});
+---
+
+<Layout title={`${gig.data.title} — Orange Whip`} description={gig.data.description}>
+  <Section>
+    <div class="max-w-4xl mx-auto">
+      <!-- Gig Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">{gig.data.title}</h1>
+        <p class="text-xl text-orange-600 font-medium mb-2">{formattedDate}</p>
+        <p class="text-lg text-gray-600">{gig.data.venue}</p>
+        {gig.data.address && (
+          <p class="text-gray-500">{gig.data.address}</p>
+        )}
+        <p class="text-gray-500">{gig.data.city}</p>
+      </div>
+
+      <!-- Gig Poster -->
+      <div class="mb-8">
+        <img 
+          src={gig.data.poster} 
+          alt={`${gig.data.title} poster`}
+          class="w-full max-w-2xl mx-auto rounded-lg shadow-lg"
+        />
+      </div>
+
+      <!-- Gig Description -->
+      <div class="prose prose-lg max-w-none mb-8">
+        <div set:html={gig.body} />
+      </div>
+
+      <!-- Gallery -->
+      {gig.data.gallery && gig.data.gallery.length > 0 && (
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">Gallery</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {gig.data.gallery.map((image: string) => (
+              <img 
+                src={image} 
+                alt={`${gig.data.title} gallery`}
+                class="w-full h-48 object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <!-- Status Badge -->
+      <div class="text-center">
+        {gig.data.isUpcoming ? (
+          <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+            Upcoming Show
+          </span>
+        ) : (
+          <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+            Past Show
+          </span>
+        )}
+      </div>
+    </div>
+  </Section>
+</Layout>

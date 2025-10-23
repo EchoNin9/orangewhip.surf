@@ -1,0 +1,101 @@
+---
+import Layout from '../../components/Layout.astro';
+import Section from '../../components/Section.astro';
+import { getCollection } from 'astro:content';
+
+const allDaily = await getCollection('daily');
+const dailyItems = allDaily.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+---
+
+<Layout title="Daily Vancouver Roundup — Orange Whip">
+  <Section title="Vancouver Show Roundups" subtitle="Daily listings of Vancouver music events">
+    <div class="space-y-6">
+      {dailyItems.map(daily => {
+        const dailyDate = new Date(daily.data.date);
+        const formattedDate = dailyDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        
+        const totalEvents = daily.data.today.length + daily.data.thisWeek.length + daily.data.next.length;
+        
+        return (
+          <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-xl font-semibold text-gray-900">
+                  <a href={`/daily/${daily.slug}`} class="hover:text-orange-600 transition-colors">
+                    {formattedDate}
+                  </a>
+                </h3>
+                <p class="text-gray-600">{totalEvents} events found</p>
+              </div>
+              <a href={`/daily/${daily.slug}`} class="text-orange-600 hover:text-orange-700 font-medium">
+                View Details →
+              </a>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div class="bg-orange-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-orange-800 mb-2">Today ({daily.data.today.length})</h4>
+                {daily.data.today.length > 0 ? (
+                  <ul class="space-y-1">
+                    {daily.data.today.slice(0, 2).map(event => (
+                      <li class="text-orange-700 truncate">{event.title}</li>
+                    ))}
+                    {daily.data.today.length > 2 && (
+                      <li class="text-orange-600">+{daily.data.today.length - 2} more</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p class="text-orange-600">No events today</p>
+                )}
+              </div>
+              
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-blue-800 mb-2">This Week ({daily.data.thisWeek.length})</h4>
+                {daily.data.thisWeek.length > 0 ? (
+                  <ul class="space-y-1">
+                    {daily.data.thisWeek.slice(0, 2).map(event => (
+                      <li class="text-blue-700 truncate">{event.title}</li>
+                    ))}
+                    {daily.data.thisWeek.length > 2 && (
+                      <li class="text-blue-600">+{daily.data.thisWeek.length - 2} more</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p class="text-blue-600">No events this week</p>
+                )}
+              </div>
+              
+              <div class="bg-green-50 p-3 rounded-lg">
+                <h4 class="font-semibold text-green-800 mb-2">Next ({daily.data.next.length})</h4>
+                {daily.data.next.length > 0 ? (
+                  <ul class="space-y-1">
+                    {daily.data.next.slice(0, 2).map(event => (
+                      <li class="text-green-700 truncate">{event.title}</li>
+                    ))}
+                    {daily.data.next.length > 2 && (
+                      <li class="text-green-600">+{daily.data.next.length - 2} more</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p class="text-green-600">No upcoming events</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    {dailyItems.length === 0 && (
+      <div class="text-center py-12">
+        <p class="text-gray-600 text-lg">No daily roundups available yet.</p>
+        <p class="text-gray-500 mt-2">Check back soon for Vancouver show listings!</p>
+      </div>
+    )}
+  </Section>
+</Layout>

@@ -1,0 +1,32 @@
+name: Daily Vancouver Roundup
+
+on:
+  schedule:
+    - cron: "5 15 * * *"  # 07:05 AM Pacific (15:05 UTC)
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stage
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - run: npm ci
+      
+      - run: npm run scan:vancouver
+      
+      - name: Commit & Push
+        run: |
+          git config user.name "orwh-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add src/content/daily/
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "chore: daily Vancouver roundup [skip ci]"
+          git push origin stage

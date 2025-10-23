@@ -1,0 +1,47 @@
+---
+export interface Props {
+  press: any; // Press collection item
+}
+
+const { press } = Astro.props;
+const pressDate = new Date(press.data.date);
+const formattedDate = pressDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric'
+});
+---
+
+<article class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+  <div class="flex flex-col md:flex-row gap-4">
+    {press.data.heroImage && (
+      <div class="md:w-1/3">
+        <img 
+          src={press.data.heroImage} 
+          alt={press.data.title}
+          class="w-full h-32 md:h-full object-cover rounded-lg"
+        />
+      </div>
+    )}
+    <div class="flex-1">
+      <h3 class="text-xl font-semibold text-gray-900 mb-2">
+        <a href={`/press/${press.slug}`} class="hover:text-orange-600 transition-colors">
+          {press.data.title}
+        </a>
+      </h3>
+      <p class="text-gray-600 text-sm mb-3">{formattedDate}</p>
+      {press.data.tags.length > 0 && (
+        <div class="flex flex-wrap gap-2 mb-3">
+          {press.data.tags.map((tag: string) => (
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      <div class="prose prose-sm max-w-none text-gray-700">
+        <slot />
+      </div>
+    </div>
+  </div>
+</article>

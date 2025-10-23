@@ -1,0 +1,40 @@
+---
+export interface Props {
+  gig: any; // Gig collection item
+}
+
+const { gig } = Astro.props;
+const gigDate = new Date(gig.data.date);
+const formattedDate = gigDate.toLocaleDateString('en-US', {
+  weekday: 'short',
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+});
+---
+
+<div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+  <div class="aspect-w-16 aspect-h-9">
+    <img 
+      src={gig.data.poster} 
+      alt={`${gig.data.title} poster`}
+      class="w-full h-48 object-cover"
+    />
+  </div>
+  <div class="p-6">
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">{gig.data.title}</h3>
+    <p class="text-orange-600 font-medium mb-2">{formattedDate}</p>
+    <p class="text-gray-600 mb-2">{gig.data.venue}</p>
+    <p class="text-gray-500 text-sm mb-4">{gig.data.city}</p>
+    <div class="prose prose-sm max-w-none text-gray-700">
+      <p>{gig.data.description}</p>
+    </div>
+    {gig.data.isUpcoming && (
+      <div class="mt-4">
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+          Upcoming
+        </span>
+      </div>
+    )}
+  </div>
+</div>

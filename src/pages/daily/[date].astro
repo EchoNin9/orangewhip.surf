@@ -1,0 +1,123 @@
+---
+import Layout from '../../components/Layout.astro';
+import Section from '../../components/Section.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const daily = await getCollection('daily');
+  return daily.map(item => ({
+    params: { date: item.slug },
+    props: { item },
+  }));
+}
+
+const { item } = Astro.props;
+const dailyDate = new Date(item.data.date);
+const formattedDate = dailyDate.toLocaleDateString('en-US', {
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric'
+});
+---
+
+<Layout title={`Vancouver Shows - ${formattedDate} — Orange Whip`} description={`Daily Vancouver music events roundup for ${formattedDate}`}>
+  <Section>
+    <div class="max-w-4xl mx-auto">
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Vancouver Show Roundup</h1>
+        <p class="text-xl text-gray-600">{formattedDate}</p>
+      </div>
+
+      <!-- Today -->
+      {item.data.today.length > 0 && (
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">Today</h2>
+          <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="space-y-4">
+              {item.data.today.map(event => (
+                <div class="flex justify-between items-center py-3 border-b border-gray-200 last:border-b-0">
+                  <div>
+                    <h3 class="font-semibold text-gray-900">{event.title}</h3>
+                    <p class="text-gray-600">{event.venue}</p>
+                  </div>
+                  {event.url && (
+                    <a href={event.url} target="_blank" rel="noopener noreferrer" class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                      Tickets →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <!-- This Week -->
+      {item.data.thisWeek.length > 0 && (
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">This Week</h2>
+          <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="space-y-4">
+              {item.data.thisWeek.map(event => (
+                <div class="flex justify-between items-center py-3 border-b border-gray-200 last:border-b-0">
+                  <div>
+                    <h3 class="font-semibold text-gray-900">{event.title}</h3>
+                    <p class="text-gray-600">{event.venue}</p>
+                    <p class="text-sm text-gray-500">{event.date}</p>
+                  </div>
+                  {event.url && (
+                    <a href={event.url} target="_blank" rel="noopener noreferrer" class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                      Tickets →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <!-- Next -->
+      {item.data.next.length > 0 && (
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">Next</h2>
+          <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="space-y-4">
+              {item.data.next.map(event => (
+                <div class="flex justify-between items-center py-3 border-b border-gray-200 last:border-b-0">
+                  <div>
+                    <h3 class="font-semibold text-gray-900">{event.title}</h3>
+                    <p class="text-gray-600">{event.venue}</p>
+                    <p class="text-sm text-gray-500">{event.date}</p>
+                  </div>
+                  {event.url && (
+                    <a href={event.url} target="_blank" rel="noopener noreferrer" class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                      Tickets →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <!-- No Events Message -->
+      {item.data.today.length === 0 && item.data.thisWeek.length === 0 && item.data.next.length === 0 && (
+        <div class="text-center py-12">
+          <p class="text-gray-600 text-lg">No Vancouver events found for this date.</p>
+          <p class="text-gray-500 mt-2">Check back tomorrow for updated listings!</p>
+        </div>
+      )}
+
+      <!-- Back to Daily -->
+      <div class="text-center mt-12">
+        <a href="/daily" class="inline-flex items-center text-orange-600 hover:text-orange-700 font-medium">
+          ← Back to Daily Roundups
+        </a>
+      </div>
+    </div>
+  </Section>
+</Layout>

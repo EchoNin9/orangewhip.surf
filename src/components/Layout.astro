@@ -1,0 +1,74 @@
+---
+export interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const { title, description = "Orange Whip - Surf Rock Instrumentals from Vancouver", ogImage = "/og.jpg" } = Astro.props;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="generator" content={Astro.generator} />
+    
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={new URL(ogImage, Astro.site)} />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content={canonicalURL} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={new URL(ogImage, Astro.site)} />
+    
+    <link rel="canonical" href={canonicalURL} />
+    <title>{title}</title>
+  </head>
+  <body class="bg-gray-50 text-gray-900">
+    <header class="bg-white shadow-sm">
+      <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+          <div class="flex items-center">
+            <a href="/" class="text-2xl font-bold text-orange-600">
+              Orange Whip
+            </a>
+          </div>
+          <div class="flex items-center space-x-8">
+            <a href="/" class="text-gray-700 hover:text-orange-600 transition-colors">Home</a>
+            <a href="/gigs" class="text-gray-700 hover:text-orange-600 transition-colors">Gigs</a>
+            <a href="/press" class="text-gray-700 hover:text-orange-600 transition-colors">Press</a>
+            <a href="/daily" class="text-gray-700 hover:text-orange-600 transition-colors">Daily</a>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="bg-gray-800 text-white mt-16">
+      <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <p class="text-gray-400">
+            © 2025 Orange Whip. All rights reserved.
+          </p>
+          <p class="text-gray-500 text-sm mt-2">
+            Surf rock instrumentals from Vancouver, BC
+          </p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

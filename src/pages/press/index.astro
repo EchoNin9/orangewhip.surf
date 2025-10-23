@@ -1,0 +1,30 @@
+---
+import Layout from '../../components/Layout.astro';
+import Section from '../../components/Section.astro';
+import PressListItem from '../../components/PressListItem.astro';
+import { getCollection } from 'astro:content';
+
+const allPress = await getCollection('press');
+const pressItems = allPress.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+---
+
+<Layout title="Press — Orange Whip">
+  <Section title="Press Coverage" subtitle="What people are saying about Orange Whip">
+    <div class="space-y-8">
+      {pressItems.map(press => (
+        <PressListItem press={press}>
+          <p class="text-gray-600 line-clamp-3">
+            {press.body.slice(0, 300)}...
+          </p>
+        </PressListItem>
+      ))}
+    </div>
+
+    {pressItems.length === 0 && (
+      <div class="text-center py-12">
+        <p class="text-gray-600 text-lg">No press coverage yet.</p>
+        <p class="text-gray-500 mt-2">Check back soon for updates!</p>
+      </div>
+    )}
+  </Section>
+</Layout>
