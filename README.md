@@ -237,3 +237,4 @@ Display gig information as a card:
 ---
 
 *Surf rock instrumentals from Vancouver, BC*
+foo
