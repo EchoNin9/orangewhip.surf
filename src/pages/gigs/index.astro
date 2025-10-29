@@ -1,7 +1,8 @@
 ---
 import Layout from '../../components/Layout.astro';
-import Section from '../../components/Section.astro';
-import GigCard from '../../components/GigCard.astro';
+import { Header } from '../../components/react/Header';
+import { Footer } from '../../components/react/Footer';
+import { GigsList } from '../../components/react/GigsList';
 import { getCollection } from 'astro:content';
 
 const allGigs = await getCollection('gigs');
@@ -10,64 +11,43 @@ const upcomingGigs = allGigs
   .sort((a, b) => new Date(a.data.date).getTime() - new Date(b.data.date).getTime());
 
 const pastGigs = allGigs
-  .filter(gig => !gig.data.isabout)
+  .filter(gig => !gig.data.isUpcoming)
   .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 ---
 
 <Layout title="Gigs — Orange Whip">
-  <!-- Upcoming Shows -->
-  {upcomingGigs.length > 0 && (
-    <Section title="Upcoming Shows" subtitle="Don't miss our next performances">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {upcomingGigs.map(gig => (
-          <GigCard gig={gig} />
-        ))}
-      </div>
-    </Section>
-  )}
+  <Header client:load />
 
-  <!-- Past Shows -->
-  {pastGigs.length > 0 && (
-    <Section title="Past Shows" subtitle="Previous performances">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {pastGigs.map(gig => {
-          const gigDate = new Date(gig.data.date);
-          const formattedDate = gigDate.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          });
-          
-          return (
-            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div class="aspect-w-16 aspect-h-9 mb-4">
-                <img 
-                  src={gig.data.poster} 
-                  alt={`${gig.data.title} poster`}
-                  class="w-full h-32 object-cover rounded-lg"
-                />
-              </div>
-              <h3 class="text-lg font-semibold text-gray-900 mb-2">
-                <a href={`/gigs/${gig.slug}`} class="hover:text-orange-600 transition-colors">
-                  {gig.data.title}
-                </a>
-              </h3>
-              <p class="text-orange-600 font-medium mb-1">{formattedDate}</p>
-              <p class="text-gray-600 text-sm">{gig.data.venue}</p>
-              <p class="text-gray-500 text-sm">{gig.data.city}</p>
-            </div>
-          );
-        })}
-      </div>
-    </Section>
-  )}
+  <main class="container-max section-padding">
+    <!-- Upcoming Shows -->
+    {upcomingGigs.length > 0 && (
+      <section class="mb-16">
+        <div class="text-center mb-12">
+          <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">Upcoming Shows</h1>
+          <p class="text-xl text-secondary-300 max-w-2xl mx-auto">Don't miss our next performances</p>
+        </div>
+        <GigsList client:load gigs={upcomingGigs} />
+      </section>
+    )}
 
-  {upcomingGigs.length === 0 && pastGigs.length === 0 && (
-    <Section>
-      <div class="text-center py-12">
-        <p class="text-gray-600 text-lg">No shows scheduled at the moment.</p>
-        <p class="text-gray-500 mt-2">Check back soon for updates!</p>
-      </div>
-    </Section>
-  )}
+    <!-- Past Shows -->
+    {pastGigs.length > 0 && (
+      <section>
+        <div class="text-center mb-12">
+          <h2 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">Past Shows</h2>
+          <p class="text-xl text-secondary-300 max-w-2xl mx-auto">A look back at our previous performances</p>
+        </div>
+        <GigsList client:load gigs={pastGigs} />
+      </section>
+    )}
+
+    {upcomingGigs.length === 0 && pastGigs.length === 0 && (
+      <section class="text-center py-24">
+        <p class="text-2xl text-secondary-300">No shows scheduled at the moment.</p>
+        <p class="text-lg text-secondary-400 mt-2">Check back soon for updates!</p>
+      </section>
+    )}
+  </main>
+  
+  <Footer client:load />
 </Layout>

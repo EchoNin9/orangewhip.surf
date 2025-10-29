@@ -1,6 +1,7 @@
 ---
 import Layout from '../../components/Layout.astro';
-import Section from '../../components/Section.astro';
+import { Header } from '../../components/react/Header';
+import { Footer } from '../../components/react/Footer';
 import { getCollection } from 'astro:content';
 
 export async function getStaticPaths() {
@@ -12,6 +13,7 @@ export async function getStaticPaths() {
 }
 
 const { item } = Astro.props;
+const { Content } = await item.render();
 const pressDate = new Date(item.data.date);
 const formattedDate = pressDate.toLocaleDateString('en-US', {
   year: 'numeric',
@@ -21,16 +23,25 @@ const formattedDate = pressDate.toLocaleDateString('en-US', {
 ---
 
 <Layout title={`${item.data.title} — Orange Whip`} description={item.body.slice(0, 160)}>
-  <Section>
+  <Header client:load />
+
+  <main class="container-max section-padding">
     <div class="max-w-4xl mx-auto">
+      <!-- Back to Press Link -->
+      <div class="mb-8">
+        <a href="/press" class="text-primary-400 hover:text-primary-300 transition-colors duration-200">
+          &larr; Back to all press
+        </a>
+      </div>
+
       <!-- Press Header -->
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">{item.data.title}</h1>
-        <p class="text-lg text-gray-600 mb-4">{formattedDate}</p>
-        {item.data.tags.length > 0 && (
+      <div class="text-center mb-12">
+        <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">{item.data.title}</h1>
+        <p class="text-lg text-secondary-400 mb-4">{formattedDate}</p>
+        {item.data.tags && item.data.tags.length > 0 && (
           <div class="flex justify-center flex-wrap gap-2">
             {item.data.tags.map((tag: string) => (
-              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-secondary-800 text-primary-400">
                 {tag}
               </span>
             ))}
@@ -40,26 +51,22 @@ const formattedDate = pressDate.toLocaleDateString('en-US', {
 
       <!-- Hero Image -->
       {item.data.heroImage && (
-        <div class="mb-8">
+        <div class="mb-12">
           <img 
             src={item.data.heroImage} 
             alt={item.data.title}
-            class="w-full max-w-3xl mx-auto rounded-lg shadow-lg"
+            class="w-full max-w-3xl mx-auto rounded-lg shadow-lg border-4 border-secondary-800"
           />
         </div>
       )}
 
       <!-- Press Content -->
-      <div class="prose prose-lg max-w-none">
-        <div set:html={item.body} />
-      </div>
-
-      <!-- Back to Press -->
-      <div class="text-center mt-12">
-        <a href="/press" class="inline-flex items-center text-orange-600 hover:text-orange-700 font-medium">
-          ← Back to Press
-        </a>
-      </div>
+      <article class="prose prose-invert prose-lg max-w-none mx-auto">
+        <Content />
+      </article>
+      
     </div>
-  </Section>
+  </main>
+  
+  <Footer client:load />
 </Layout>
