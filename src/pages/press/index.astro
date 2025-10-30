@@ -3,7 +3,7 @@ import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
 import { PressList } from '../../components/react/PressList';
-import { client } from '../../lib/sanity';
+import { client } from '@/lib/sanity.js';
 
 const pressQuery = `*[_type == "press"] | order(date desc)`;
 const pressItems = await client.fetch(pressQuery);

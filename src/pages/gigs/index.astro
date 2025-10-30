@@ -3,7 +3,7 @@ import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
 import { GigsList } from '../../components/react/GigsList';
-import { client } from '../../lib/sanity';
+import { client } from '@/lib/sanity.js';
 
 // Fetch upcoming gigs from Sanity
 const upcomingGigsQuery = `*[_type == "gig" && isUpcoming == true] | order(date asc)`;

@@ -4,7 +4,7 @@ import { Header } from '../components/react/Header';
 import { Hero } from '../components/react/Hero';
 import { FeaturedContent } from '../components/react/FeaturedContent';
 import { Footer } from '../components/react/Footer';
-import { client } from '../lib/sanity';
+import { client } from '@/lib/sanity.js';
 
 // Fetch upcoming gigs from Sanity
 const upcomingGigsQuery = `*[_type == "gig" && isUpcoming == true] | order(date asc) [0...3]`;

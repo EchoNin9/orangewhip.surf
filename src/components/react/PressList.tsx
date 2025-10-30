@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { urlFor } from '../../lib/sanity';
+import { urlFor } from '@/lib/sanity';
 
 export function PressList({ pressItems }) {
   return (
