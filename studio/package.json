@@ -1,0 +1,27 @@
+{
+  "name": "orangewhip-surf-studio",
+  "private": true,
+  "version": "1.0.0",
+  "main": "package.json",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "sanity dev",
+    "start": "sanity start",
+    "build": "sanity build",
+    "deploy": "sanity deploy"
+  },
+  "dependencies": {
+    "@portabletext/to-html": "^3.0.0",
+    "@sanity/astro": "^3.2.10",
+    "@sanity/image-url": "^1.2.0",
+    "@sanity/vision": "^3.20.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-is": "^18.2.0",
+    "sanity": "^3.20.0",
+    "styled-components": "^6.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

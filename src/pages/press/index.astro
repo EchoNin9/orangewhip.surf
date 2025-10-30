@@ -3,10 +3,22 @@ import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
 import { PressList } from '../../components/react/PressList';
-import { getCollection } from 'astro:content';
+import { client } from '@/lib/sanity';
+import groq from 'groq';
+import type { SanityPress } from '@/types/sanity';
 
-const allPress = await getCollection('press');
-const pressItems = allPress.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+const pressItems = await client.fetch<SanityPress[]>(groq`
+  *[_type == "press"] | order(date desc) {
+    _id,
+    title,
+    date,
+    description,
+    tags,
+    "slug": slug.current,
+    "heroImage": heroImage{alt, asset->{url}},
+    content
+  }
+`);
 ---
 
 <Layout title="Press — Orange Whip">
