@@ -1,7 +1,8 @@
 ---
 import Layout from '../../components/Layout.astro';
-import Section from '../../components/Section.astro';
-import PressListItem from '../../components/PressListItem.astro';
+import { Header } from '../../components/react/Header';
+import { Footer } from '../../components/react/Footer';
+import { PressList } from '../../components/react/PressList';
 import { getCollection } from 'astro:content';
 
 const allPress = await getCollection('press');
@@ -9,22 +10,23 @@ const pressItems = allPress.sort((a, b) => new Date(b.data.date).getTime() - new
 ---
 
 <Layout title="Press — Orange Whip">
-  <Section title="Press Coverage" subtitle="What people are saying about Orange Whip">
-    <div class="space-y-8">
-      {pressItems.map(press => (
-        <PressListItem press={press}>
-          <p class="text-gray-600 line-clamp-3">
-            {press.body.slice(0, 300)}...
-          </p>
-        </PressListItem>
-      ))}
-    </div>
+  <Header client:load />
 
-    {pressItems.length === 0 && (
-      <div class="text-center py-12">
-        <p class="text-gray-600 text-lg">No press coverage yet.</p>
-        <p class="text-gray-500 mt-2">Check back soon for updates!</p>
+  <main class="container-max section-padding">
+    <div class="text-center mb-12">
+      <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">Press Coverage</h1>
+      <p class="text-xl text-secondary-300 max-w-2xl mx-auto">What people are saying about Orange Whip</p>
+    </div>
+    
+    {pressItems.length > 0 ? (
+      <PressList client:load pressItems={pressItems} />
+    ) : (
+      <div class="text-center py-16">
+        <p class="text-2xl text-secondary-300">No press coverage yet.</p>
+        <p class="text-lg text-secondary-400 mt-2">Check back soon for updates!</p>
       </div>
     )}
-  </Section>
+  </main>
+  
+  <Footer client:load />
 </Layout>
