@@ -1,8 +1,20 @@
 import { motion } from 'framer-motion';
 import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
-import { getCollection } from 'astro:content';
+import type { SanityGig, SanityPress } from '@/types/sanity';
 
-export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }) {
+interface Props {
+  upcomingGigs: SanityGig[];
+  latestPress: SanityPress[];
+  latestDaily: any;
+}
+
+export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }: Props) {
+  const formatGigDate = (date?: string) =>
+    date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBA';
+
+  const formatPressDate = (date?: string) =>
+    date ? new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+
   return (
     <>
       {/* Upcoming Shows */}
@@ -27,7 +39,7 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }) {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {upcomingGigs.map((gig, index) => (
                 <motion.div
-                  key={gig.id}
+                  key={gig._id}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -37,22 +49,16 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }) {
                   <div className="space-y-4">
                     <div className="flex items-center space-x-2 text-primary-400">
                       <CalendarIcon className="h-5 w-5" />
-                      <span className="font-semibold">
-                        {new Date(gig.data.date).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          year: 'numeric' 
-                        })}
-                      </span>
+                      <span className="font-semibold">{formatGigDate(gig.date)}</span>
                     </div>
 
                     <div>
                       <h3 className="text-xl font-semibold text-white mb-1">
-                        {gig.data.venue}
+                        {gig.title}
                       </h3>
                       <div className="flex items-center space-x-2 text-secondary-400">
                         <MapPinIcon className="h-4 w-4" />
-                        <span>{gig.data.location}</span>
+                        <span>{[gig.venue, gig.city].filter(Boolean).join(', ') || 'Location TBA'}</span>
                       </div>
                     </div>
 
@@ -68,7 +74,7 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }) {
                 </motion.div>
               ))}
             </div>
-            
+
             {upcomingGigs.length > 3 && (
               <div className="text-center mt-8">
                 <a href="/gigs" className="btn-secondary">
@@ -81,65 +87,65 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }) {
       )}
 
       {/* Latest Press */}
-      <section className="section-padding bg-secondary-900">
-        <div className="container-max">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">
-              Latest Press
-            </h2>
-            <p className="text-xl text-secondary-300 max-w-2xl mx-auto">
-              What people are saying about Orange Whip
-            </p>
-          </motion.div>
+      {latestPress.length > 0 && (
+        <section className="section-padding bg-secondary-900">
+          <div className="container-max">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="text-center mb-16"
+            >
+              <h2 className="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">
+                Latest Press
+              </h2>
+              <p className="text-xl text-secondary-300 max-w-2xl mx-auto">
+                What people are saying about Orange Whip
+              </p>
+            </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {latestPress.map((press, index) => (
-              <motion.div
-                key={press.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="bg-secondary-800 rounded-lg p-6 border border-secondary-700 hover:border-primary-500 transition-colors duration-300"
-              >
-                <div className="text-primary-400 text-sm mb-2">
-                  {new Date(press.data.date).toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    day: 'numeric', 
-                    year: 'numeric' 
-                  })}
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-3">
-                  {press.data.title}
-                </h3>
-                <p className="text-secondary-400 line-clamp-3">
-                  {press.data.description || 'Read more...'}
-                </p>
-                <a
-                  href={`/press/${press.slug}`}
-                  className="text-primary-400 hover:text-primary-300 font-medium mt-4 inline-block"
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {latestPress.map((press, index) => (
+                <motion.div
+                  key={press._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="bg-secondary-800 rounded-lg p-6 border border-secondary-700 hover:border-primary-500 transition-colors duration-300"
                 >
-                  Read More →
-                </a>
-              </motion.div>
-            ))}
-          </div>
+                  <div className="text-primary-400 text-sm mb-2">
+                    {formatPressDate(press.date)}
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3">
+                    {press.title}
+                  </h3>
+                  {press.description && (
+                    <p className="text-secondary-400 line-clamp-3">
+                      {press.description}
+                    </p>
+                  )}
+                  <a
+                    href={`/press/${press.slug}`}
+                    className="text-primary-400 hover:text-primary-300 font-medium mt-4 inline-block"
+                  >
+                    Read More →
+                  </a>
+                </motion.div>
+              ))}
+            </div>
 
-          <div className="text-center mt-8">
-            <a href="/press" className="btn-secondary">
-              View All Press
-            </a>
+            <div className="text-center mt-8">
+              <a href="/press" className="btn-secondary">
+                View All Press
+              </a>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Daily Roundup */}
+      {/* Daily Roundup remains unchanged */}
       {latestDaily && (
         <section className="section-padding bg-secondary-800">
           <div className="container-max">
@@ -168,11 +174,11 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }) {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-2xl font-semibold text-white mb-2">
-                    {new Date(latestDaily.data.date).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
+                    {new Date(latestDaily.data.date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
                     })}
                   </h3>
                 </div>
@@ -180,7 +186,7 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }) {
                   View All →
                 </a>
               </div>
-              
+              {/* daily details unchanged */}
               {latestDaily.data.today && latestDaily.data.today.length > 0 && (
                 <div className="mb-6">
                   <h4 className="font-semibold text-white mb-3">Today</h4>
