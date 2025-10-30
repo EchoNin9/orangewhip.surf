@@ -47,7 +47,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <title>{title}</title>
   </head>
   <body class="bg-secondary-900 text-white min-h-screen">
-    <main>
+    <div 
+      class="fixed inset-0 z-0 bg-contain bg-center bg-no-repeat opacity-50" 
+      style="background-image: url(/images/ow_logo1.trans.png);">
+    </div>
+    <main class="relative z-10">
       <slot />
     </main>
   </body>
