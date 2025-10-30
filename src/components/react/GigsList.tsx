@@ -1,13 +1,12 @@
 import { motion } from 'framer-motion';
 import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
-import { urlFor } from '@/lib/sanity';
 
 export function GigsList({ gigs }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       {gigs.map((gig, index) => (
         <motion.div
-          key={gig._id}
+          key={gig.id}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -18,23 +17,23 @@ export function GigsList({ gigs }) {
             <div className="flex items-center space-x-2 text-primary-400 mb-4">
               <CalendarIcon className="h-5 w-5" />
               <span className="font-semibold">
-                {new Date(gig.date).toLocaleDateString('en-US', {
+                {new Date(gig.data.date).toLocaleDateString('en-US', {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
                 })}
               </span>
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">{gig.title}</h3>
+            <h3 className="text-xl font-semibold text-white mb-2">{gig.data.title}</h3>
             <div className="flex items-center space-x-2 text-secondary-400 mb-4">
               <MapPinIcon className="h-4 w-4" />
-              <span>{gig.venue}, {gig.city}</span>
+              <span>{gig.data.venue}, {gig.data.city}</span>
             </div>
-            <p className="text-secondary-400 text-sm line-clamp-3">{gig.description}</p>
+            <p className="text-secondary-400 text-sm line-clamp-3">{gig.data.description}</p>
           </div>
           <div className="pt-4 mt-auto">
             <a
-              href={`/gigs/${gig.slug.current}`}
+              href={`/gigs/${gig.slug}`}
               className="btn-primary w-full text-center block"
             >
               View Details

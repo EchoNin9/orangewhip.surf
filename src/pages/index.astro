@@ -4,18 +4,22 @@ import { Header } from '../components/react/Header';
 import { Hero } from '../components/react/Hero';
 import { FeaturedContent } from '../components/react/FeaturedContent';
 import { Footer } from '../components/react/Footer';
-import { client } from '@/lib/sanity.js';
-
-// Fetch upcoming gigs from Sanity
-const upcomingGigsQuery = `*[_type == "gig" && isUpcoming == true] | order(date asc) [0...3]`;
-const upcomingGigs = await client.fetch(upcomingGigsQuery);
-
-// Fetch latest press from Sanity
-const latestPressQuery = `*[_type == "press"] | order(date desc) [0...3]`;
-const latestPress = await client.fetch(latestPressQuery);
-
-// For now, we'll keep the daily content from local files as the GitHub Action isn't set up yet.
 import { getCollection } from 'astro:content';
+
+// Get upcoming gigs (limit to 3)
+const allGigs = await getCollection('gigs');
+const upcomingGigs = allGigs
+  .filter(gig => gig.data.isUpcoming)
+  .sort((a, b) => new Date(a.data.date).getTime() - new Date(b.data.date).getTime())
+  .slice(0, 3);
+
+// Get latest press (limit to 3)
+const allPress = await getCollection('press');
+const latestPress = allPress
+  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime())
+  .slice(0, 3);
+
+// Get latest daily roundup
 const allDaily = await getCollection('daily');
 const latestDaily = allDaily
   .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime())[0];

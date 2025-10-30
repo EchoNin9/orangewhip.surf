@@ -3,15 +3,16 @@ import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
 import { GigsList } from '../../components/react/GigsList';
-import { client } from '@/lib/sanity.js';
+import { getCollection } from 'astro:content';
 
-// Fetch upcoming gigs from Sanity
-const upcomingGigsQuery = `*[_type == "gig" && isUpcoming == true] | order(date asc)`;
-const upcomingGigs = await client.fetch(upcomingGigsQuery);
+const allGigs = await getCollection('gigs');
+const upcomingGigs = allGigs
+  .filter(gig => gig.data.isUpcoming)
+  .sort((a, b) => new Date(a.data.date).getTime() - new Date(b.data.date).getTime());
 
-// Fetch past gigs from Sanity
-const pastGigsQuery = `*[_type == "gig" && isUpcoming == false] | order(date desc)`;
-const pastGigs = await client.fetch(pastGigsQuery);
+const pastGigs = allGigs
+  .filter(gig => !gig.data.isUpcoming)
+  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 ---
 
 <Layout title="Gigs — Orange Whip">
@@ -19,7 +20,7 @@ const pastGigs = await client.fetch(pastGigsQuery);
 
   <main class="container-max section-padding">
     <!-- Upcoming Shows -->
-    {upcomingGigs && upcomingGigs.length > 0 && (
+    {upcomingGigs.length > 0 && (
       <section class="mb-16">
         <div class="text-center mb-12">
           <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">Upcoming Shows</h1>
@@ -30,7 +31,7 @@ const pastGigs = await client.fetch(pastGigsQuery);
     )}
 
     <!-- Past Shows -->
-    {pastGigs && pastGigs.length > 0 && (
+    {pastGigs.length > 0 && (
       <section>
         <div class="text-center mb-12">
           <h2 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">Past Shows</h2>
@@ -40,7 +41,7 @@ const pastGigs = await client.fetch(pastGigsQuery);
       </section>
     )}
 
-    {(!upcomingGigs || upcomingGigs.length === 0) && (!pastGigs || pastGigs.length === 0) && (
+    {upcomingGigs.length === 0 && pastGigs.length === 0 && (
       <section class="text-center py-24">
         <p class="text-2xl text-secondary-300">No shows scheduled at the moment.</p>
         <p class="text-lg text-secondary-400 mt-2">Check back soon for updates!</p>

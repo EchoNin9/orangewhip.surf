@@ -2,22 +2,19 @@
 import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
-import { client, urlFor } from '@/lib/sanity.js';
-import { PortableText } from 'astro-portabletext';
+import { getCollection } from 'astro:content';
 
 export async function getStaticPaths() {
-  const pressQuery = `*[_type == "press" && defined(slug.current)]{"slug": slug.current}`;
-  const pressItems = await client.fetch(pressQuery);
-  return pressItems.map(item => ({
+  const press = await getCollection('press');
+  return press.map(item => ({
     params: { slug: item.slug },
+    props: { item },
   }));
 }
 
-const { slug } = Astro.params;
-const pressQuery = `*[_type == "press" && slug.current == "${slug}"][0]`;
-const item = await client.fetch(pressQuery);
-
-const pressDate = new Date(item.date);
+const { item } = Astro.props;
+const { Content } = await item.render();
+const pressDate = new Date(item.data.date);
 const formattedDate = pressDate.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
@@ -25,7 +22,7 @@ const formattedDate = pressDate.toLocaleDateString('en-US', {
 });
 ---
 
-<Layout title={`${item.title} — Orange Whip`} description={item.description}>
+<Layout title={`${item.data.title} — Orange Whip`} description={item.body.slice(0, 160)}>
   <Header client:load />
 
   <main class="container-max section-padding">
@@ -39,11 +36,11 @@ const formattedDate = pressDate.toLocaleDateString('en-US', {
 
       <!-- Press Header -->
       <div class="text-center mb-12">
-        <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">{item.title}</h1>
+        <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">{item.data.title}</h1>
         <p class="text-lg text-secondary-400 mb-4">{formattedDate}</p>
-        {item.tags && item.tags.length > 0 && (
+        {item.data.tags && item.data.tags.length > 0 && (
           <div class="flex justify-center flex-wrap gap-2">
-            {item.tags.map((tag: string) => (
+            {item.data.tags.map((tag: string) => (
               <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-secondary-800 text-primary-400">
                 {tag}
               </span>
@@ -53,22 +50,21 @@ const formattedDate = pressDate.toLocaleDateString('en-US', {
       </div>
 
       <!-- Hero Image -->
-      {item.heroImage && (
+      {item.data.heroImage && (
         <div class="mb-12">
           <img 
-            src={urlFor(item.heroImage).width(800).url()}
-            alt={item.title}
+            src={item.data.heroImage} 
+            alt={item.data.title}
             class="w-full max-w-3xl mx-auto rounded-lg shadow-lg border-4 border-secondary-800"
           />
         </div>
       )}
 
       <!-- Press Content -->
-      {item.content &&
-        <article class="prose prose-invert prose-lg max-w-none mx-auto">
-          <PortableText value={item.content} />
-        </article>
-      }
+      <article class="prose prose-invert prose-lg max-w-none mx-auto">
+        <Content />
+      </article>
+      
     </div>
   </main>
   

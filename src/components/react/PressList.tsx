@@ -1,12 +1,11 @@
 import { motion } from 'framer-motion';
-import { urlFor } from '@/lib/sanity';
 
 export function PressList({ pressItems }) {
   return (
     <div className="space-y-8">
       {pressItems.map((press, index) => (
         <motion.div
-          key={press._id}
+          key={press.id}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -15,12 +14,12 @@ export function PressList({ pressItems }) {
         >
           <article>
             <div className="flex flex-col sm:flex-row gap-6">
-              {press.heroImage && (
+              {press.data.heroImage && (
                 <div className="sm:w-1/3">
-                  <a href={`/press/${press.slug.current}`}>
+                  <a href={`/press/${press.slug}`}>
                     <img
-                      src={urlFor(press.heroImage).width(400).url()}
-                      alt={press.title}
+                      src={press.data.heroImage}
+                      alt={press.data.title}
                       className="w-full h-auto object-cover rounded-lg"
                     />
                   </a>
@@ -28,21 +27,21 @@ export function PressList({ pressItems }) {
               )}
               <div className="flex-1">
                 <p className="text-sm text-primary-400 mb-2">
-                  {new Date(press.date).toLocaleDateString('en-US', {
+                  {new Date(press.data.date).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
                   })}
                 </p>
                 <h3 className="text-xl font-semibold text-white mb-3">
-                  <a href={`/press/${press.slug.current}`} className="hover:text-primary-300 transition-colors">
-                    {press.title}
+                  <a href={`/press/${press.slug}`} className="hover:text-primary-300 transition-colors">
+                    {press.data.title}
                   </a>
                 </h3>
                 <p className="text-secondary-400 line-clamp-3">
-                  {press.description || 'Read more...'}
+                  {press.data.description || press.body.slice(0, 150) + '...'}
                 </p>
-                <a href={`/press/${press.slug.current}`} className="text-primary-400 hover:text-primary-300 font-medium mt-4 inline-block">
+                <a href={`/press/${press.slug}`} className="text-primary-400 hover:text-primary-300 font-medium mt-4 inline-block">
                   Read More &rarr;
                 </a>
               </div>

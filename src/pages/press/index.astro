@@ -3,10 +3,10 @@ import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
 import { PressList } from '../../components/react/PressList';
-import { client } from '@/lib/sanity.js';
+import { getCollection } from 'astro:content';
 
-const pressQuery = `*[_type == "press"] | order(date desc)`;
-const pressItems = await client.fetch(pressQuery);
+const allPress = await getCollection('press');
+const pressItems = allPress.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 ---
 
 <Layout title="Press — Orange Whip">
@@ -18,7 +18,7 @@ const pressItems = await client.fetch(pressQuery);
       <p class="text-xl text-secondary-300 max-w-2xl mx-auto">What people are saying about Orange Whip</p>
     </div>
     
-    {pressItems && pressItems.length > 0 ? (
+    {pressItems.length > 0 ? (
       <PressList client:load pressItems={pressItems} />
     ) : (
       <div class="text-center py-16">
