@@ -3,16 +3,37 @@ import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
 import { GigsList } from '../../components/react/GigsList';
-import { getCollection } from 'astro:content';
+import { client } from '@/lib/sanity';
+import groq from 'groq';
+import type { SanityGig } from '@/types/sanity';
 
-const allGigs = await getCollection('gigs');
-const upcomingGigs = allGigs
-  .filter(gig => gig.data.isUpcoming)
-  .sort((a, b) => new Date(a.data.date).getTime() - new Date(b.data.date).getTime());
+const upcomingGigs = await client.fetch<SanityGig[]>(groq`
+  *[_type == "gig" && isUpcoming == true]
+    | order(date asc) {
+      _id,
+      title,
+      date,
+      venue,
+      city,
+      description,
+      isUpcoming,
+      "slug": slug.current
+    }
+`);
 
-const pastGigs = allGigs
-  .filter(gig => !gig.data.isUpcoming)
-  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+const pastGigs = await client.fetch<SanityGig[]>(groq`
+  *[_type == "gig" && (isUpcoming == false || !defined(isUpcoming))]
+    | order(date desc) {
+      _id,
+      title,
+      date,
+      venue,
+      city,
+      description,
+      isUpcoming,
+      "slug": slug.current
+    }
+`);
 ---
 
 <Layout title="Gigs — Orange Whip">

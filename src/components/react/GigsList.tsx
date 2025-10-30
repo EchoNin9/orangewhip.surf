@@ -1,12 +1,17 @@
 import { motion } from 'framer-motion';
 import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import type { SanityGig } from '@/types/sanity';
 
-export function GigsList({ gigs }) {
+interface Props {
+  gigs: SanityGig[];
+}
+
+export function GigsList({ gigs }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       {gigs.map((gig, index) => (
         <motion.div
-          key={gig.id}
+          key={gig._id}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -17,19 +22,21 @@ export function GigsList({ gigs }) {
             <div className="flex items-center space-x-2 text-primary-400 mb-4">
               <CalendarIcon className="h-5 w-5" />
               <span className="font-semibold">
-                {new Date(gig.data.date).toLocaleDateString('en-US', {
+                {gig.date ? new Date(gig.date).toLocaleDateString('en-US', {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
-                })}
+                }) : 'Date TBA'}
               </span>
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">{gig.data.title}</h3>
+            <h3 className="text-xl font-semibold text-white mb-2">{gig.title}</h3>
             <div className="flex items-center space-x-2 text-secondary-400 mb-4">
               <MapPinIcon className="h-4 w-4" />
-              <span>{gig.data.venue}, {gig.data.city}</span>
+              <span>{[gig.venue, gig.city].filter(Boolean).join(', ') || 'Location TBA'}</span>
             </div>
-            <p className="text-secondary-400 text-sm line-clamp-3">{gig.data.description}</p>
+            {gig.description && (
+              <p className="text-secondary-400 text-sm line-clamp-3">{gig.description}</p>
+            )}
           </div>
           <div className="pt-4 mt-auto">
             <a
