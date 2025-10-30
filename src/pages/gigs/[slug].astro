@@ -1,6 +1,7 @@
 ---
 import Layout from '../../components/Layout.astro';
-import Section from '../../components/Section.astro';
+import { Header } from '../../components/react/Header';
+import { Footer } from '../../components/react/Footer';
 import { getCollection } from 'astro:content';
 
 export async function getStaticPaths() {
@@ -12,6 +13,7 @@ export async function getStaticPaths() {
 }
 
 const { gig } = Astro.props;
+const { Content } = await gig.render();
 const gigDate = new Date(gig.data.date);
 const formattedDate = gigDate.toLocaleDateString('en-US', {
   weekday: 'long',
@@ -22,43 +24,52 @@ const formattedDate = gigDate.toLocaleDateString('en-US', {
 ---
 
 <Layout title={`${gig.data.title} — Orange Whip`} description={gig.data.description}>
-  <Section>
+  <Header client:load />
+
+  <main class="container-max section-padding">
     <div class="max-w-4xl mx-auto">
+      <!-- Back to Gigs Link -->
+      <div class="mb-8">
+        <a href="/gigs" class="text-primary-400 hover:text-primary-300 transition-colors duration-200">
+          &larr; Back to all gigs
+        </a>
+      </div>
+
       <!-- Gig Header -->
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">{gig.data.title}</h1>
-        <p class="text-xl text-orange-600 font-medium mb-2">{formattedDate}</p>
-        <p class="text-lg text-gray-600">{gig.data.venue}</p>
+      <div class="text-center mb-12">
+        <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">{gig.data.title}</h1>
+        <p class="text-xl text-secondary-300 font-medium mb-2">{formattedDate}</p>
+        <p class="text-lg text-secondary-400">{gig.data.venue}</p>
         {gig.data.address && (
-          <p class="text-gray-500">{gig.data.address}</p>
+          <p class="text-secondary-500">{gig.data.address}</p>
         )}
-        <p class="text-gray-500">{gig.data.city}</p>
+        <p class="text-secondary-500">{gig.data.city}</p>
       </div>
 
       <!-- Gig Poster -->
-      <div class="mb-8">
+      <div class="mb-12">
         <img 
           src={gig.data.poster} 
           alt={`${gig.data.title} poster`}
-          class="w-full max-w-2xl mx-auto rounded-lg shadow-lg"
+          class="w-full max-w-2xl mx-auto rounded-lg shadow-lg border-4 border-secondary-800"
         />
       </div>
 
       <!-- Gig Description -->
-      <div class="prose prose-lg max-w-none mb-8">
-        <div set:html={gig.body} />
-      </div>
+      <article class="prose prose-invert prose-lg max-w-none mx-auto mb-12">
+        <Content />
+      </article>
 
       <!-- Gallery -->
       {gig.data.gallery && gig.data.gallery.length > 0 && (
-        <div class="mb-8">
-          <h2 class="text-2xl font-bold text-gray-900 mb-6">Gallery</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="mb-12">
+          <h2 class="text-3xl font-display font-bold text-center text-gradient mb-8">Gallery</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {gig.data.gallery.map((image: string) => (
               <img 
                 src={image} 
                 alt={`${gig.data.title} gallery`}
-                class="w-full h-48 object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                class="w-full h-48 object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
               />
             ))}
           </div>
@@ -68,15 +79,17 @@ const formattedDate = gigDate.toLocaleDateString('en-US', {
       <!-- Status Badge -->
       <div class="text-center">
         {gig.data.isUpcoming ? (
-          <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+          <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-primary-600 text-white">
             Upcoming Show
           </span>
         ) : (
-          <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+          <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-secondary-800 text-secondary-300">
             Past Show
           </span>
         )}
       </div>
     </div>
-  </Section>
+  </main>
+  
+  <Footer client:load />
 </Layout>
