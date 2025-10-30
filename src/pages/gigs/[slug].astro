@@ -2,19 +2,22 @@
 import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
-import { getCollection } from 'astro:content';
+import { client, urlFor } from '../../lib/sanity';
+import { PortableText } from 'astro-portabletext';
 
 export async function getStaticPaths() {
-  const gigs = await getCollection('gigs');
+  const gigsQuery = `*[_type == "gig" && defined(slug.current)]{"slug": slug.current}`;
+  const gigs = await client.fetch(gigsQuery);
   return gigs.map(gig => ({
     params: { slug: gig.slug },
-    props: { gig },
   }));
 }
 
-const { gig } = Astro.props;
-const { Content } = await gig.render();
-const gigDate = new Date(gig.data.date);
+const { slug } = Astro.params;
+const gigQuery = `*[_type == "gig" && slug.current == "${slug}"][0]`;
+const gig = await client.fetch(gigQuery);
+
+const gigDate = new Date(gig.date);
 const formattedDate = gigDate.toLocaleDateString('en-US', {
   weekday: 'long',
   year: 'numeric',
@@ -23,7 +26,7 @@ const formattedDate = gigDate.toLocaleDateString('en-US', {
 });
 ---
 
-<Layout title={`${gig.data.title} — Orange Whip`} description={gig.data.description}>
+<Layout title={`${gig.title} — Orange Whip`} description={gig.description}>
   <Header client:load />
 
   <main class="container-max section-padding">
@@ -37,38 +40,40 @@ const formattedDate = gigDate.toLocaleDateString('en-US', {
 
       <!-- Gig Header -->
       <div class="text-center mb-12">
-        <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">{gig.data.title}</h1>
+        <h1 class="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">{gig.title}</h1>
         <p class="text-xl text-secondary-300 font-medium mb-2">{formattedDate}</p>
-        <p class="text-lg text-secondary-400">{gig.data.venue}</p>
-        {gig.data.address && (
-          <p class="text-secondary-500">{gig.data.address}</p>
-        )}
-        <p class="text-secondary-500">{gig.data.city}</p>
+        <p class="text-lg text-secondary-400">{gig.venue}</p>
+        {gig.address && <p class="text-secondary-500">{gig.address}</p>}
+        <p class="text-secondary-500">{gig.city}</p>
       </div>
 
       <!-- Gig Poster -->
-      <div class="mb-12">
-        <img 
-          src={gig.data.poster} 
-          alt={`${gig.data.title} poster`}
-          class="w-full max-w-2xl mx-auto rounded-lg shadow-lg border-4 border-secondary-800"
-        />
-      </div>
+      {gig.poster &&
+        <div class="mb-12">
+          <img 
+            src={urlFor(gig.poster).width(800).url()}
+            alt={`${gig.title} poster`}
+            class="w-full max-w-2xl mx-auto rounded-lg shadow-lg border-4 border-secondary-800"
+          />
+        </div>
+      }
 
-      <!-- Gig Description -->
-      <article class="prose prose-invert prose-lg max-w-none mx-auto mb-12">
-        <Content />
-      </article>
+      <!-- Gig Content -->
+      {gig.content &&
+        <article class="prose prose-invert prose-lg max-w-none mx-auto mb-12">
+          <PortableText value={gig.content} />
+        </article>
+      }
 
       <!-- Gallery -->
-      {gig.data.gallery && gig.data.gallery.length > 0 && (
+      {gig.gallery && gig.gallery.length > 0 && (
         <div class="mb-12">
           <h2 class="text-3xl font-display font-bold text-center text-gradient mb-8">Gallery</h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {gig.data.gallery.map((image: string) => (
+            {gig.gallery.map((image: string) => (
               <img 
                 src={image} 
-                alt={`${gig.data.title} gallery`}
+                alt={`${gig.title} gallery`}
                 class="w-full h-48 object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
               />
             ))}
@@ -78,7 +83,7 @@ const formattedDate = gigDate.toLocaleDateString('en-US', {
 
       <!-- Status Badge -->
       <div class="text-center">
-        {gig.data.isUpcoming ? (
+        {gig.isUpcoming ? (
           <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-primary-600 text-white">
             Upcoming Show
           </span>
