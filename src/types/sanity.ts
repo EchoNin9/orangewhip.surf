@@ -58,8 +58,8 @@ export interface SanityDaily {
   _id: string;
   _type: 'daily';
   title: string;
-  slug: { current: string };
+  slug: string;
   date: string;
   generatedAt?: string;
-  items: SanityDailyItem[];
+  items?: SanityDailyItem[];
 }
