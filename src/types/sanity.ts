@@ -36,3 +36,30 @@ export interface SanityPress {
   heroImage?: SanityImage;
   content?: Array<Record<string, unknown>>;
 }
+
+export interface SanityDailyMedia {
+  _type: 'dailyMedia';
+  kind?: 'image' | 'video';
+  url?: string;
+  caption?: string;
+}
+
+export interface SanityDailyItem {
+  _type: 'dailyItem';
+  title?: string;
+  description?: string;
+  link?: string;
+  source?: string;
+  publishedAt?: string;
+  media?: SanityDailyMedia[];
+}
+
+export interface SanityDaily {
+  _id: string;
+  _type: 'daily';
+  title: string;
+  slug: { current: string };
+  date: string;
+  generatedAt?: string;
+  items: SanityDailyItem[];
+}
