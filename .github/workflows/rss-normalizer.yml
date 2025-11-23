@@ -1,0 +1,38 @@
+name: Daily RSS Normalizer
+
+on:
+  schedule:
+    # 02:00 America/Vancouver ≈ 10:00 UTC
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+jobs:
+  run-normalizer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install helper requirements
+        run: pip install -r helper/requirements.txt
+
+      - name: Run rss_normalizer
+        env:
+          SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID }}
+          SANITY_DATASET: ${{ secrets.SANITY_DATASET }}
+          SANITY_TOKEN: ${{ secrets.SANITY_TOKEN }}
+        run: >
+          python helper/rss_normalizer.py
+          --feeds
+          https://www.vancouverisawesome.com/rss/events-and-entertainment
+          https://www.straight.com/content/rss/music
+          https://www.coastaljazz.ca/blog/feed/
+          --fetch-articles
+          --max-items 1
+          --push-sanity
+
