@@ -3,10 +3,33 @@ import Layout from '../../components/Layout.astro';
 import { Header } from '../../components/react/Header';
 import { Footer } from '../../components/react/Footer';
 import { DailyList } from '../../components/react/DailyList';
-import { getCollection } from 'astro:content';
+import { client } from '@/lib/sanity';
+import groq from 'groq';
+import type { SanityDaily } from '@/types/sanity';
 
-const allDaily = await getCollection('daily');
-const dailyItems = allDaily.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+const dailyItems = await client.fetch<SanityDaily[]>(groq`
+  *[_type == "daily"] | order(date desc) {
+    _id,
+    title,
+    date,
+    generatedAt,
+    "slug": slug.current,
+    items[]{
+      _type,
+      title,
+      description,
+      link,
+      source,
+      publishedAt,
+      media[]{
+        _type,
+        kind,
+        url,
+        caption
+      }
+    }
+  }
+`);
 ---
 
 <Layout title="Daily Vancouver Roundup — Orange Whip">
@@ -18,7 +41,7 @@ const dailyItems = allDaily.sort((a, b) => new Date(b.data.date).getTime() - new
       <p class="text-xl text-secondary-300 max-w-2xl mx-auto">Daily listings of Vancouver music events</p>
     </div>
     
-    {dailyItems.length > 0 ? (
+    {dailyItems?.length > 0 ? (
       <DailyList client:load dailyItems={dailyItems} />
     ) : (
       <div class="text-center py-16">

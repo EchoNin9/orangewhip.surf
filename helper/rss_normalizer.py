@@ -245,8 +245,8 @@ def push_to_sanity(items: list[dict], *, project_id: str, dataset: str, token: s
     if not project_id or not dataset or not token:
         raise RuntimeError("Missing Sanity configuration.")
 
-    slug_value = f"{doc_prefix}-{doc_datetime.date().isoformat()}"
-    doc_id = slug_value
+    slug_value = doc_datetime.date().isoformat()
+    doc_id = f"{doc_prefix}-{slug_value}"
     generated_at = datetime.now(VAN_TZ)
 
     payload_items = []
@@ -278,7 +278,7 @@ def push_to_sanity(items: list[dict], *, project_id: str, dataset: str, token: s
     document = {
         "_id": doc_id,
         "_type": "daily",
-        "title": f"Daily Roundup — {doc_datetime.date().isoformat()}",
+        "title": f"Daily Roundup — {slug_value}",
         "slug": {"_type": "slug", "current": slug_value},
         "date": doc_datetime.isoformat(),
         "generatedAt": generated_at.isoformat(),
