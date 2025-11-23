@@ -39,7 +39,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 VAN_TZ = ZoneInfo("America/Vancouver")
-UA = "rss-normalizer/1.0 (+https://example.local)"
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 "
+    "rss-normalizer/1.0 (+https://orangewhip.surf)"
+)
 
 def pick_largest_from_srcset(srcset: str) -> Optional[str]:
     """
