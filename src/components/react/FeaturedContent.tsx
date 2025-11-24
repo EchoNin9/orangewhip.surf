@@ -98,10 +98,10 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }: Prop
               className="text-center mb-16"
             >
               <h2 className="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">
-                Latest Press
+                Band Updates & Press
               </h2>
               <p className="text-xl text-secondary-300 max-w-2xl mx-auto">
-                What people are saying about Orange Whip
+                Orange Whip's latest updates and press.
               </p>
             </motion.div>
 
@@ -157,7 +157,7 @@ export function FeaturedContent({ upcomingGigs, latestPress, latestDaily }: Prop
               className="text-center mb-16"
             >
               <h2 className="text-4xl sm:text-5xl font-display font-bold text-gradient mb-4">
-                Vancouver Shows
+                Vancouver Updates
               </h2>
               <p className="text-xl text-secondary-300 max-w-2xl mx-auto">
                 What's happening in Vancouver's music scene

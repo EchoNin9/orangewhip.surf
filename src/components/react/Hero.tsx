@@ -57,7 +57,12 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 0.8 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8"
           >
-            <a href="/gigs" className="btn-primary flex items-center space-x-2 group">
+            <a
+              href="https://open.spotify.com/playlist/3Np0DOO7qnA1jWjmBV2Kjc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary flex items-center space-x-2 group"
+            >
               <PlayIcon className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
               <span>Listen Now</span>
             </a>

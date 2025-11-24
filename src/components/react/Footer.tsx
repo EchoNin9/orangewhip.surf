@@ -7,10 +7,10 @@ import {
 
 export function Footer() {
   const socialLinks = [
-    { name: 'Instagram', href: 'https://instagram.com/orangewhip', icon: '📷' },
-    { name: 'Facebook', href: 'https://facebook.com/orangewhip', icon: '📘' },
-    { name: 'Twitter', href: 'https://twitter.com/orangewhip', icon: '🐦' },
-    { name: 'YouTube', href: 'https://youtube.com/orangewhip', icon: '📺' },
+    { name: 'Instagram', href: 'https://instagram.com/orangewhip.surf', icon: '📷' },
+    { name: 'Facebook', href: 'https://facebook.com/orangewhipmusic', icon: '📘' },
+    { name: 'BlueSky', href: 'https://bsky.app/profile/jinks.ninja', icon: '🐦' },
+    { name: 'YouTube', href: 'https://www.youtube.com/watch?v=cThz9hTD74E&list=PLQDmWUyxw2hQXcrCibYxB8GLsRH9eKnaq', icon: '📺' },
   ];
 
   const quickLinks = [
@@ -42,7 +42,7 @@ export function Footer() {
                 </span>
               </div>
               <p className="text-secondary-400 mb-6">
-                Surf rock instrumentals from Vancouver. Experience the raw power of Orange Whip.
+                Industrial Instrumental Surf. Experience the raw power of Orange Whip.
               </p>
               
               {/* Social Links */}
@@ -100,7 +100,7 @@ export function Footer() {
                 <div className="flex items-center space-x-3">
                   <EnvelopeIcon className="h-5 w-5 text-primary-400" />
                   <a
-                    href="mailto:booking@orangewhip.surf"
+                    href="mailto:contact@orangewhip.surf"
                     className="text-secondary-400 hover:text-white transition-colors duration-200"
                   >
                     booking@orangewhip.surf
