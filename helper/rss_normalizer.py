@@ -240,7 +240,8 @@ def parse_feed(url: str, follow_article: bool, max_items: int, delay: float) -> 
 
 def push_to_sanity(items: list[dict], *, project_id: str, dataset: str, token: str, doc_prefix: str, doc_datetime: datetime) -> tuple[str, int]:
     """
-    Create or replace a Sanity document with the normalized items.
+    Patch an existing Sanity document with the normalized items. If the document
+    does not exist, attempt to create it (requires create permission).
     """
     if not project_id or not dataset or not token:
         raise RuntimeError("Missing Sanity configuration.")
@@ -285,20 +286,85 @@ def push_to_sanity(items: list[dict], *, project_id: str, dataset: str, token: s
         "items": payload_items,
     }
 
-    mutate_url = f"https://{project_id}.api.sanity.io/v2024-01-01/data/mutate/{dataset}"
+    api_base = f"https://{project_id}.api.sanity.io/v2024-01-01"
+    mutate_url = f"{api_base}/data/mutate/{dataset}"
+    doc_url = f"{api_base}/data/doc/{dataset}/{doc_id}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
-    body = {"mutations": [{"createOrReplace": document}]}
+    set_fields = {
+        "title": document["title"],
+        "slug": document["slug"],
+        "date": document["date"],
+        "generatedAt": document["generatedAt"],
+        "items": payload_items,
+    }
 
     try:
-        response = requests.post(mutate_url, headers=headers, json=body, timeout=30)
+        doc_response = requests.get(doc_url, headers=headers, timeout=15)
     except requests.RequestException as exc:
-        raise RuntimeError(f"Sanity request failed: {exc}") from exc
+        raise RuntimeError(f"Sanity lookup failed: {exc}") from exc
 
-    if not response.ok:
-        raise RuntimeError(f"Sanity mutation failed: {response.status_code} {response.text}")
+    exists = False
+    if doc_response.status_code == 200:
+        try:
+            payload = doc_response.json()
+        except ValueError:
+            payload = {}
+        documents = payload.get("documents", []) if isinstance(payload, dict) else []
+        exists = len(documents) > 0
+    elif doc_response.status_code == 404:
+        exists = False
+    else:
+        raise RuntimeError(f"Sanity lookup failed: {doc_response.status_code} {doc_response.text}")
+
+    def post_mutation(body: dict) -> dict:
+        try:
+            resp = requests.post(mutate_url, headers=headers, json=body, timeout=30)
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Sanity request failed: {exc}") from exc
+
+        response_content = None
+        if resp.content:
+            try:
+                response_content = resp.json()
+            except ValueError:
+                response_content = None
+
+        if not resp.ok:
+            detail = response_content or resp.text
+            raise RuntimeError(f"Sanity mutation failed: {resp.status_code} {detail}")
+
+        if isinstance(response_content, dict) and response_content.get("error"):
+            detail = response_content["error"].get("description") or response_content["error"]
+            raise RuntimeError(f"Sanity mutation failed: {detail}")
+
+        return response_content or {}
+
+    mutation_body = {"mutations": [{"patch": {"id": doc_id, "set": set_fields}}]}
+
+    if exists:
+        try:
+            post_mutation(mutation_body)
+        except RuntimeError as exc:
+            if "not found" in str(exc).lower():
+                exists = False
+            else:
+                raise
+
+    if not exists:
+        create_body = {"mutations": [{"create": document}]}
+        try:
+            post_mutation(create_body)
+        except RuntimeError as exc:
+            message = str(exc)
+            if "permission \"create\" required" in message or "insufficient permissions" in message.lower():
+                raise RuntimeError(
+                    f"Sanity token lacks create permission for document '{doc_id}'. "
+                    "Create the document manually in Sanity Studio or use a token with create access."
+                ) from exc
+            raise
 
     return doc_id, len(payload_items)
 
@@ -309,7 +375,7 @@ def main():
     parser.add_argument("--max-items", type=int, default=50, help="Max entries per feed to process.")
     parser.add_argument("--delay", type=float, default=0.8, help="Delay (seconds) between article fetches when scraping.")
     parser.add_argument("--out", type=str, default=None, help="Write JSON to this file instead of stdout.")
-    parser.add_argument("--push-sanity", action="store_true", help="Create or replace a Sanity document with the normalized output.")
+    parser.add_argument("--push-sanity", action="store_true", help="Update a Sanity document with the normalized output (creates if permitted).")
     parser.add_argument("--sanity-project-id", type=str, help="Sanity project ID (falls back to SANITY_PROJECT_ID env).")
     parser.add_argument("--sanity-dataset", type=str, help="Sanity dataset (falls back to SANITY_DATASET env or defaults to 'production').")
     parser.add_argument("--sanity-token", type=str, help="Sanity API token (falls back to SANITY_TOKEN env).")

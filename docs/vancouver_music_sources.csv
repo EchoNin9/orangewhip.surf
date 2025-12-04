@@ -1,0 +1,15 @@
+Source_Name,URL,Feed_Type,Feed_URL,Info_Provided,Reliability,Source_Category
+Commodore Ballroom,https://www.commodoreballroom.com/,None,,Artist | Date | Ticket Link | Supporting Acts,High,Venue Calendar
+Vogue Theatre,https://www.livenation.com/venue/KovZpZAkEenA/vogue-theatre-events,None,,Artist | Date | Ticket Link | Genre | Door Time,High,Venue Calendar
+Rickshaw Theatre,https://rickshawtheatre.com/,None,,Artist | Date | Ticket Link | Price | Door Time | Age restrictions,High,Venue Calendar
+Biltmore Cabaret,https://www.livenation.com/venue/KovZpZAae7JA/biltmore-cabaret-events,None,,Artist | Date | Ticket Link | Door Time,High,Venue Calendar
+The Fox Cabaret,https://www.foxcabaret.com/monthly-calendar-list,ICS (per-event),,Event Title | Date | Time | Ticket Link | Description,High,Venue Calendar
+Guilt & Co,https://www.guiltandcompany.com/,ICS (subscribe),,Artist | Date | Time | Genre Tags,High,Venue Calendar
+Fortune Sound Club,https://www.livenation.com/venue/KovZpZAavneA/fortune-sound-club-events,None,,Event Title/Artist | Date | Time | Ticket Link | Genre,High,Venue Calendar
+The Railway Stage & Beer Café,https://www.showpass.com/o/the-railway-club/,None,,Event Title/Artist | Date | Time | Ticket Link | Price,High,Venue Calendar
+Georgia Straight (Events),https://www.straight.com/listings/music,RSS,https://www.straight.com/content/rss,Artist | Date | Venue | City | Description | Time | Price,High,Local Listing
+Daily Hive (Vancouver is Awesome),https://dailyhive.com/vancouver/things-to-do,RSS (articles),,Curated Lists: Artist | Date | Venue | Description,Medium,Local Listing
+Vancouver Sun (Music),https://vancouversun.com/category/entertainment/music,RSS,https://vancouversun.com/category/entertainment/music/feed/,Articles: News | Announcements | Reviews,Medium,Local Listing
+Eventbrite (Vancouver Music),https://www.eventbrite.ca/d/canada--vancouver/music--events/,JSON API,https://www.eventbrite.com/platform/api,Event Title | Date | Time | Venue | City | Price | Organizer,High,Aggregator
+Bandsintown (Vancouver),https://www.bandsintown.com/c/vancouver-bc,JSON API,https://artists.bandsintown.com/support/api,Artist | Date | Venue | City | Ticket Link | Lineup,High,Aggregator
+Songkick (Vancouver),https://www.songkick.com/metro-areas/27398-canada-vancouver,JSON API,https://www.songkick.com/developer,Artist | Date | Venue | City | Ticket Link | Lineup,High,Aggregator
