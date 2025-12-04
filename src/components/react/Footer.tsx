@@ -103,7 +103,7 @@ export function Footer() {
                     href="mailto:contact@orangewhip.surf"
                     className="text-secondary-400 hover:text-white transition-colors duration-200"
                   >
-                    booking@orangewhip.surf
+                    contact@orangewhip.surf
                   </a>
                 </div>
                 <div className="flex items-center space-x-3">
