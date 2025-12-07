@@ -1,32 +1,32 @@
 {
   "sources": [
     {
-      "name": "The Commodore Ballroom",
+      "name": "The Straight",
       "type": "rss",
-      "url": "https://example.com/commodore/feed",
-      "enabled": false,
-      "notes": "Replace with actual RSS feed URL for The Commodore Ballroom events"
+      "url": "https://www.straight.com/content/rss/music",
+      "enabled": true,
+      "notes": "Vancouver's only weekly music publication"
     },
     {
-      "name": "The Biltmore Cabaret",
-      "type": "ics",
-      "url": "https://example.com/biltmore/events.ics",
-      "enabled": false,
-      "notes": "Replace with actual iCal feed URL for The Biltmore Cabaret events"
+      "name": "Vancouver Is Awesome",
+      "type": "rss",
+      "url": "https://www.vancouverisawesome.com/events-and-entertainment",
+      "enabled": true,
+      "notes": "Vancouver's best events and entertainment guide"
     },
     {
       "name": "The Rickshaw Theatre",
-      "type": "rss",
-      "url": "https://example.com/rickshaw/feed",
+      "type": "ics",
+      "url": "https://example.com/rickshaw/events.ics",
       "enabled": false,
-      "notes": "Replace with actual RSS feed URL for The Rickshaw Theatre events"
+      "notes": "Rockin the Ridkshaw"
     },
     {
-      "name": "Vancouver Music Events",
+      "name": "Coastal Jazz",
       "type": "rss",
-      "url": "https://example.com/vancouver-music/feed",
-      "enabled": false,
-      "notes": "Replace with actual RSS feed URL for Vancouver music event aggregator"
+      "url": "https://www.coastaljazz.ca/feed/",
+      "enabled": true,
+      "notes": "Vancouver jazz events."
     }
   ]
 }
