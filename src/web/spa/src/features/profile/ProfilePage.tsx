@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CameraIcon } from "@heroicons/react/24/outline";
 import { apiGet, apiPost, apiPut } from "../../utils/api";
-import { useAuth, hasRole, type UserRole } from "../../shell/AuthContext";
+import { useAuth, type UserRole } from "../../shell/AuthContext";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -48,14 +48,12 @@ const ROLE_LABELS: Record<UserRole, string> = {
   guest: "Guest",
 };
 
-const ROLE_HIERARCHY: UserRole[] = ["guest", "band", "editor", "manager", "admin"];
-
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 
 export function ProfilePage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, refreshAuth } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,6 +142,7 @@ export function ProfilePage() {
       setProfile(updated);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
+      await refreshAuth();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
@@ -365,56 +364,6 @@ export function ProfilePage() {
               {ROLE_LABELS[profile?.role || user.role]}
             </span>
           </div>
-
-          {/* Role hierarchy */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-secondary-300 mb-3">
-              Role Hierarchy
-            </h3>
-            <div className="flex flex-wrap items-center gap-1">
-              {ROLE_HIERARCHY.map((r, idx) => {
-                const isCurrent = r === (profile?.role || user.role);
-                const isBelow = hasRole(user, r);
-                return (
-                  <div key={r} className="flex items-center gap-1">
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        isCurrent
-                          ? "bg-primary-500 text-white font-bold"
-                          : isBelow
-                            ? "bg-secondary-700 text-secondary-300"
-                            : "bg-secondary-800/50 text-secondary-600"
-                      }`}
-                    >
-                      {ROLE_LABELS[r]}
-                    </span>
-                    {idx < ROLE_HIERARCHY.length - 1 && (
-                      <span className="text-secondary-600 text-xs">&rarr;</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Cognito groups */}
-          {(profile?.groups || user.groups)?.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-secondary-300 mb-3">
-                Cognito Groups
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {(profile?.groups || user.groups).map((g) => (
-                  <span
-                    key={g}
-                    className="text-xs bg-secondary-700 text-secondary-300 px-2.5 py-1 rounded"
-                  >
-                    {g}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Custom groups */}
           {(profile?.customGroups || user.customGroups).length > 0 && (

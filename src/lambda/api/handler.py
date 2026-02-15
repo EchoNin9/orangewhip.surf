@@ -1124,6 +1124,14 @@ def handle_me(event, method, parts):
     user, err = require_role(event, "band")
     if err:
         return err
+    # Enrich with profile displayName and userHandle for header display
+    profile = _get_item(f"USER#{user['userId']}", "PROFILE")
+    if profile:
+        user["displayName"] = profile.get("displayName", user.get("email", ""))
+        user["userHandle"] = profile.get("userHandle", "")
+    else:
+        user["displayName"] = user.get("email", "")
+        user["userHandle"] = ""
     return ok(user)
 
 

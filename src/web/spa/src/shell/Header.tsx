@@ -81,7 +81,18 @@ export function Header() {
     >
       {/* Social bar */}
       <div className="border-b border-secondary-800">
-        <div className="container-max flex items-center justify-end gap-4 py-1.5">
+        <div className="container-max flex items-center justify-between gap-4 py-1.5">
+          {user ? (
+            <Link
+              to="/profile"
+              className="text-sm text-secondary-400 hover:text-primary-400 transition-colors truncate max-w-[180px]"
+            >
+              {user.userHandle?.trim() || user.displayName || user.email}
+            </Link>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-4">
           {socialLinks.map(({ name, href, Icon }) => (
             <a
               key={name}
@@ -95,6 +106,7 @@ export function Header() {
               <span className="sr-only">{name}</span>
             </a>
           ))}
+          </div>
         </div>
       </div>
 

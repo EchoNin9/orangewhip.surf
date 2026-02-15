@@ -21,6 +21,7 @@ export interface AuthUser {
   role: UserRole;
   customGroups: string[];
   displayName: string;
+  userHandle?: string;
 }
 
 interface AuthContextValue {
@@ -98,6 +99,7 @@ interface MeResponse {
   groups: string[];
   customGroups: string[];
   displayName: string;
+  userHandle?: string;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -124,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: mapGroupsToRole(groups),
           customGroups: me.customGroups ?? [],
           displayName: me.displayName || me.email,
+          userHandle: me.userHandle ?? "",
         });
       } catch {
         // /me not available – fall back to token info
@@ -137,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: mapGroupsToRole(groups),
             customGroups: [],
             displayName: info.email,
+            userHandle: "",
           });
         } else {
           setUser(null);
