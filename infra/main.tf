@@ -681,6 +681,11 @@ resource "aws_iam_role_policy" "lambdaApi" {
       },
       {
         Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = aws_s3_bucket.media.arn
+      },
+      {
+        Effect   = "Allow"
         Action   = [
           "cognito-idp:AdminListGroupsForUser",
           "cognito-idp:AdminAddUserToGroup",
@@ -838,13 +843,13 @@ resource "aws_s3_bucket_notification" "media" {
   lambda_function {
     lambda_function_arn = aws_lambda_function.thumb.arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "media/images/"
+    filter_prefix       = "media/image/"
   }
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.thumb.arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "media/videos/"
+    filter_prefix       = "media/video/"
   }
 
   lambda_function {

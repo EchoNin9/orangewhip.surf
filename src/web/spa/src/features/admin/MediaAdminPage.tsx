@@ -125,15 +125,19 @@ function UploadTab({ categories }: { categories: Category[] }) {
           s3Key: string;
         }>("/media/upload", {
           filename: file.name,
+          mediaType: type,
           contentType: file.type,
         });
 
         // 2) PUT directly to S3
-        await fetch(uploadUrl, {
+        const putRes = await fetch(uploadUrl, {
           method: "PUT",
           body: file,
           headers: { "Content-Type": file.type },
         });
+        if (!putRes.ok) {
+          throw new Error(`S3 upload failed (${putRes.status})`);
+        }
 
         // 3) Create media record in DynamoDB
         await apiPost("/media", {

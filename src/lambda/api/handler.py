@@ -13,6 +13,7 @@ import urllib.error
 from datetime import datetime, timezone
 
 import boto3
+from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
 # ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ THUMB_FUNCTION_NAME = os.environ.get("THUMB_FUNCTION_NAME", "ows-thumb")
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
-s3 = boto3.client("s3")
+s3 = boto3.client("s3", config=BotoConfig(signature_version="s3v4"))
 cognito = boto3.client("cognito-idp")
 lambda_client = boto3.client("lambda")
 bedrock = boto3.client("bedrock-runtime")
