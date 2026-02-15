@@ -38,6 +38,9 @@ jobs:
       - name: Run pytest
         run: pytest src/lambda/tests -v
 
+      - name: Install API Lambda dependencies
+        run: pip install -r src/lambda/requirements.txt -t src/lambda/
+
       - name: Build Pillow Lambda layer
         working-directory: infra
         run: |

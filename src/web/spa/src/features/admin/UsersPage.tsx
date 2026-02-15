@@ -7,9 +7,11 @@ import {
   PlusIcon,
   XMarkIcon,
   ShieldCheckIcon,
+  UserCircleIcon,
 } from "@heroicons/react/24/outline";
 import { apiGet, apiPost, apiDelete } from "../../utils/api";
 import { useAuth, canManageUsers, canAdminister, type UserRole } from "../../shell/AuthContext";
+import { useImpersonation } from "../../shell/ImpersonationContext";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -43,8 +45,18 @@ const roleBadgeClass: Record<string, string> = {
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 
+function highestRole(groups: string[]): UserRole {
+  const set = new Set(groups.map((g) => g.toLowerCase()));
+  if (set.has("admin")) return "admin";
+  if (set.has("manager")) return "manager";
+  if (set.has("editor")) return "editor";
+  if (set.has("band")) return "band";
+  return "guest";
+}
+
 export function UsersPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const { startImpersonation } = useImpersonation();
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -341,6 +353,18 @@ export function UsersPage() {
 
                 {/* Actions */}
                 <div className="flex-shrink-0 flex items-center gap-1">
+                  {canAdminister(user!) && (
+                    <button
+                      onClick={() => {
+                        startImpersonation(u.userId, highestRole(u.groups));
+                        navigate("/");
+                      }}
+                      title="Impersonate this user"
+                      className="p-2 rounded-lg text-secondary-400 hover:text-primary-400 hover:bg-secondary-700 transition-colors"
+                    >
+                      <UserCircleIcon className="w-5 h-5" />
+                    </button>
+                  )}
                   {u.markedForDeletion && (
                     <button
                       onClick={() => unmarkForDeletion(u)}

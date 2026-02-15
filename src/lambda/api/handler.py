@@ -57,21 +57,78 @@ def get_role(groups: list[str]) -> str:
 
 
 def _parse_jwt_claims(event: dict) -> dict:
-    """Extract JWT claims from API Gateway v2 event."""
+    """Extract JWT claims from API Gateway v2 event (when authorizer ran).
+    For public routes (GET /media, /updates, /press), the authorizer does not run,
+    so we fall back to decoding the JWT from the Authorization header.
+    """
     try:
-        return event["requestContext"]["authorizer"]["jwt"]["claims"]
+        claims = event["requestContext"]["authorizer"]["jwt"]["claims"]
+        if claims:
+            return claims
     except (KeyError, TypeError):
+        pass
+
+    # Fallback: decode JWT from Authorization header (public routes)
+    auth_header = _get_header(event, "authorization") or ""
+    if not auth_header.startswith("Bearer "):
+        return {}
+    token = auth_header[7:].strip()
+    if not token:
+        return {}
+
+    try:
+        import jwt
+        pool_id = COGNITO_USER_POOL_ID
+        if not pool_id:
+            return {}
+        region = pool_id.split("_")[0] if "_" in pool_id else "us-east-1"
+        jwks_url = f"https://cognito-idp.{region}.amazonaws.com/{pool_id}/.well-known/jwks.json"
+        jwks_client = jwt.PyJWKClient(jwks_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_aud": False},
+        )
+        # Normalize to match API Gateway authorizer shape
+        groups = payload.get("cognito:groups") or payload.get("cognito_groups")
+        if isinstance(groups, str):
+            try:
+                groups = json.loads(groups) if groups.startswith("[") else [groups]
+            except (json.JSONDecodeError, ValueError):
+                groups = [g.strip().strip('"') for g in groups.strip("[]").replace(",", " ").split()]
+        return {
+            "sub": payload.get("sub", ""),
+            "email": payload.get("email", ""),
+            "cognito:groups": groups if isinstance(groups, list) else (groups or []),
+        }
+    except Exception:
+        logger.debug("JWT decode fallback failed", exc_info=True)
         return {}
 
 
+def _get_header(event: dict, name: str) -> str | None:
+    """Get header value (case-insensitive; API GW v2 uses lowercase)."""
+    headers = event.get("headers") or {}
+    # API Gateway v2 HTTP API uses lowercase header names
+    key = name.lower()
+    if key in headers:
+        return headers[key]
+    # Fallback for alternate casing
+    for k, v in headers.items():
+        if k.lower() == key:
+            return v
+    return None
+
+
 def get_user_info(event: dict) -> dict | None:
-    """Return user info dict from the JWT, or None if unauthenticated."""
+    """Return user info dict from the JWT, or None if unauthenticated.
+    Supports admin impersonation via X-Impersonate-User and X-Impersonate-Role headers.
+    For public routes, decodes JWT from Authorization header (authorizer does not run).
+    """
     claims = _parse_jwt_claims(event)
-    if not claims:
-        auth_header = event.get("headers", {}).get("authorization", "")
-        if not auth_header:
-            return None
-        # Fallback: try to decode from header (API GW should have done this)
+    if not claims or not claims.get("sub"):
         return None
 
     sub = claims.get("sub", "")
@@ -83,7 +140,6 @@ def get_user_info(event: dict) -> dict | None:
     #   - a real list            ["admin", "band"]
     #   - a JSON-encoded string  '["admin","band"]'
     #   - API GW v2 stringified  '[admin, band]'
-    #   - space-separated        'admin band'
     if isinstance(cognito_groups_raw, list):
         groups = cognito_groups_raw
     elif isinstance(cognito_groups_raw, str):
@@ -100,6 +156,18 @@ def get_user_info(event: dict) -> dict | None:
         groups = []
 
     role = get_role(groups)
+
+    # Admin impersonation: only admins can impersonate
+    impersonate_user = _get_header(event, "x-impersonate-user")
+    impersonate_role = _get_header(event, "x-impersonate-role")
+    if impersonate_user and impersonate_role and role == "admin":
+        return {
+            "userId": impersonate_user,
+            "email": "",
+            "groups": [impersonate_role],
+            "role": impersonate_role.lower() if impersonate_role.lower() in ROLE_HIERARCHY else "guest",
+            "customGroups": [],
+        }
 
     # Fetch custom groups from DynamoDB
     custom_groups = []
@@ -119,6 +187,14 @@ def get_user_info(event: dict) -> dict | None:
         "role": role,
         "customGroups": custom_groups,
     }
+
+
+def is_member(event: dict) -> bool:
+    """Return True if the request is from a user in any Cognito group (band, editor, manager, admin)."""
+    user = get_user_info(event)
+    if not user:
+        return False
+    return user["role"] in ("band", "editor", "manager", "admin")
 
 
 def require_role(event: dict, min_role: str) -> tuple[dict | None, dict | None]:
@@ -561,7 +637,10 @@ def handle_venues(event, method, parts):
 def handle_updates(event, method, parts):
     # GET /updates/pinned
     if method == "GET" and len(parts) >= 2 and parts[1] == "pinned":
-        items = _query_entity("UPDATE", pinned=True, visible=True)
+        if is_member(event):
+            items = _query_entity("UPDATE", pinned=True)
+        else:
+            items = _query_entity("UPDATE", pinned=True, visible=True)
         if not items:
             return error("No pinned update", 404)
         _resolve_update_media(items[0])
@@ -571,6 +650,8 @@ def handle_updates(event, method, parts):
         qs = _qs(event)
         # When all=true, return all updates (admin use)
         if qs.get("all") == "true":
+            items = _query_entity("UPDATE")
+        elif is_member(event):
             items = _query_entity("UPDATE")
         else:
             items = _query_entity("UPDATE", visible=True)
@@ -692,11 +773,13 @@ def handle_press(event, method, parts):
             item = _get_item(f"PRESS#{press_id}")
             if not item:
                 return error("Press not found", 404)
-            if not item.get("public") and not get_user_info(event):
+            if not item.get("public") and not is_member(event):
                 return error("Press not found", 404)
             _enrich_press_attachments(item)
             return ok(item)
         if qs.get("all") == "true":
+            items = _query_entity("PRESS")
+        elif is_member(event):
             items = _query_entity("PRESS")
         else:
             items = _query_entity("PRESS", public=True)
@@ -786,10 +869,15 @@ def handle_media(event, method, parts):
             item = _get_item(f"MEDIA#{media_id}")
             if not item:
                 return error("Media not found", 404)
+            if not item.get("public") and not is_member(event):
+                return error("Media not found", 404)
             _enrich_media_item(item)
             return ok(item)
 
-        items = _query_entity("MEDIA", public=True)
+        if is_member(event):
+            items = _query_entity("MEDIA")
+        else:
+            items = _query_entity("MEDIA", public=True)
         media_type = qs.get("type")
         query = qs.get("search", qs.get("q", "")).lower()
         category_ids = qs.get("categoryIds", qs.get("category", ""))

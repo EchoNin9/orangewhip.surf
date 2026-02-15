@@ -109,3 +109,10 @@ Adhere to this structure for all new files. Do not create files outside these fo
   - Social links (Spotify, Instagram, etc.).
 - **What stays the same:** Architecture, modules (Shows, Updates, Press, Media), auth model, infrastructure patterns, directory structure.
 - **Guidance for cloning:** Copy the repo, update Terraform variables (prefix, domain, buckets), replace design tokens (colors, fonts, assets), and configure Cognito/CloudFront for the new domain.
+
+## 9. Agent Task Workflow
+When asked to do a task that involves code changes:
+- **Persist until fixed:** Keep going until you are certain you have fixed the issue.
+- **Validate & troubleshoot:** Use CLI, aws-cli, gh, or simulated browser to validate or troubleshoot changes.
+- **Commit & push:** Once satisfied all fixes/edits are working properly, commit and push to `develop`.
+- **Summary:** Provide a summary of what was changed.

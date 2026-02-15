@@ -118,3 +118,14 @@ After the first successful deployment:
 ### SSL certificate pending
 - ACM certificate validation requires DNS records. After Route 53 is set up and nameservers propagate, Terraform will create validation records automatically.
 - Re-run `terraform apply` after nameserver propagation if the cert didn't validate on first run.
+
+### Vercel build error on merge to main
+OWS deploys via **AWS** (S3 + CloudFront), not Vercel. If you see a Vercel build failure when merging develop → main, Vercel is still connected to the repo from an earlier setup.
+
+**To remove the Vercel build error:**
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Find the project linked to `orangewhip.surf` (or `EchoNin9/orangewhip.surf`)
+3. **Project Settings → Git → Connected Git Repository**
+4. Click **Disconnect**
+
+This stops Vercel from attempting builds on push. Production deploys continue via GitHub Actions (main.yml).

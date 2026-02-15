@@ -20,6 +20,16 @@ __pycache__/
 .pytest_cache/
 **/.pytest_cache/
 
+# Lambda pip-installed deps (CI installs fresh)
+src/lambda/jwt/
+src/lambda/cryptography/
+src/lambda/cffi/
+src/lambda/pycparser/
+src/lambda/typing_extensions/
+src/lambda/typing_extensions.py
+src/lambda/*.dist-info/
+src/lambda/*.so
+
 # IDE / OS
 .DS_Store
 .vscode/

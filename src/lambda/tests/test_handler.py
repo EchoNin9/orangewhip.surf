@@ -208,6 +208,48 @@ class TestMedia:
         assert isinstance(body, list)
         assert len(body) == 1
 
+    def test_media_get_private_as_member(self, _patch_boto3):
+        """Authenticated band member can fetch a private media item by id."""
+        handler = _patch_boto3
+        private_media = {
+            "PK": "MEDIA#priv1",
+            "SK": "META",
+            "id": "priv1",
+            "title": "Private rehearsal",
+            "mediaType": "video",
+            "public": False,
+            "categories": [],
+            "entityType": "MEDIA",
+        }
+        mock_table.get_item.return_value = {"Item": private_media}
+
+        event = _make_event("GET", "/media", auth=True, groups=["band"])
+        event["queryStringParameters"] = {"id": "priv1"}
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["id"] == "priv1"
+        assert body["public"] is False
+
+    def test_media_get_private_as_guest_404(self, _patch_boto3):
+        """Guest (no auth) gets 404 when fetching private media by id."""
+        handler = _patch_boto3
+        private_media = {
+            "PK": "MEDIA#priv1",
+            "SK": "META",
+            "id": "priv1",
+            "title": "Private rehearsal",
+            "mediaType": "video",
+            "public": False,
+            "entityType": "MEDIA",
+        }
+        mock_table.get_item.return_value = {"Item": private_media}
+
+        event = _make_event("GET", "/media")
+        event["queryStringParameters"] = {"id": "priv1"}
+        status, body = _parse_response(handler(event, None))
+        assert status == 404
+        assert body.get("error") == "Media not found"
+
 
 class TestVenues:
     def test_venue_create(self, _patch_boto3):
