@@ -630,7 +630,7 @@ export default function ShowsAdminPage() {
                     title: editingShow.title,
                     date: editingShow.date.slice(0, 10),
                     description: editingShow.description ?? "",
-                    venueId: editingShow.venue?.name ?? "",
+                    venueId: editingShow.venueId ?? "",
                     mediaIds: editingShow.media?.map((_, i) => String(i)) ?? [],
                     thumbnailId: "",
                   }

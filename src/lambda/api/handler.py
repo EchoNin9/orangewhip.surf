@@ -250,6 +250,27 @@ def handle_health(event, method):
 # Route: Shows
 # ---------------------------------------------------------------------------
 
+def _resolve_venues(shows: list[dict]) -> list[dict]:
+    """Attach a 'venue' object to each show that has a venueId."""
+    venue_ids = {s.get("venueId") for s in shows if s.get("venueId")}
+    if not venue_ids:
+        return shows
+    venue_map: dict[str, dict] = {}
+    for vid in venue_ids:
+        v = _get_item(f"VENUE#{vid}")
+        if v:
+            venue_map[vid] = {
+                "name": v.get("name", ""),
+                "address": v.get("address", ""),
+                "website": v.get("website", v.get("websiteUrl", "")),
+            }
+    for show in shows:
+        vid = show.get("venueId", "")
+        if vid and vid in venue_map:
+            show["venue"] = venue_map[vid]
+    return shows
+
+
 def handle_shows(event, method, parts):
     if method == "GET":
         qs = _qs(event)
@@ -259,9 +280,11 @@ def handle_shows(event, method, parts):
             item = _get_item(f"SHOW#{show_id}")
             if not item:
                 return error("Show not found", 404)
+            _resolve_venues([item])
             return ok(item)
 
         items = _query_entity("SHOW")
+        _resolve_venues(items)
         now = _now_iso()
         upcoming = sorted(
             [s for s in items if s.get("date", "") >= now[:10]],
@@ -358,7 +381,7 @@ def handle_venues(event, method, parts):
             "address": data.get("address", ""),
             "thumbnailUrl": data.get("thumbnailUrl", ""),
             "info": data.get("info", ""),
-            "websiteUrl": data.get("websiteUrl", ""),
+            "website": data.get("website", data.get("websiteUrl", "")),
             "entityType": "VENUE",
             "entitySk": f"{name}#{venue_id}",
         }
@@ -376,7 +399,7 @@ def handle_venues(event, method, parts):
         existing = _get_item(f"VENUE#{venue_id}")
         if not existing:
             return error("Venue not found", 404)
-        for field in ["name", "address", "thumbnailUrl", "info", "websiteUrl"]:
+        for field in ["name", "address", "thumbnailUrl", "info", "website"]:
             if field in data:
                 existing[field] = data[field]
         if "name" in data:

@@ -12,7 +12,8 @@ export interface Show {
   id: string;
   title: string;
   date: string; // ISO date string
-  venue: {
+  venueId?: string;
+  venue?: {
     name: string;
     address?: string;
     website?: string;
@@ -131,7 +132,7 @@ function ShowCard({ show, index }: { show: Show; index: number }) {
             {toDateStr(show.date)}
           </p>
           <p className="mt-1 text-sm text-secondary-400">
-            {show.venue.name}
+            {show.venue?.name}
           </p>
           {show.description && (
             <p className="mt-3 text-sm text-secondary-300 line-clamp-2">
