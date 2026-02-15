@@ -160,12 +160,12 @@ export function HomePage() {
           </motion.div>
 
           <motion.p
-            className="mt-6 text-xl sm:text-2xl text-secondary-300 font-display tracking-widest uppercase"
+            className="mt-10 text-xl sm:text-2xl text-secondary-300 font-display tracking-widest uppercase"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >
-            Vancouver Rock
+            Industrial Surf
           </motion.p>
 
           <motion.div
