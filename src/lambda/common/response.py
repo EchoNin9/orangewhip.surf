@@ -1,4 +1,14 @@
 import json
+from decimal import Decimal
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """Handle DynamoDB Decimal types in JSON responses."""
+
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return int(o) if o == int(o) else float(o)
+        return super().default(o)
 
 
 def ok(body, status=200):
@@ -10,7 +20,7 @@ def ok(body, status=200):
             "Access-Control-Allow-Headers": "Authorization,Content-Type,X-Api-Key",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         },
-        "body": json.dumps(body),
+        "body": json.dumps(body, cls=DecimalEncoder),
     }
 
 
