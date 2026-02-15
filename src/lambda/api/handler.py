@@ -339,6 +339,50 @@ def _validate_api_key(event: dict, scope: str = "embed") -> bool:
 # ---------------------------------------------------------------------------
 
 def handle_health(event, method):
+    qs = _qs(event)
+
+    # GET /health/thumb-diag — diagnose thumbnail generation
+    parts = _path_parts(event)
+    if len(parts) >= 2 and parts[1] == "thumb-diag":
+        diag = {"pillow": False, "thumbInvoke": None}
+
+        # 1) Check Pillow availability in this Lambda (same layer)
+        try:
+            from PIL import Image
+            diag["pillow"] = True
+            diag["pillowVersion"] = Image.__version__
+        except ImportError as exc:
+            diag["pillowError"] = str(exc)
+
+        # 2) Synchronously invoke thumb Lambda with a test media item
+        media_id = qs.get("mediaId", "")
+        if media_id:
+            item = _get_item(f"MEDIA#{media_id}")
+            if item:
+                try:
+                    resp = lambda_client.invoke(
+                        FunctionName=THUMB_FUNCTION_NAME,
+                        InvocationType="RequestResponse",
+                        Payload=json.dumps({
+                            "mediaId": media_id,
+                            "s3Key": item.get("s3Key", ""),
+                            "mediaType": item.get("mediaType", ""),
+                            "bucket": MEDIA_BUCKET,
+                        }),
+                    )
+                    payload = json.loads(resp["Payload"].read())
+                    diag["thumbInvoke"] = {
+                        "statusCode": resp.get("StatusCode"),
+                        "functionError": resp.get("FunctionError", ""),
+                        "payload": payload,
+                    }
+                except Exception as exc:
+                    diag["thumbInvoke"] = {"error": str(exc)}
+            else:
+                diag["thumbInvoke"] = {"error": f"Media {media_id} not found"}
+
+        return ok(diag)
+
     return ok({"status": "ok"})
 
 
