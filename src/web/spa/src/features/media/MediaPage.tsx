@@ -96,15 +96,20 @@ function MediaCard({ item, index }: { item: MediaItem; index: number }) {
               alt={item.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
+          ) : item.type === "video" && item.url ? (
+            /* Videos without a dedicated thumbnail: render a muted <video>
+               that loads just enough metadata to display the first frame. */
+            <video
+              src={`${item.url}#t=0.1`}
+              muted
+              preload="metadata"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-secondary-600">
               {item.type === "audio" ? (
                 <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
-                </svg>
-              ) : item.type === "video" ? (
-                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z" />
                 </svg>
               ) : (
                 <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
