@@ -133,7 +133,9 @@ export function UsersPage() {
 
   async function removeCognitoGroup(u: ManagedUser, role: string) {
     try {
-      await apiDelete(`/admin/users/${u.username}/groups?type=cognito&group=${role}`);
+      await apiDelete(
+        `/admin/users/${encodeURIComponent(u.username)}/groups/${encodeURIComponent(role)}?type=cognito`,
+      );
       fetchUsers();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to remove group");
@@ -155,7 +157,7 @@ export function UsersPage() {
   async function removeCustomGroup(u: ManagedUser, group: string) {
     try {
       await apiDelete(
-        `/admin/users/${u.username}/groups?type=custom&group=${encodeURIComponent(group)}`,
+        `/admin/users/${encodeURIComponent(u.username)}/groups/${encodeURIComponent(group)}?type=custom`,
       );
       fetchUsers();
     } catch (err: unknown) {
