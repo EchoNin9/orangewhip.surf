@@ -139,12 +139,11 @@ class TestShows:
         event = _make_event("GET", "/shows")
         status, body = _parse_response(handler(event, None))
         assert status == 200
-        assert "shows" in body
-        shows = body["shows"]
-        assert len(shows) == 2
+        assert isinstance(body, list)
+        assert len(body) == 2
         # Upcoming first, then past
-        assert shows[0]["date"] == "2026-03-15"
-        assert shows[1]["date"] == "2025-01-10"
+        assert body[0]["date"] == "2026-03-15"
+        assert body[1]["date"] == "2025-01-10"
 
 
 class TestMedia:
@@ -179,9 +178,9 @@ class TestMedia:
         event["queryStringParameters"] = {"type": "video"}
         status, body = _parse_response(handler(event, None))
         assert status == 200
-        assert "media" in body
+        assert isinstance(body, list)
         # Only videos returned
-        assert all(m["mediaType"] == "video" for m in body["media"])
+        assert all(m["mediaType"] == "video" for m in body)
 
     def test_media_get_search(self, _patch_boto3):
         handler = _patch_boto3
@@ -205,7 +204,8 @@ class TestMedia:
         event["queryStringParameters"] = {"q": "commodore"}
         status, body = _parse_response(handler(event, None))
         assert status == 200
-        assert len(body["media"]) == 1
+        assert isinstance(body, list)
+        assert len(body) == 1
 
 
 class TestUnauthorized:
