@@ -199,11 +199,17 @@ function FileGallery({ files, title }: { files: MediaFile[]; type: string; title
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 export default function MediaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const showEdit = canManageMedia(user);
   const [item, setItem] = useState<MediaDetailItem | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -212,8 +218,14 @@ export default function MediaDetailPage() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await apiGet<MediaDetailItem>(`/media?id=${id}`);
-        if (!cancelled) setItem(data);
+        const [mediaData, categoriesData] = await Promise.all([
+          apiGet<MediaDetailItem>(`/media?id=${id}`),
+          apiGet<Category[]>("/categories"),
+        ]);
+        if (!cancelled) {
+          setItem(mediaData);
+          setCategories(categoriesData ?? []);
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load media");
       } finally {
@@ -224,6 +236,8 @@ export default function MediaDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
 
   const hasMultipleFiles = item?.files && item.files.length > 1;
 
@@ -378,12 +392,12 @@ export default function MediaDetailPage() {
                   Categories
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {item.categories.map((cat) => (
+                  {item.categories.map((catId) => (
                     <span
-                      key={cat}
+                      key={catId}
                       className="px-3 py-1 text-xs font-medium bg-secondary-700/50 text-secondary-200 rounded-full"
                     >
-                      {cat}
+                      {categoryMap[catId] ?? catId}
                     </span>
                   ))}
                 </div>

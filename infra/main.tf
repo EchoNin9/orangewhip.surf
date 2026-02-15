@@ -1105,6 +1105,14 @@ resource "aws_apigatewayv2_route" "pressDelete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "pressUploadUrl" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /press/upload-url"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # Media: CRUD + uploads (band+)
 resource "aws_apigatewayv2_route" "mediaGetAll" {
   api_id             = aws_apigatewayv2_api.main.id

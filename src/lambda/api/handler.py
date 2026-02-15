@@ -664,19 +664,16 @@ def handle_press(event, method, parts):
             return err
         data = _body(event)
         filename = data.get("filename", "upload.bin")
-        content_type = data.get("contentType", "application/octet-stream")
         ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
         file_id = _new_id()
         file_uuid = str(uuid.uuid4())
         s3_key = f"press/{file_id}/{file_uuid}.{ext}"
 
+        # Do not include ContentType in Params - S3 would enforce exact match
+        # and browsers can vary (e.g. PDF as application/pdf vs application/x-pdf)
         presigned_put = s3.generate_presigned_url(
             "put_object",
-            Params={
-                "Bucket": MEDIA_BUCKET,
-                "Key": s3_key,
-                "ContentType": content_type,
-            },
+            Params={"Bucket": MEDIA_BUCKET, "Key": s3_key},
             ExpiresIn=3600,
         )
         file_url = _presign_get(s3_key)
