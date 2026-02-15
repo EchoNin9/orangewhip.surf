@@ -341,9 +341,8 @@ def _validate_api_key(event: dict, scope: str = "embed") -> bool:
 def handle_health(event, method):
     qs = _qs(event)
 
-    # GET /health/thumb-diag — diagnose thumbnail generation
-    parts = _path_parts(event)
-    if len(parts) >= 2 and parts[1] == "thumb-diag":
+    # GET /health?diag=thumb&mediaId=xxx — diagnose thumbnail generation
+    if qs.get("diag") == "thumb":
         diag = {"pillow": False, "thumbInvoke": None}
 
         # 1) Check Pillow availability in this Lambda (same layer)
