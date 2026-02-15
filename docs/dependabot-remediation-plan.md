@@ -67,15 +67,16 @@ Use this section to track what’s done and what’s left. Edit in place.
 
 ### Completed
 - 2025-02-15: npm bump vite to 6.4.1 (Dependabot moderate — esbuild GHSA-67mh-4wv8-2f99)
+- 2025-02-15: Verified main project (`src/web/spa`, `src/lambda`, `infra`) has no open Dependabot alerts. All 31 open alerts are in `_archive/` (excluded per plan).
 
 ### In Progress
-- *(Current item being worked on)*
+- *(None)*
 
 ### Pending (by severity)
-- **Critical:** *(list)*
-- **High:** *(list)*
-- **Medium:** *(list)*
-- **Low / Version:** *(list)*
+- **Critical:** *(none in production code)*
+- **High:** *(none in production code)*
+- **Medium:** *(none in production code)*
+- **Low / Version:** GitHub Actions (actions/checkout v4, setup-terraform v3) — optional freshness updates when convenient. All alerts in `_archive/` are excluded.
 
 ---
 
