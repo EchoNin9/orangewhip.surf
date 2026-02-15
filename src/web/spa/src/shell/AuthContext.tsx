@@ -21,6 +21,7 @@ export interface AuthUser {
   role: UserRole;
   customGroups: string[];
   displayName: string;
+  userHandle?: string;
 }
 
 interface AuthContextValue {
@@ -70,6 +71,8 @@ export function isInGroup(user: AuthUser | null, groupName: string): boolean {
 export const canManageMedia = (user: AuthUser | null): boolean => hasRole(user, 'band');
 export const canEditContent = (user: AuthUser | null): boolean => hasRole(user, 'editor');
 export const canAdminister = (user: AuthUser | null): boolean => hasRole(user, 'admin');
+/** Managers can manage users (except admin visibility/assignment); admins have full access. */
+export const canManageUsers = (user: AuthUser | null): boolean => hasRole(user, 'manager');
 
 /* ------------------------------------------------------------------ */
 /*  Context                                                           */
@@ -98,6 +101,7 @@ interface MeResponse {
   groups: string[];
   customGroups: string[];
   displayName: string;
+  userHandle?: string;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -124,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: mapGroupsToRole(groups),
           customGroups: me.customGroups ?? [],
           displayName: me.displayName || me.email,
+          userHandle: me.userHandle ?? "",
         });
       } catch {
         // /me not available – fall back to token info
@@ -137,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: mapGroupsToRole(groups),
             customGroups: [],
             displayName: info.email,
+            userHandle: "",
           });
         } else {
           setUser(null);

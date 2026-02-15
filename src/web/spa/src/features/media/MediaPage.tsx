@@ -376,6 +376,7 @@ export default function MediaPage() {
           }
           adminLink="/admin/media"
           adminLabel="Upload Media"
+          minRoleForAdmin="band"
         />
       )}
 

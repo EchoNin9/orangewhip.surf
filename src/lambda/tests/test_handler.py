@@ -261,9 +261,113 @@ class TestUnauthorized:
         assert "error" in body
 
 
+class TestPress:
+    def test_press_upload_url(self, _patch_boto3):
+        """Editor can get presigned upload URL for press attachments."""
+        handler = _patch_boto3
+
+        event = _make_event(
+            "POST", "/press/upload-url",
+            body={"filename": "bio.pdf", "contentType": "application/pdf"},
+            auth=True, groups=["editor"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert "uploadUrl" in body
+        assert "fileUrl" in body
+        assert "fileId" in body
+        assert "s3Key" in body
+        assert "press/" in body["s3Key"]
+
+    def test_press_upload_url_unauthorized(self, _patch_boto3):
+        """Unauthenticated request to upload-url returns 401."""
+        handler = _patch_boto3
+        event = _make_event(
+            "POST", "/press/upload-url",
+            body={"filename": "bio.pdf", "contentType": "application/pdf"},
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 401
+
+
 class TestOptions:
     def test_options_preflight(self, _patch_boto3):
         handler = _patch_boto3
         event = _make_event("OPTIONS", "/shows")
         status, body = _parse_response(handler(event, None))
         assert status == 200
+
+
+class TestPublicProfile:
+    def test_public_profile_returns_profile(self, _patch_boto3):
+        """GET /profile/:identifier returns profile when profilePublic is True."""
+        handler = _patch_boto3
+
+        def get_item_side_effect(**kwargs):
+            key = kwargs.get("Key", {})
+            if key.get("PK") == "USER#user-abc" and key.get("SK") == "PROFILE":
+                return {
+                    "Item": {
+                        "PK": "USER#user-abc",
+                        "SK": "PROFILE",
+                        "displayName": "Test User",
+                        "userHandle": "testuser",
+                        "about": "Band member",
+                        "profilePublic": True,
+                    }
+                }
+            return {}
+
+        mock_table.get_item.side_effect = get_item_side_effect
+
+        event = _make_event("GET", "/profile/user-abc")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["displayName"] == "Test User"
+        assert body["userHandle"] == "testuser"
+        assert body["about"] == "Band member"
+
+    def test_public_profile_private_returns_403(self, _patch_boto3):
+        """GET /profile/:identifier returns 403 when profilePublic is False."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None  # Clear side_effect from prior test
+        mock_table.get_item.return_value = {
+            "Item": {
+                "PK": "USER#user-xyz",
+                "SK": "PROFILE",
+                "displayName": "Private User",
+                "profilePublic": False,
+            }
+        }
+
+        event = _make_event("GET", "/profile/user-xyz")
+        status, body = _parse_response(handler(event, None))
+        assert status == 403
+        assert body["error"] == "This user's profile is private"
+
+    def test_public_profile_not_found_returns_404(self, _patch_boto3):
+        """GET /profile/:identifier returns 404 when profile does not exist."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/profile/nonexistent")
+        status, body = _parse_response(handler(event, None))
+        assert status == 404
+        assert "error" in body
+
+
+class TestProfilePhotoUpload:
+    def test_profile_photo_upload_returns_presigned_url(self, _patch_boto3):
+        """POST /profile/photo-upload returns presigned URL for band+ users."""
+        handler = _patch_boto3
+
+        event = _make_event(
+            "POST", "/profile/photo-upload",
+            body={"filename": "avatar.jpg"},
+            auth=True, groups=["band"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert "uploadUrl" in body
+        assert "s3Key" in body
+        assert "profiles/" in body["s3Key"]

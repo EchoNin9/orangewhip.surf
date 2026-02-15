@@ -125,6 +125,7 @@ export function UpdatesPage() {
             description="Band news, announcements, and behind-the-scenes updates will appear here."
             adminLink="/admin/updates"
             adminLabel="Post First Update"
+            minRoleForAdmin="band"
           />
         ) : (
           <motion.div

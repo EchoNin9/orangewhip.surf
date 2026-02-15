@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowTopRightOnSquareIcon,
@@ -125,6 +126,7 @@ function formatDate(iso: string): string {
 
 export function PressPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [cards, setCards] = useState<PressCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -237,7 +239,16 @@ export function PressPage() {
             <motion.div
               key={card.id}
               variants={fadeUp}
-              className={`card p-6 ${
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/press/${card.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/press/${card.id}`);
+                }
+              }}
+              className={`card p-6 cursor-pointer transition-colors hover:border-primary-500/30 ${
                 card.pinned
                   ? "border-primary-500/40 ring-1 ring-primary-500/20"
                   : ""
@@ -274,6 +285,7 @@ export function PressPage() {
                         key={att.id}
                         href={att.url}
                         download={att.filename}
+                        onClick={(e) => e.stopPropagation()}
                         className="inline-flex items-center gap-1.5 text-sm bg-secondary-800 hover:bg-secondary-700 text-secondary-200 px-3 py-1.5 rounded-lg transition-colors"
                       >
                         <DocumentArrowDownIcon className="w-4 h-4 text-primary-400" />
@@ -297,6 +309,7 @@ export function PressPage() {
                         href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="inline-flex items-center gap-1.5 text-sm text-primary-400 hover:text-primary-300 transition-colors"
                       >
                         <ArrowTopRightOnSquareIcon className="w-4 h-4" />

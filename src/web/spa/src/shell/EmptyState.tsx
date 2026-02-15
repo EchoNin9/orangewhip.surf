@@ -13,11 +13,13 @@ interface EmptyStateProps {
   adminLink?: string;
   /** Label for the admin CTA button */
   adminLabel?: string;
+  /** Minimum role to see admin CTA: 'band' (updates/media) or 'editor' (shows/press). Default: editor */
+  minRoleForAdmin?: 'band' | 'editor';
 }
 
 /**
  * Full-width, visually prominent empty state.
- * Renders admin CTA when the current user has editor+ role.
+ * Renders admin CTA when the current user meets minRoleForAdmin (band or editor+).
  */
 export function EmptyState({
   iconPath,
@@ -25,9 +27,10 @@ export function EmptyState({
   description,
   adminLink,
   adminLabel = 'Add Content',
+  minRoleForAdmin = 'editor',
 }: EmptyStateProps) {
   const { user } = useAuth();
-  const canEdit = hasRole(user, 'editor');
+  const canEdit = hasRole(user, minRoleForAdmin);
 
   return (
     <motion.div

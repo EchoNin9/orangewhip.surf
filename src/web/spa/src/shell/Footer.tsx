@@ -13,7 +13,7 @@ export function Footer() {
               Orange Whip
             </Link>
             <p className="mt-2 text-sm text-secondary-400">
-              Vancouver rock at its finest.
+              Industrial Surf Rock
             </p>
           </div>
 

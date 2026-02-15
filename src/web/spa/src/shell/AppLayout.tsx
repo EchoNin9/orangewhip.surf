@@ -8,8 +8,10 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { HomePage } from '@/features/home/HomePage';
 import { UpdatesPage } from '@/features/updates/UpdatesPage';
 import { PressPage } from '@/features/press/PressPage';
+import { PressDetailPage } from '@/features/press/PressDetailPage';
 import { AuthPage } from '@/features/auth/AuthPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
+import { PublicProfilePage } from '@/features/profile/PublicProfilePage';
 
 /* ── Lazy-loaded feature pages ── */
 const ShowsPage = lazy(() => import('@/features/shows/ShowsPage'));
@@ -50,6 +52,7 @@ export function AppLayout() {
             <Route path="/" element={<HomePage />} />
             <Route path="/updates" element={<UpdatesPage />} />
             <Route path="/press" element={<PressPage />} />
+            <Route path="/press/:id" element={<PressDetailPage />} />
             <Route path="/login" element={<AuthPage />} />
 
             {/* Public shows */}
@@ -62,6 +65,7 @@ export function AppLayout() {
 
             {/* Authenticated */}
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/:identifier" element={<PublicProfilePage />} />
 
             {/* Admin */}
             <Route path="/admin" element={<AdminDashboard />} />

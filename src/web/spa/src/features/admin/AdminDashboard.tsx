@@ -16,6 +16,7 @@ import {
   canManageMedia,
   canEditContent,
   canAdminister,
+  canManageUsers,
 } from "../../shell/AuthContext";
 import { useEffect } from "react";
 
@@ -79,7 +80,7 @@ const modules: ModuleCard[] = [
     description: "Manage user accounts, roles, and group assignments.",
     icon: UsersIcon,
     to: "/admin/users",
-    visible: (u) => canAdminister(u),
+    visible: (u) => canManageUsers(u),
   },
   {
     title: "API Keys",

@@ -972,6 +972,13 @@ resource "aws_apigatewayv2_route" "venuesGet" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Public profile by identifier (handle or userId)
+resource "aws_apigatewayv2_route" "profileByIdentifierGet" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /profile/{identifier}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # Embed: API-key gated public content for embedding
 resource "aws_apigatewayv2_route" "embedShowsGet" {
   api_id    = aws_apigatewayv2_api.main.id
@@ -1008,6 +1015,14 @@ resource "aws_apigatewayv2_route" "profileGet" {
 resource "aws_apigatewayv2_route" "profilePut" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "PUT /profile"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "profilePhotoUpload" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /profile/photo-upload"
   target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
@@ -1100,6 +1115,14 @@ resource "aws_apigatewayv2_route" "pressPut" {
 resource "aws_apigatewayv2_route" "pressDelete" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "DELETE /press"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "pressUploadUrl" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /press/upload-url"
   target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
@@ -1237,6 +1260,22 @@ resource "aws_apigatewayv2_route" "adminUserGroupsPost" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "adminUserMarkForDeletion" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /admin/users/{username}/mark-for-deletion"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "adminUserUnmarkForDeletion" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /admin/users/{username}/mark-for-deletion"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "adminUserDelete" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "DELETE /admin/users/{username}"
@@ -1261,6 +1300,14 @@ resource "aws_apigatewayv2_route" "adminGroupsGet" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "adminGroupsMembersGet" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /admin/groups/{name}/members"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "adminGroupsPost" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "POST /admin/groups"
@@ -1277,9 +1324,25 @@ resource "aws_apigatewayv2_route" "adminGroupsPut" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "adminGroupsPutById" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /admin/groups"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "adminGroupsDelete" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "DELETE /admin/groups/{name}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "adminGroupsDeleteById" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /admin/groups"
   target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id

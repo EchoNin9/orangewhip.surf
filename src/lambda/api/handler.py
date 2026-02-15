@@ -639,13 +639,69 @@ def handle_updates(event, method, parts):
 # Route: Press
 # ---------------------------------------------------------------------------
 
+def _enrich_press_attachments(item: dict) -> dict:
+    """Add presigned URLs to fileAttachments in a press item."""
+    attachments = item.get("fileAttachments", []) or item.get("attachments", [])
+    if not attachments:
+        return item
+    enriched = []
+    for att in attachments:
+        a = dict(att)
+        s3_key = a.get("s3Key", "")
+        if s3_key:
+            a["url"] = _presign_get(s3_key)
+        enriched.append(a)
+    item["fileAttachments"] = enriched
+    item["attachments"] = enriched
+    return item
+
+
 def handle_press(event, method, parts):
+    # POST /press/upload-url — presigned URL for file upload
+    if method == "POST" and len(parts) >= 2 and parts[1] == "upload-url":
+        user, err = require_role(event, "editor")
+        if err:
+            return err
+        data = _body(event)
+        filename = data.get("filename", "upload.bin")
+        ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+        file_id = _new_id()
+        file_uuid = str(uuid.uuid4())
+        s3_key = f"press/{file_id}/{file_uuid}.{ext}"
+
+        # Do not include ContentType in Params - S3 would enforce exact match
+        # and browsers can vary (e.g. PDF as application/pdf vs application/x-pdf)
+        presigned_put = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": s3_key},
+            ExpiresIn=3600,
+        )
+        file_url = _presign_get(s3_key)
+        return ok({
+            "uploadUrl": presigned_put,
+            "fileUrl": file_url,
+            "fileId": file_id,
+            "s3Key": s3_key,
+        })
+
     if method == "GET":
         qs = _qs(event)
+        # Single item: GET /press?id=xxx
+        press_id = qs.get("id")
+        if press_id:
+            item = _get_item(f"PRESS#{press_id}")
+            if not item:
+                return error("Press not found", 404)
+            if not item.get("public") and not get_user_info(event):
+                return error("Press not found", 404)
+            _enrich_press_attachments(item)
+            return ok(item)
         if qs.get("all") == "true":
             items = _query_entity("PRESS")
         else:
             items = _query_entity("PRESS", public=True)
+        for item in items:
+            _enrich_press_attachments(item)
         return ok(items)
 
     if method == "POST":
@@ -1068,10 +1124,114 @@ def handle_me(event, method, parts):
     user, err = require_role(event, "band")
     if err:
         return err
+    # Enrich with profile displayName and userHandle for header display
+    profile = _get_item(f"USER#{user['userId']}", "PROFILE")
+    if profile:
+        user["displayName"] = profile.get("displayName", user.get("email", ""))
+        user["userHandle"] = profile.get("userHandle", "")
+    else:
+        user["displayName"] = user.get("email", "")
+        user["userHandle"] = ""
     return ok(user)
 
 
+def _resolve_profile_identifier(identifier: str) -> str | None:
+    """Resolve identifier (userId or handle slug) to userId. Returns None if not found."""
+    if not identifier:
+        return None
+    # Try direct userId lookup (UUID format or Cognito sub)
+    profile = _get_item(f"USER#{identifier}", "PROFILE")
+    if profile:
+        return identifier
+    # Try handle lookup: HANDLE#<slug> -> userId
+    handle_lookup = _get_item(f"HANDLE#{identifier.lower()}", "META")
+    if handle_lookup:
+        return handle_lookup.get("userId")
+    return None
+
+
+def handle_public_profile(event, method, parts):
+    """GET /profile/:identifier — public profile view. No auth required."""
+    if method != "GET" or len(parts) < 2:
+        return error("Not found", 404)
+    identifier = parts[1]
+    user_id = _resolve_profile_identifier(identifier)
+    if not user_id:
+        return error("Profile not found", 404)
+    profile = _get_item(f"USER#{user_id}", "PROFILE")
+    if not profile:
+        return error("Profile not found", 404)
+    if not profile.get("profilePublic", False):
+        return error("This user's profile is private", 403)
+    # Return sanitized public profile (no email, no internal fields)
+    key = profile.get("profilePhotoKey", "")
+    photo_url = _presign_get(key) if key and _is_image_key(key) else ""
+    public = {
+        "displayName": profile.get("displayName", ""),
+        "userHandle": profile.get("userHandle", ""),
+        "about": profile.get("about", profile.get("bio", "")),
+        "profilePhotoUrl": photo_url,
+    }
+    return ok(public)
+
+
+def _enrich_profile_with_photo(profile: dict) -> dict:
+    """Add profilePhotoUrl (presigned) from profilePhotoKey."""
+    key = profile.get("profilePhotoKey", "")
+    if key and _is_image_key(key):
+        profile["profilePhotoUrl"] = _presign_get(key)
+    elif not profile.get("profilePhotoUrl"):
+        profile["profilePhotoUrl"] = ""
+    return profile
+
+
+def _update_last_login(profile: dict, event: dict) -> None:
+    """Update profile with last login timestamp and IP from request."""
+    try:
+        ctx = event.get("requestContext", {})
+        http = ctx.get("http", {})
+        source_ip = http.get("sourceIp", "")
+        now = _now_iso()
+        profile["lastLoginAt"] = now
+        profile["lastLoginIp"] = source_ip
+        # Persist to DynamoDB
+        pk = profile.get("PK", "")
+        sk = profile.get("SK", "PROFILE")
+        if pk and sk:
+            table.update_item(
+                Key={"PK": pk, "SK": sk},
+                UpdateExpression="SET lastLoginAt = :t, lastLoginIp = :ip",
+                ExpressionAttributeValues={":t": now, ":ip": source_ip},
+            )
+    except Exception:
+        logger.exception("Failed to update last login")
+
+
 def handle_profile(event, method, parts):
+    # POST /profile/photo-upload — presigned URL for profile photo
+    if method == "POST" and len(parts) >= 2 and parts[1] == "photo-upload":
+        user, err = require_role(event, "band")
+        if err:
+            return err
+        data = _body(event)
+        filename = data.get("filename", "avatar.jpg")
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
+        if ext not in ("jpg", "jpeg", "png", "webp", "gif"):
+            ext = "jpg"
+        user_id = user["userId"]
+        file_uuid = str(uuid.uuid4())
+        s3_key = f"profiles/{user_id}/{file_uuid}.{ext}"
+        presigned = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": s3_key},
+            ExpiresIn=3600,
+        )
+        return ok({"uploadUrl": presigned, "s3Key": s3_key})
+
+    # Public profile by identifier: GET /profile/:identifier
+    if method == "GET" and len(parts) >= 2:
+        return handle_public_profile(event, method, parts)
+
     user, err = require_role(event, "band")
     if err:
         return err
@@ -1081,26 +1241,56 @@ def handle_profile(event, method, parts):
         profile = _get_item(f"USER#{user_id}", "PROFILE")
         if not profile:
             profile = {"displayName": "", "email": user["email"], "bio": ""}
-        # Merge role info from JWT for the frontend
+        profile["PK"] = f"USER#{user_id}"
+        profile["SK"] = "PROFILE"
+        _update_last_login(profile, event)
+        _enrich_profile_with_photo(profile)
         profile["role"] = user["role"]
         profile["groups"] = user["groups"]
         profile["customGroups"] = user.get("customGroups", [])
+        profile["about"] = profile.get("about", profile.get("bio", ""))
         return ok(profile)
 
     if method == "PUT":
         data = _body(event)
+        about_val = data.get("about", data.get("bio", ""))
         item = {
             "PK": f"USER#{user_id}",
             "SK": "PROFILE",
             "displayName": data.get("displayName", ""),
             "email": data.get("email", user["email"]),
-            "bio": data.get("bio", ""),
+            "bio": about_val,
+            "about": about_val,
+            "profilePublic": data.get("profilePublic", False),
+            "userHandle": data.get("userHandle", ""),
+            "profilePhotoKey": data.get("profilePhotoKey", ""),
         }
+        # Handle slug lookup for userHandle (for /profile/:handle URLs)
+        user_handle = (item.get("userHandle") or "").strip()
+        handle_slug = user_handle.lower().replace(" ", "-").replace("_", "-") if user_handle else ""
+        existing = _get_item(f"USER#{user_id}", "PROFILE")
+        old_slug = ""
+        if existing and existing.get("userHandle"):
+            old_slug = existing.get("userHandle", "").lower().replace(" ", "-").replace("_", "-")
+        if handle_slug:
+            existing_handle = _get_item(f"HANDLE#{handle_slug}", "META")
+            if existing_handle and existing_handle.get("userId") != user_id:
+                return error("That handle is already taken", 400)
+        if old_slug and old_slug != handle_slug:
+            _delete_item(f"HANDLE#{old_slug}", "META")
+        if handle_slug:
+            table.put_item(Item={
+                "PK": f"HANDLE#{handle_slug}",
+                "SK": "META",
+                "userId": user_id,
+                "entityType": "HANDLE_LOOKUP",
+            })
         table.put_item(Item=item)
-        # Merge role info back for the frontend
+        # Merge role info and enrich photo URL for the frontend
         item["role"] = user["role"]
         item["groups"] = user["groups"]
         item["customGroups"] = user.get("customGroups", [])
+        _enrich_profile_with_photo(item)
         return ok(item)
 
     return error("Method not allowed", 405)
@@ -1188,10 +1378,22 @@ def handle_embed(event, method, parts):
 # Route: Admin — Users
 # ---------------------------------------------------------------------------
 
+def _caller_is_admin(user_info: dict) -> bool:
+    """Return True if the caller has admin role."""
+    return user_info.get("role") == "admin"
+
+
+def _user_is_admin(cognito_groups: list[str]) -> bool:
+    """Return True if user is in the admin Cognito group."""
+    return "admin" in [g.lower() for g in cognito_groups]
+
+
 def handle_admin_users(event, method, parts):
-    user, err = require_role(event, "admin")
+    user, err = require_role(event, "manager")
     if err:
         return err
+
+    is_admin = _caller_is_admin(user)
 
     # GET /admin/users
     if method == "GET" and len(parts) == 2:
@@ -1213,6 +1415,10 @@ def handle_admin_users(event, method, parts):
                     cognito_groups = [g["GroupName"] for g in groups_resp.get("Groups", [])]
                 except ClientError:
                     logger.warning("Failed to fetch groups for user %s", username)
+
+                # Managers cannot see admin users
+                if not is_admin and _user_is_admin(cognito_groups):
+                    continue
 
                 # Fetch custom groups from DynamoDB
                 custom_groups = []
@@ -1236,6 +1442,10 @@ def handle_admin_users(event, method, parts):
                 if profile:
                     display_name = profile.get("displayName", "")
 
+                # Fetch marked-for-deletion flag
+                admin_meta = _get_item(f"USER#{user_id}", "ADMIN_META")
+                marked_for_deletion = bool(admin_meta and admin_meta.get("markedForDeletion"))
+
                 users.append({
                     "userId": user_id,
                     "username": username,
@@ -1243,6 +1453,7 @@ def handle_admin_users(event, method, parts):
                     "displayName": display_name,
                     "groups": cognito_groups,
                     "customGroups": custom_groups,
+                    "markedForDeletion": marked_for_deletion,
                     "createdAt": u.get("UserCreateDate", "").isoformat()
                     if hasattr(u.get("UserCreateDate", ""), "isoformat") else "",
                 })
@@ -1255,8 +1466,63 @@ def handle_admin_users(event, method, parts):
     if len(parts) >= 3:
         username = parts[2]
 
-        # DELETE /admin/users/{username}
+        # POST /admin/users/{username}/mark-for-deletion — manager can mark
+        if method == "POST" and len(parts) >= 4 and parts[3] == "mark-for-deletion":
+            try:
+                u_resp = cognito.admin_get_user(
+                    UserPoolId=COGNITO_USER_POOL_ID,
+                    Username=username,
+                )
+                u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                target_user_id = u_attrs.get("sub", username)
+                target_groups = [
+                    g["GroupName"] for g in cognito.admin_list_groups_for_user(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Username=username,
+                    ).get("Groups", [])
+                ]
+            except ClientError:
+                logger.exception("Failed to get user %s", username)
+                return error("Failed to get user", 500)
+
+            if not is_admin and _user_is_admin(target_groups):
+                return error("Forbidden", 403)
+
+            table.put_item(Item={
+                "PK": f"USER#{target_user_id}",
+                "SK": "ADMIN_META",
+                "markedForDeletion": True,
+                "markedBy": user["userId"],
+                "markedAt": _now_iso(),
+                "entityType": "USER_ADMIN_META",
+            })
+            return ok({"markedForDeletion": True, "username": username})
+
+        # DELETE /admin/users/{username}/mark-for-deletion — unmark
+        if method == "DELETE" and len(parts) >= 4 and parts[3] == "mark-for-deletion":
+            try:
+                u_resp = cognito.admin_get_user(
+                    UserPoolId=COGNITO_USER_POOL_ID,
+                    Username=username,
+                )
+                u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                target_user_id = u_attrs.get("sub", username)
+            except ClientError:
+                target_user_id = username
+
+            try:
+                table.delete_item(Key={
+                    "PK": f"USER#{target_user_id}",
+                    "SK": "ADMIN_META",
+                })
+            except Exception:
+                pass
+            return ok({"markedForDeletion": False, "username": username})
+
+        # DELETE /admin/users/{username} — only admin can actually delete
         if method == "DELETE" and len(parts) == 3:
+            if not is_admin:
+                return error("Forbidden: only admins can delete users", 403)
             try:
                 cognito.admin_disable_user(
                     UserPoolId=COGNITO_USER_POOL_ID,
@@ -1289,6 +1555,10 @@ def handle_admin_users(event, method, parts):
                 group_name = data.get("group") or data.get("groupName", "")
                 if not group_name:
                     return error("Missing group name")
+
+                # Managers cannot assign admin role
+                if not is_admin and group_type == "cognito" and group_name.lower() == "admin":
+                    return error("Forbidden: managers cannot assign admin role", 403)
 
                 if group_type == "custom":
                     # Look up user sub from Cognito attrs for DynamoDB key
@@ -1343,6 +1613,10 @@ def handle_admin_users(event, method, parts):
                 if not group_name:
                     return error("Missing group name")
 
+                # Managers cannot remove admin role
+                if not is_admin and group_type == "cognito" and group_name.lower() == "admin":
+                    return error("Forbidden: managers cannot remove admin role", 403)
+
                 if group_type == "custom":
                     try:
                         u_resp = cognito.admin_get_user(
@@ -1387,14 +1661,70 @@ def handle_admin_users(event, method, parts):
 # ---------------------------------------------------------------------------
 
 def handle_admin_groups(event, method, parts):
-    user, err = require_role(event, "admin")
+    user, err = require_role(event, "manager")
     if err:
         return err
 
+    is_admin = _caller_is_admin(user)
+    qs = _qs(event)
+
     # GET /admin/groups
-    if method == "GET":
+    if method == "GET" and len(parts) == 2:
         items = _query_entity("GROUP")
+        for item in items:
+            item["id"] = item.get("id") or item.get("name", "")
         return ok(items)
+
+    # GET /admin/groups/{name}/members
+    if method == "GET" and len(parts) >= 4 and parts[3] == "members":
+        group_name = parts[2]
+        try:
+            resp = table.query(
+                KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
+                ExpressionAttributeValues={
+                    ":pk": f"GROUP#{group_name}",
+                    ":sk": "MEMBER#",
+                },
+            )
+            members = []
+            for m in resp.get("Items", []):
+                user_id = m.get("userId", "")
+                if not user_id:
+                    continue
+                attrs = {}
+                cognito_groups = []
+                try:
+                    cognito_resp = cognito.list_users(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Filter=f'sub = "{user_id}"',
+                        Limit=1,
+                    )
+                    users = cognito_resp.get("Users", [])
+                    if not users:
+                        continue
+                    u = users[0]
+                    attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
+                    groups_resp = cognito.admin_list_groups_for_user(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Username=u["Username"],
+                    )
+                    cognito_groups = [g["GroupName"] for g in groups_resp.get("Groups", [])]
+                except ClientError:
+                    pass
+                # Managers cannot see admin users in member lists
+                if not is_admin and _user_is_admin(cognito_groups):
+                    continue
+                profile = _get_item(f"USER#{user_id}", "PROFILE")
+                display_name = profile.get("displayName", "") if profile else ""
+                members.append({
+                    "userId": user_id,
+                    "email": attrs.get("email", ""),
+                    "displayName": display_name,
+                })
+            return ok(members)
+        except ClientError:
+            logger.exception("Failed to list members for group %s", group_name)
+            return error("Failed to list members", 500)
 
     # POST /admin/groups
     if method == "POST":
@@ -1412,11 +1742,12 @@ def handle_admin_groups(event, method, parts):
             "entitySk": name,
         }
         table.put_item(Item=item)
+        item["id"] = name
         return ok(item, 201)
 
-    # PUT /admin/groups/{name}
-    if method == "PUT" and len(parts) >= 3:
-        name = parts[2]
+    # PUT /admin/groups/{name} or PUT /admin/groups?id={name}
+    name = parts[2] if len(parts) >= 3 else qs.get("id", "")
+    if method == "PUT" and name:
         existing = _get_item(f"GROUP#{name}")
         if not existing:
             return error("Group not found", 404)
@@ -1425,14 +1756,15 @@ def handle_admin_groups(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
+        existing["id"] = existing.get("id") or existing.get("name", "")
         return ok(existing)
 
-    # DELETE /admin/groups/{name}
-    if method == "DELETE" and len(parts) >= 3:
-        name = parts[2]
-        # Delete group metadata
-        _delete_item(f"GROUP#{name}")
-        # Delete all members
+    # DELETE /admin/groups/{name} or DELETE /admin/groups?id={name}
+    if method == "DELETE":
+        name = parts[2] if len(parts) >= 3 else qs.get("id", "")
+        if not name:
+            return error("Missing group name", 400)
+        _delete_item(f"GROUP#{name}", "META")
         try:
             resp = table.query(
                 KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
