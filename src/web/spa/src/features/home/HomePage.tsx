@@ -84,7 +84,7 @@ function isToday(iso: string): boolean {
 
 export function HomePage() {
   const { user } = useAuth();
-  const canEdit = hasRole(user, 'editor');
+  const canEdit = hasRole(user, 'band');
   const [pinnedUpdate, setPinnedUpdate] = useState<Update | null>(null);
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);

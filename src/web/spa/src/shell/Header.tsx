@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Bars3Icon, XMarkIcon, UserCircleIcon } from "@heroicons/react/24/outline";
-import { useAuth, canEditContent, canAdminister } from "./AuthContext";
+import { useAuth, canEditContent, canManageMedia } from "./AuthContext";
 
 /* ── SVG social icons (inline so we don't need extra deps) ── */
 function SpotifyIcon({ className }: { className?: string }) {
@@ -70,8 +70,7 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const showAdmin = user && canAdminister(user);
-  const showEditor = user && canEditContent(user);
+  const showAdminLink = user && (canEditContent(user) || canManageMedia(user));
 
   return (
     <header
@@ -127,7 +126,7 @@ export function Header() {
 
           {user ? (
             <div className="flex items-center gap-4 ml-4 pl-4 border-l border-secondary-700">
-              {(showEditor || showAdmin) && (
+              {showAdminLink && (
                 <NavLink to="/admin" className={navLinkClass}>Admin</NavLink>
               )}
               <NavLink to="/profile" className={navLinkClass}>
@@ -160,7 +159,7 @@ export function Header() {
               { to: "/updates", label: "Updates" },
               { to: "/press", label: "Press" },
               { to: "/media", label: "Media" },
-              ...(showEditor || showAdmin ? [{ to: "/admin", label: "Admin" }] : []),
+              ...(showAdminLink ? [{ to: "/admin", label: "Admin" }] : []),
               ...(user ? [{ to: "/profile", label: "Profile" }] : [{ to: "/login", label: "Sign In" }]),
             ].map((item) => (
               <NavLink
