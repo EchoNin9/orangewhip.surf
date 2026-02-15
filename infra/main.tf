@@ -636,6 +636,10 @@ resource "aws_lambda_layer_version" "pillow" {
   layer_name          = "ows-pillow-layer"
   compatible_runtimes = ["python3.12"]
   depends_on          = [null_resource.pillow_layer]
+
+  # Force new layer version when the build null_resource is recreated,
+  # ensuring the zip contains correct platform binaries.
+  description = "Build ${null_resource.pillow_layer.id}"
 }
 
 resource "aws_iam_role" "lambdaApi" {
