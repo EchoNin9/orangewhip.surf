@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, type FormEvent, type DragEvent } from "react";
-import { Link } from "react-router-dom";
-import { Tab } from "@headlessui/react";
+import { useState, useEffect, useRef, useCallback, Fragment, type FormEvent, type DragEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Tab, Dialog, Transition } from "@headlessui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CloudArrowUpIcon,
@@ -47,6 +47,23 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Edit Media types                                                   */
+/* ------------------------------------------------------------------ */
+
+interface EditMediaItem {
+  id: string;
+  title: string;
+  type: MediaType;
+  mediaType?: string;
+  url: string;
+  thumbnail?: string;
+  format?: string;
+  filesize?: number;
+  categories?: string[];
+  public?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -553,14 +570,89 @@ export default function MediaAdminPage() {
   const { user } = useAuth();
   const canMedia = canManageMedia(user);
   const isManager = hasRole(user, "manager");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [categories, setCategories] = useState<Category[]>([]);
+
+  /* ── Edit modal state (lives in parent, pre-filled before open) ── */
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItem, setEditItem] = useState<EditMediaItem | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editType, setEditType] = useState<MediaType>("image");
+  const [editCats, setEditCats] = useState<string[]>([]);
+  const [editPublic, setEditPublic] = useState(true);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     apiGet<Category[]>("/categories")
       .then(setCategories)
       .catch(() => {});
   }, []);
+
+  /* ── Open edit modal — pre-fill state THEN open ── */
+  function openEditModal(item: EditMediaItem) {
+    setEditItem(item);
+    setEditTitle(item.title || "");
+    setEditType(item.type || (item.mediaType as MediaType) || "image");
+    setEditCats(item.categories || []);
+    setEditPublic(item.public !== false);
+    setEditError(null);
+    setEditSaving(false);
+    setEditOpen(true);
+  }
+
+  /* ── Auto-open edit modal from URL param ?edit=<id> ── */
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId) return;
+    setEditLoading(true);
+    apiGet<EditMediaItem>(`/media?id=${editId}`)
+      .then((item) => {
+        openEditModal(item);
+      })
+      .catch(() => {
+        // Item not found — clear param silently
+        setSearchParams((prev) => { prev.delete("edit"); return prev; }, { replace: true });
+      })
+      .finally(() => setEditLoading(false));
+    // Run only when the edit param changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get("edit")]);
+
+  function closeEditModal() {
+    setEditOpen(false);
+    setEditItem(null);
+    setSearchParams((prev) => { prev.delete("edit"); return prev; }, { replace: true });
+  }
+
+  async function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!editItem) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await apiPut(`/media?id=${editItem.id}`, {
+        id: editItem.id,
+        title: editTitle.trim(),
+        mediaType: editType,
+        categories: editCats,
+        public: editPublic,
+      });
+      closeEditModal();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function toggleEditCat(id: string) {
+    setEditCats((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  }
 
   if (!canMedia) {
     return (
@@ -582,6 +674,14 @@ export default function MediaAdminPage() {
   return (
     <main className="container-max section-padding">
       <h1 className="text-3xl font-display font-bold text-white mb-8">Manage Media</h1>
+
+      {/* Loading indicator for edit fetch */}
+      {editLoading && (
+        <div className="text-center py-4 mb-4">
+          <div className="inline-block w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-secondary-400 text-sm mt-2">Loading media item…</p>
+        </div>
+      )}
 
       <Tab.Group>
         <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-xl p-1 mb-8 max-w-xs">
@@ -612,6 +712,169 @@ export default function MediaAdminPage() {
           )}
         </Tab.Panels>
       </Tab.Group>
+
+      {/* ── Edit Media Modal ── */}
+      <Transition appear show={editOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={closeEditModal}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-lg card p-6">
+                  <Dialog.Title className="text-xl font-display font-bold text-secondary-100 mb-6">
+                    Edit Media
+                  </Dialog.Title>
+
+                  {/* Preview thumbnail */}
+                  {editItem && (
+                    <div className="rounded-xl overflow-hidden bg-secondary-800 mb-6 max-h-48 flex items-center justify-center">
+                      {editItem.type === "image" && (editItem.thumbnail || editItem.url) ? (
+                        <img
+                          src={editItem.thumbnail || editItem.url}
+                          alt={editItem.title}
+                          className="w-full max-h-48 object-contain"
+                        />
+                      ) : editItem.type === "video" && (editItem.thumbnail || editItem.url) ? (
+                        editItem.thumbnail ? (
+                          <img
+                            src={editItem.thumbnail}
+                            alt={editItem.title}
+                            className="w-full max-h-48 object-contain"
+                          />
+                        ) : (
+                          <video
+                            src={`${editItem.url}#t=0.1`}
+                            muted
+                            preload="metadata"
+                            className="w-full max-h-48 object-contain"
+                          />
+                        )
+                      ) : editItem.type === "audio" ? (
+                        <div className="flex items-center justify-center h-24 w-full text-secondary-500">
+                          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+                          </svg>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleEditSubmit} className="space-y-5">
+                    {/* Title */}
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-300 mb-1">Title</label>
+                      <input
+                        type="text"
+                        required
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="input-field"
+                        placeholder="Media title"
+                      />
+                    </div>
+
+                    {/* Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-300 mb-1">Type</label>
+                      <select
+                        value={editType}
+                        onChange={(e) => setEditType(e.target.value as MediaType)}
+                        className="input-field"
+                      >
+                        <option value="image">Image</option>
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                      </select>
+                    </div>
+
+                    {/* Categories */}
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-300 mb-2">Categories</label>
+                      <div className="flex flex-wrap gap-2">
+                        {categories.length === 0 && (
+                          <p className="text-xs text-secondary-500">No categories defined yet.</p>
+                        )}
+                        {categories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => toggleEditCat(cat.id)}
+                            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                              editCats.includes(cat.id)
+                                ? "border-primary-500 bg-primary-500/20 text-primary-300"
+                                : "border-secondary-600 text-secondary-400 hover:border-secondary-500"
+                            }`}
+                          >
+                            <TagIcon className="w-3 h-3" />
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Public toggle */}
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <div
+                        className={`relative w-10 h-6 rounded-full transition-colors ${
+                          editPublic ? "bg-primary-500" : "bg-secondary-600"
+                        }`}
+                        onClick={() => setEditPublic((p) => !p)}
+                      >
+                        <div
+                          className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                            editPublic ? "left-5" : "left-1"
+                          }`}
+                        />
+                      </div>
+                      <span className="text-sm text-secondary-200">Public</span>
+                    </label>
+
+                    {/* Error */}
+                    {editError && (
+                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                        {editError}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={closeEditModal}
+                        className="btn-secondary text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" disabled={editSaving} className="btn-primary text-sm">
+                        {editSaving ? "Saving..." : "Save Changes"}
+                      </button>
+                    </div>
+                  </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </main>
   );
 }

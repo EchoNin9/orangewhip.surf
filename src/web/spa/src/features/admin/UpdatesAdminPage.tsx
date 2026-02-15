@@ -352,7 +352,15 @@ export function UpdatesAdminPage() {
 
       {/* ── Create / Edit Form Modal ── */}
       <Transition appear show={formOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setFormOpen(false)}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => {
+            // Guard: don't let HeadlessUI's stacked-dialog close propagation
+            // dismiss the form when the media picker is open / closing.
+            if (!mediaPickerOpen) setFormOpen(false);
+          }}
+        >
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"

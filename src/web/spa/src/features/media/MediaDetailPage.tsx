@@ -163,7 +163,7 @@ export default function MediaDetailPage() {
             </h1>
             {showEdit && (
               <Link
-                to="/admin/media"
+                to={`/admin/media?edit=${id}`}
                 className="shrink-0 inline-flex items-center gap-1.5 text-sm text-secondary-400 hover:text-primary-400 transition-colors"
               >
                 <PencilSquareIcon className="w-4 h-4" />
