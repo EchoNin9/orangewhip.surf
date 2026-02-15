@@ -7,7 +7,10 @@
 /** Read the API base URL injected by config.js */
 export function getApiBase(): string {
   const base = window.API_BASE_URL;
-  if (!base) throw new Error('API_BASE_URL is not configured. Ensure config.js is loaded.');
+  if (!base) {
+    console.warn('API_BASE_URL is not configured. API calls will fail.');
+    return '';
+  }
   return base.replace(/\/+$/, '');
 }
 
