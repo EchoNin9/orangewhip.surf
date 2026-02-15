@@ -218,25 +218,27 @@ export default function ShowDetailPage() {
           )}
 
           {/* Venue info */}
-          <div className="card p-6 mb-8">
-            <h2 className="text-sm uppercase tracking-wider text-secondary-400 font-semibold mb-3">
-              Venue
-            </h2>
-            <p className="text-xl font-display font-bold text-white">{show.venue.name}</p>
-            {show.venue.address && (
-              <p className="text-secondary-300 mt-1">{show.venue.address}</p>
-            )}
-            {show.venue.website && (
-              <a
-                href={show.venue.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-2 text-primary-400 hover:text-primary-300 transition-colors text-sm"
-              >
-                Visit venue website &rarr;
-              </a>
-            )}
-          </div>
+          {show.venue && (
+            <div className="card p-6 mb-8">
+              <h2 className="text-sm uppercase tracking-wider text-secondary-400 font-semibold mb-3">
+                Venue
+              </h2>
+              <p className="text-xl font-display font-bold text-white">{show.venue.name}</p>
+              {show.venue.address && (
+                <p className="text-secondary-300 mt-1">{show.venue.address}</p>
+              )}
+              {show.venue.website && (
+                <a
+                  href={show.venue.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-2 text-primary-400 hover:text-primary-300 transition-colors text-sm"
+                >
+                  Visit venue website &rarr;
+                </a>
+              )}
+            </div>
+          )}
 
           {/* Description */}
           {show.description && (
