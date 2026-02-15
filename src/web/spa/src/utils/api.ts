@@ -45,13 +45,17 @@ export async function apiFetch<T = unknown>(
 
   const token = await getToken();
   const viewAsGuest = sessionStorage.getItem('ows_view_as_guest') === 'true';
+  // Single-item fetches (e.g. /media?id=xxx) always use auth when available — user explicitly
+  // navigated to a resource URL and should see it with full member access
+  const isSingleItemFetch = path.includes('?id=') || path.includes('&id=');
+  const skipAuth = viewAsGuest && !isSingleItemFetch;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  if (token && !viewAsGuest) {
+  if (token && !skipAuth) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
