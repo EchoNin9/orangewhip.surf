@@ -154,13 +154,13 @@ export function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            <h1 className="text-6xl sm:text-8xl lg:text-9xl font-display font-bold text-gradient leading-none tracking-tight">
+            <h1 className="text-6xl sm:text-8xl lg:text-9xl font-display font-bold text-gradient leading-tight tracking-tight pb-2">
               Orange Whip
             </h1>
           </motion.div>
 
           <motion.p
-            className="mt-10 text-xl sm:text-2xl text-secondary-300 font-display tracking-widest uppercase"
+            className="mt-14 sm:mt-16 text-xl sm:text-2xl text-secondary-300 font-display tracking-widest uppercase"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}

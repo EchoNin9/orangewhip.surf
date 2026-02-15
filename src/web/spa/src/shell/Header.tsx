@@ -114,9 +114,7 @@ export function Header() {
       <nav className="container-max flex items-center justify-between py-3">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-sm">OW</span>
-          </div>
+          <img src="/logo.png" alt="Orange Whip" className="w-8 h-8 object-contain" />
           <span className="text-xl font-display font-bold text-gradient">Orange Whip</span>
         </Link>
 
