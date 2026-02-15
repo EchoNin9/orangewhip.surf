@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Header } from './Header';
 import { Footer } from './Footer';
+import { ErrorBoundary } from './ErrorBoundary';
 
 /* ── Eager-loaded feature pages (core navigation) ── */
 import { HomePage } from '@/features/home/HomePage';
@@ -41,6 +42,7 @@ export function AppLayout() {
       <Header />
 
       <div className="flex-1">
+        <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public pages */}
@@ -71,6 +73,7 @@ export function AppLayout() {
             <Route path="/admin/api-keys" element={<ApiKeysPage />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </div>
 
       <Footer />
