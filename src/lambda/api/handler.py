@@ -177,15 +177,22 @@ def _path_parts(event: dict) -> list[str]:
 
 
 def _query_entity(entity_type: str, **extra_filters) -> list[dict]:
-    """Query byEntity GSI by entityType."""
+    """Query byEntity GSI by entityType, paginating through all results."""
     try:
-        resp = table.query(
-            IndexName="byEntity",
-            KeyConditionExpression="entityType = :et",
-            ExpressionAttributeValues={":et": entity_type},
-            ScanIndexForward=False,
-        )
-        items = resp.get("Items", [])
+        query_params = {
+            "IndexName": "byEntity",
+            "KeyConditionExpression": "entityType = :et",
+            "ExpressionAttributeValues": {":et": entity_type},
+            "ScanIndexForward": False,
+        }
+        items: list[dict] = []
+        while True:
+            resp = table.query(**query_params)
+            items.extend(resp.get("Items", []))
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            query_params["ExclusiveStartKey"] = last_key
         # Apply extra filters in-memory
         for key, val in extra_filters.items():
             items = [i for i in items if i.get(key) == val]
@@ -264,8 +271,13 @@ def _presign_get(s3_key: str) -> str:
 
 def _enrich_media_item(item: dict) -> dict:
     """Add url, thumbnail, and type fields for frontend consumption."""
-    item["url"] = _presign_get(item.get("s3Key", ""))
-    item["thumbnail"] = _presign_get(item.get("thumbnailKey", ""))
+    url = _presign_get(item.get("s3Key", ""))
+    item["url"] = url
+    thumb = _presign_get(item.get("thumbnailKey", ""))
+    # For images, fall back to the main URL as the thumbnail preview
+    if not thumb and item.get("mediaType") == "image":
+        thumb = url
+    item["thumbnail"] = thumb
     item["type"] = item.get("mediaType", "image")
     return item
 

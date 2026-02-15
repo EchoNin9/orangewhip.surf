@@ -205,18 +205,23 @@ export default function MediaPage() {
   const fetchMedia = useCallback(async () => {
     const type = TABS[activeTab].type;
     const key = cacheKey(type, debouncedSearch, category, page);
+    const hasFilters = !!(debouncedSearch || category);
 
-    // Check cache
-    const cached = searchCache.get<MediaListCache>(key);
-    if (cached) {
-      if (page === 1) {
-        setItems(cached.items);
-      } else {
-        setItems((prev) => [...prev, ...cached.items]);
+    // Only use cache for filtered (search / category) results.
+    // The default unfiltered view always fetches fresh data so newly
+    // added items are visible immediately.
+    if (hasFilters) {
+      const cached = searchCache.get<MediaListCache>(key);
+      if (cached) {
+        if (page === 1) {
+          setItems(cached.items);
+        } else {
+          setItems((prev) => [...prev, ...cached.items]);
+        }
+        setTotal(cached.total);
+        setLoading(false);
+        return;
       }
-      setTotal(cached.total);
-      setLoading(false);
-      return;
     }
 
     setLoading(true);
@@ -228,8 +233,12 @@ export default function MediaPage() {
       if (category) path += `&category=${encodeURIComponent(category)}`;
 
       const rawItems = await apiGet<MediaItem[]>(path);
-      const cacheEntry: MediaListCache = { items: rawItems, total: rawItems.length };
-      searchCache.set(key, cacheEntry);
+
+      // Cache only filtered results
+      if (hasFilters) {
+        const cacheEntry: MediaListCache = { items: rawItems, total: rawItems.length };
+        searchCache.set(key, cacheEntry);
+      }
 
       if (page === 1) {
         setItems(rawItems);
