@@ -1014,12 +1014,50 @@ def handle_admin_users(event, method, parts):
             users = []
             for u in resp.get("Users", []):
                 attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
+                username = u["Username"]
+                user_id = attrs.get("sub", username)
+
+                # Fetch Cognito groups for this user
+                cognito_groups = []
+                try:
+                    groups_resp = cognito.admin_list_groups_for_user(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Username=username,
+                    )
+                    cognito_groups = [g["GroupName"] for g in groups_resp.get("Groups", [])]
+                except ClientError:
+                    logger.warning("Failed to fetch groups for user %s", username)
+
+                # Fetch custom groups from DynamoDB
+                custom_groups = []
+                try:
+                    cg_resp = table.query(
+                        KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
+                        ExpressionAttributeValues={
+                            ":pk": f"USER#{user_id}",
+                            ":sk": "GROUP#",
+                        },
+                    )
+                    custom_groups = [
+                        item.get("groupName", "") for item in cg_resp.get("Items", [])
+                    ]
+                except Exception:
+                    logger.warning("Failed to fetch custom groups for user %s", user_id)
+
+                # Fetch display name from profile
+                display_name = ""
+                profile = _get_item(f"USER#{user_id}", "PROFILE")
+                if profile:
+                    display_name = profile.get("displayName", "")
+
                 users.append({
-                    "username": u["Username"],
+                    "userId": user_id,
+                    "username": username,
                     "email": attrs.get("email", ""),
-                    "status": u.get("UserStatus", ""),
-                    "enabled": u.get("Enabled", False),
-                    "created": u.get("UserCreateDate", "").isoformat()
+                    "displayName": display_name,
+                    "groups": cognito_groups,
+                    "customGroups": custom_groups,
+                    "createdAt": u.get("UserCreateDate", "").isoformat()
                     if hasattr(u.get("UserCreateDate", ""), "isoformat") else "",
                 })
             return ok(users)
@@ -1061,33 +1099,99 @@ def handle_admin_users(event, method, parts):
             # POST /admin/users/{username}/groups
             if method == "POST":
                 data = _body(event)
-                group_name = data.get("groupName", "")
+                group_type = data.get("type", "cognito")
+                group_name = data.get("group") or data.get("groupName", "")
                 if not group_name:
-                    return error("Missing groupName")
-                try:
-                    cognito.admin_add_user_to_group(
-                        UserPoolId=COGNITO_USER_POOL_ID,
-                        Username=username,
-                        GroupName=group_name,
-                    )
-                    return ok({"added": group_name, "username": username})
-                except ClientError:
-                    logger.exception("Failed to add %s to group %s", username, group_name)
-                    return error("Failed to add user to group", 500)
+                    return error("Missing group name")
 
-            # DELETE /admin/users/{username}/groups/{groupName}
-            if method == "DELETE" and len(parts) >= 5:
-                group_name = parts[4]
-                try:
-                    cognito.admin_remove_user_from_group(
-                        UserPoolId=COGNITO_USER_POOL_ID,
-                        Username=username,
-                        GroupName=group_name,
-                    )
-                    return ok({"removed": group_name, "username": username})
-                except ClientError:
-                    logger.exception("Failed to remove %s from group %s", username, group_name)
-                    return error("Failed to remove user from group", 500)
+                if group_type == "custom":
+                    # Look up user sub from Cognito attrs for DynamoDB key
+                    try:
+                        u_resp = cognito.admin_get_user(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                        )
+                        u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                        user_id = u_attrs.get("sub", username)
+                    except ClientError:
+                        user_id = username
+
+                    try:
+                        # Write membership from both sides for efficient lookups
+                        table.put_item(Item={
+                            "PK": f"USER#{user_id}",
+                            "SK": f"GROUP#{group_name}",
+                            "groupName": group_name,
+                            "entityType": "USER_GROUP",
+                        })
+                        table.put_item(Item={
+                            "PK": f"GROUP#{group_name}",
+                            "SK": f"MEMBER#{user_id}",
+                            "userId": user_id,
+                        })
+                        return ok({"added": group_name, "username": username, "type": "custom"})
+                    except Exception:
+                        logger.exception("Failed to add %s to custom group %s", username, group_name)
+                        return error("Failed to add user to custom group", 500)
+                else:
+                    try:
+                        cognito.admin_add_user_to_group(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                            GroupName=group_name,
+                        )
+                        return ok({"added": group_name, "username": username, "type": "cognito"})
+                    except ClientError:
+                        logger.exception("Failed to add %s to group %s", username, group_name)
+                        return error("Failed to add user to group", 500)
+
+            # DELETE /admin/users/{username}/groups
+            if method == "DELETE":
+                qs = _qs(event)
+                group_type = qs.get("type", "cognito")
+                group_name = qs.get("group", "")
+
+                # Fallback: group name in path /admin/users/{username}/groups/{groupName}
+                if not group_name and len(parts) >= 5:
+                    group_name = parts[4]
+                if not group_name:
+                    return error("Missing group name")
+
+                if group_type == "custom":
+                    try:
+                        u_resp = cognito.admin_get_user(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                        )
+                        u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                        user_id = u_attrs.get("sub", username)
+                    except ClientError:
+                        user_id = username
+
+                    try:
+                        table.delete_item(Key={
+                            "PK": f"USER#{user_id}",
+                            "SK": f"GROUP#{group_name}",
+                        })
+                        table.delete_item(Key={
+                            "PK": f"GROUP#{group_name}",
+                            "SK": f"MEMBER#{user_id}",
+                        })
+                        return ok({"removed": group_name, "username": username, "type": "custom"})
+                    except Exception:
+                        logger.exception("Failed to remove %s from custom group %s", username, group_name)
+                        return error("Failed to remove user from custom group", 500)
+                else:
+                    try:
+                        cognito.admin_remove_user_from_group(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                            GroupName=group_name,
+                        )
+                        return ok({"removed": group_name, "username": username, "type": "cognito"})
+                    except ClientError:
+                        logger.exception("Failed to remove %s from group %s", username, group_name)
+                        return error("Failed to remove user from group", 500)
 
     return error("Not found", 404)
 

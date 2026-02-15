@@ -119,16 +119,13 @@ function UploadTab({ categories }: { categories: Category[] }) {
     try {
       if (mode === "file" && file) {
         // 1) Get presigned URL
-        const { uploadUrl, mediaId } = await apiPost<{
+        const { uploadUrl, mediaId, s3Key } = await apiPost<{
           uploadUrl: string;
           mediaId: string;
+          s3Key: string;
         }>("/media/upload", {
           filename: file.name,
           contentType: file.type,
-          title: title.trim() || file.name,
-          type,
-          categories: selectedCats,
-          isPublic,
         });
 
         // 2) PUT directly to S3
@@ -138,14 +135,26 @@ function UploadTab({ categories }: { categories: Category[] }) {
           headers: { "Content-Type": file.type },
         });
 
+        // 3) Create media record in DynamoDB
+        await apiPost("/media", {
+          id: mediaId,
+          title: title.trim() || file.name,
+          mediaType: type,
+          format: file.name.split(".").pop() || "",
+          filesize: file.size,
+          s3Key,
+          categories: selectedCats,
+          public: isPublic,
+        });
+
         setSuccess({ id: mediaId });
       } else if (mode === "url" && url.trim()) {
         const { mediaId } = await apiPost<{ mediaId: string }>("/media/import-from-url", {
           url: url.trim(),
           title: title.trim() || undefined,
-          type,
+          mediaType: type,
           categories: selectedCats,
-          isPublic,
+          public: isPublic,
         });
         setSuccess({ id: mediaId });
       }
