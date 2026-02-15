@@ -160,7 +160,7 @@ data "aws_iam_policy_document" "deploy" {
     ]
   }
 
-  # Cognito
+  # Cognito (user-pool-scoped actions)
   statement {
     sid    = "Cognito"
     effect = "Allow"
@@ -168,6 +168,18 @@ data "aws_iam_policy_document" "deploy" {
     resources = [
       "arn:aws:cognito-idp:${var.awsRegion}:${data.aws_caller_identity.current.account_id}:userpool/*"
     ]
+  }
+
+  # Cognito (domain-level actions that require resource "*")
+  statement {
+    sid    = "CognitoDomain"
+    effect = "Allow"
+    actions = [
+      "cognito-idp:DescribeUserPoolDomain",
+      "cognito-idp:CreateUserPoolDomain",
+      "cognito-idp:DeleteUserPoolDomain",
+    ]
+    resources = ["*"]
   }
 
   # Lambda
