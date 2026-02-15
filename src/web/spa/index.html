@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>Orange Whip</title>
+    <meta name="title" content="Orange Whip" />
+    <meta name="description" content="Orange Whip — Vancouver rock band. Shows, music, press, and more." />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://orangewhip.surf/" />
+    <meta property="og:title" content="Orange Whip" />
+    <meta property="og:description" content="Orange Whip — Vancouver rock band. Shows, music, press, and more." />
+    <meta property="og:image" content="https://orangewhip.surf/og.jpg" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://orangewhip.surf/" />
+    <meta property="twitter:title" content="Orange Whip" />
+    <meta property="twitter:description" content="Orange Whip — Vancouver rock band. Shows, music, press, and more." />
+    <meta property="twitter:image" content="https://orangewhip.surf/og.jpg" />
+
+    <!-- Theme color -->
+    <meta name="theme-color" content="#0f172a" />
+
+    <style>
+      /* Prevent FOUC - dark background while loading */
+      html { background-color: #0f172a; }
+      body { margin: 0; background-color: #0f172a; color: #f1f5f9; }
+    </style>
+
+    <!-- Runtime config (injected by deployment pipeline) -->
+    <script src="/config.js"></script>
+    <!-- Cognito auth bootstrap -->
+    <script src="/auth.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
