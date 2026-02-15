@@ -1,0 +1,100 @@
+# orangewhip.surf (OWS) Project Rules
+
+## 1. Project Context & Architecture
+- **Description:** A serverless web app for the rock band Orange Whip. Modules: Shows (gig cards), Updates (band news), Press (press kits), and Media (audio/video/images). Authenticated members manage content; public visitors browse the band's shows, updates, press, and public media.
+- **Frontend:** React SPA (Vite + React 18 + TailwindCSS) hosted as static assets on S3 Website buckets behind CloudFront. New UI work belongs in `src/web/spa` and must use the shared layout shell so navigation, footer, and theming stay consistent.
+- **Auth:** AWS Cognito (User Pools for identity & API security).
+- **API:** AWS API Gateway (HTTP API mode).
+- **Backend:** Python AWS Lambda (business logic).
+- **Database:** AWS DynamoDB (Single Table Design).
+- **Infrastructure:** Terraform (IaC) — all resources prefixed `ows-`.
+- **Media:** S3 bucket `ows-media` with presigned URL uploads.
+
+## 2. Roles & Access
+- **Cognito groups:** `admin` (precedence 1), `manager` (precedence 2), `editor` (precedence 3), `band` (precedence 4).
+- **Guest:** Unauthenticated visitors. Can browse public content (shows, press, public media, updates).
+- **Permissions:**
+  - **admin:** Full access to every area of the site — all modules, all admin pages.
+  - **manager:** Manage most content and settings.
+  - **editor:** Create/edit shows, updates, press.
+  - **band:** Add/edit media, create updates.
+  - **guest:** Read-only access to public content.
+- **Custom groups:** Stored in DynamoDB for module-level visibility toggling.
+- **Media uploads:** Only `band` group (and above) can add/edit media.
+
+## 3. Directory Structure (Strict Adherence)
+Adhere to this structure for all new files. Do not create files outside these folders without explicit instruction.
+```
+/
+├── .github/workflows/   # CI/CD pipelines (main.yml, dev.yml)
+├── infra/               # Terraform HCL files (Source of Truth for AWS)
+│   ├── main.tf          # Core infrastructure
+│   ├── cloudfront.tf    # CloudFront distributions
+│   ├── variables.tf     # All variables with "ows-" defaults
+│   ├── outputs.tf       # Terraform outputs
+│   └── versions.tf      # Provider versions + S3 backend
+├── src/
+│   ├── lambda/          # Python Lambda source code
+│   │   ├── api/         # API handlers (handler.py)
+│   │   ├── thumb/       # Thumbnail generation Lambda
+│   │   ├── common/      # Shared utilities (response.py)
+│   │   └── tests/       # Unit tests (pytest)
+│   └── web/             # Frontend
+│       ├── auth.js      # Cognito JS SDK bootstrap
+│       └── spa/         # React SPA (Vite)
+│           └── src/
+│               ├── shell/     # AppLayout, AuthContext
+│               ├── features/  # Feature modules
+│               └── utils/     # API helpers, caching
+├── docs/                # Architecture and API documentation
+└── .cursorrules         # This file
+```
+
+## 4. Infrastructure & Deployment Rules
+- **Source of Truth:** If a resource is not in Terraform (`infra/`), it does not exist.
+- **State Management:** Terraform state in the `ows-aws-s3-terraform-state` bucket with `ows-terraform-state-lock` DynamoDB lock table.
+- **Environment Strategy:**
+  - `development` branch -> **Staging** (S3 staging bucket, `stage.orangewhip.surf`).
+  - `main` branch -> **Production** (S3 production bucket, `orangewhip.surf`).
+- **Resource Prefix:** All AWS resources use the `ows-` prefix (e.g., `ows-main`, `ows-api`, `ows-media`).
+- **Storage Buckets:**
+  - `ows-website-staging` / `ows-website-production`: Frontend hosting.
+  - `ows-media`: User uploads (audio/video/images). **Must have CORS enabled.**
+
+## 5. Coding Standards
+- **Naming Conventions:**
+  - Files/Variables: `camelCase`.
+  - Constants/Env Vars: `UPPER_CASE` (e.g., `TABLE_NAME`, `MEDIA_BUCKET_URL`).
+- **Python Lambda (Backend):**
+  - **Inputs:** Parse `event['body']` cautiously.
+  - **Outputs:** Return standard JSON with CORS headers (`Access-Control-Allow-Origin`).
+  - **Logging:** `import logging` (Level: INFO). Always log the `event` object.
+  - **Testing:** Every function requires a corresponding `pytest` unit test in `src/lambda/tests/`.
+- **JavaScript (Frontend):**
+  - **Philosophy:** "Simple but modern." Use standard Fetch API.
+  - **Performance:** Prioritize speed. No heavy component libraries unless critical.
+  - **SPA location:** The canonical web UI is the React SPA in `src/web/spa`. All new screens, modules, and admin tools should be added as React routes under the shared `AppLayout` shell.
+  - **Layout shell:** Do not create standalone HTML pages. Add routes and components that plug into `AppLayout` so navigation and theming stay uniform.
+  - **Roles & visibility:** Use `AuthProvider`, `hasRole`, `isInGroup` from the SPA shell to gate links and admin-only functions. Avoid duplicating role checks inline.
+  - **SPA performance:** Keep dependencies light (headless UI libraries only when helpful). Avoid heavy component suites.
+
+## 6. Critical Patterns & Optimizations
+- **Media Uploads (Simplicity Rule):**
+  - **DO NOT** stream file data through Lambda/API Gateway.
+  - **Pattern:** 1. Frontend requests a **Presigned URL** from Lambda. 2. Frontend uploads file directly to `ows-media` bucket using `PUT`.
+  - **URL Import:** Frontend sends URL to Lambda. Lambda downloads, validates, uploads to S3, returns presigned GET URL.
+- **Database (DynamoDB):**
+  - Use generic PK/SK naming (e.g., `PK=SHOW#123`, `SK=META`) for Single Table Design flexibility.
+  - Use **Global Secondary Indexes (GSI)** for querying by entity type, category, date, group.
+- **Caching:**
+  - `localStorage` caching for categories (`ows_categories` key) and recent searches with TTL.
+  - CloudFront caches static frontend assets.
+- **Verification:**
+  - GitHub Actions must pass `pytest` before running `terraform apply`.
+
+## 7. Design System
+- **Theme:** Dark background (`#0f172a` slate-900) with orange accents (`#f97316` orange-500 scale).
+- **Fonts:** Oswald (display/headings), Inter (body/sans-serif).
+- **Components:** `.btn-primary` (orange gradient), `.btn-secondary` (dark slate), `.text-gradient` (orange gradient text), `.container-max` (responsive container).
+- **Brand identity:** This is a rock band website — bold, energetic, dark with vibrant orange.
+- **Top bar:** Social links (Spotify, Instagram, Facebook, Bluesky, YouTube, SoundCloud) always visible.
