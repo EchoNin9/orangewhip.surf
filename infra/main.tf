@@ -618,13 +618,15 @@ data "archive_file" "api" {
   excludes    = ["**/__pycache__/**", "**/*.pyc"]
 }
 
-# Pillow layer for image processing / dimension validation
+# Pillow layer for image processing / thumbnail generation
 resource "null_resource" "pillow_layer" {
   triggers = {
     requirements = file("${path.module}/layer_requirements.txt")
+    # Force rebuild: ensure Linux x86_64 binaries for Lambda runtime
+    build_cmd = "v2-linux-x86_64"
   }
   provisioner "local-exec" {
-    command     = "mkdir -p build/layer/python/lib/python3.12/site-packages && python3 -m pip install -r ${path.module}/layer_requirements.txt -t build/layer/python/lib/python3.12/site-packages --quiet && cd build/layer && zip -r ../pillow_layer.zip python"
+    command     = "rm -rf build/layer && mkdir -p build/layer/python/lib/python3.12/site-packages && python3 -m pip install -r ${path.module}/layer_requirements.txt -t build/layer/python/lib/python3.12/site-packages --quiet --platform manylinux2014_x86_64 --only-binary=:all: && cd build/layer && zip -r ../pillow_layer.zip python"
     working_dir = path.module
   }
 }
