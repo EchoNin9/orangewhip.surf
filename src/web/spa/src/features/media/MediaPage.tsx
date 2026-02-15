@@ -31,10 +31,10 @@ interface Category {
   name: string;
 }
 
-interface MediaListResponse {
+/* The API returns a flat MediaItem[] — we wrap it locally for caching */
+interface MediaListCache {
   items: MediaItem[];
   total: number;
-  nextToken?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -207,7 +207,7 @@ export default function MediaPage() {
     const key = cacheKey(type, debouncedSearch, category, page);
 
     // Check cache
-    const cached = searchCache.get<MediaListResponse>(key);
+    const cached = searchCache.get<MediaListCache>(key);
     if (cached) {
       if (page === 1) {
         setItems(cached.items);
@@ -227,15 +227,16 @@ export default function MediaPage() {
       if (debouncedSearch) path += `&search=${encodeURIComponent(debouncedSearch)}`;
       if (category) path += `&category=${encodeURIComponent(category)}`;
 
-      const data = await apiGet<MediaListResponse>(path);
-      searchCache.set(key, data);
+      const rawItems = await apiGet<MediaItem[]>(path);
+      const cacheEntry: MediaListCache = { items: rawItems, total: rawItems.length };
+      searchCache.set(key, cacheEntry);
 
       if (page === 1) {
-        setItems(data.items);
+        setItems(rawItems);
       } else {
-        setItems((prev) => [...prev, ...data.items]);
+        setItems((prev) => [...prev, ...rawItems]);
       }
-      setTotal(data.total);
+      setTotal(rawItems.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load media");
     } finally {

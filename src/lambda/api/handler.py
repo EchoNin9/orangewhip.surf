@@ -159,10 +159,10 @@ def _path_parts(event: dict) -> list[str]:
 
 
 def _query_entity(entity_type: str, **extra_filters) -> list[dict]:
-    """Query GSI1 by entityType."""
+    """Query byEntity GSI by entityType."""
     try:
         resp = table.query(
-            IndexName="GSI1",
+            IndexName="byEntity",
             KeyConditionExpression="entityType = :et",
             ExpressionAttributeValues={":et": entity_type},
             ScanIndexForward=False,
@@ -252,6 +252,15 @@ def handle_health(event, method):
 
 def handle_shows(event, method, parts):
     if method == "GET":
+        qs = _qs(event)
+        # Single show lookup: GET /shows?id=xxx
+        show_id = qs.get("id")
+        if show_id:
+            item = _get_item(f"SHOW#{show_id}")
+            if not item:
+                return error("Show not found", 404)
+            return ok(item)
+
         items = _query_entity("SHOW")
         now = _now_iso()
         upcoming = sorted(
@@ -263,7 +272,7 @@ def handle_shows(event, method, parts):
             key=lambda s: s.get("date", ""),
             reverse=True,
         )
-        return ok({"shows": upcoming + past})
+        return ok(upcoming + past)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -288,14 +297,15 @@ def handle_shows(event, method, parts):
             "entitySk": f"{date}#{show_id}",
         }
         table.put_item(Item=item)
-        return ok({"show": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "editor")
         if err:
             return err
         data = _body(event)
-        show_id = data.get("id", "")
+        qs = _qs(event)
+        show_id = data.get("id", "") or qs.get("id", "")
         if not show_id:
             return error("Missing show id")
         existing = _get_item(f"SHOW#{show_id}")
@@ -307,14 +317,15 @@ def handle_shows(event, method, parts):
         if "date" in data:
             existing["entitySk"] = f"{data['date']}#{show_id}"
         table.put_item(Item=existing)
-        return ok({"show": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        show_id = data.get("id", "")
+        qs = _qs(event)
+        show_id = data.get("id", "") or qs.get("id", "")
         if not show_id:
             return error("Missing show id")
         _delete_item(f"SHOW#{show_id}")
@@ -330,7 +341,7 @@ def handle_shows(event, method, parts):
 def handle_venues(event, method, parts):
     if method == "GET":
         items = _query_entity("VENUE")
-        return ok({"venues": items})
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -352,7 +363,7 @@ def handle_venues(event, method, parts):
             "entitySk": f"{name}#{venue_id}",
         }
         table.put_item(Item=item)
-        return ok({"venue": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "editor")
@@ -371,7 +382,7 @@ def handle_venues(event, method, parts):
         if "name" in data:
             existing["entitySk"] = f"{data['name']}#{venue_id}"
         table.put_item(Item=existing)
-        return ok({"venue": existing})
+        return ok(existing)
 
     return error("Method not allowed", 405)
 
@@ -384,12 +395,18 @@ def handle_updates(event, method, parts):
     # GET /updates/pinned
     if method == "GET" and len(parts) >= 2 and parts[1] == "pinned":
         items = _query_entity("UPDATE", pinned=True, visible=True)
-        pinned = items[0] if items else None
-        return ok({"update": pinned})
+        if not items:
+            return error("No pinned update", 404)
+        return ok(items[0])
 
     if method == "GET":
-        items = _query_entity("UPDATE", visible=True)
-        return ok({"updates": items})
+        qs = _qs(event)
+        # When all=true, return all updates (admin use)
+        if qs.get("all") == "true":
+            items = _query_entity("UPDATE")
+        else:
+            items = _query_entity("UPDATE", visible=True)
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "band")
@@ -413,14 +430,15 @@ def handle_updates(event, method, parts):
             "entitySk": f"{created_at}#{update_id}",
         }
         table.put_item(Item=item)
-        return ok({"update": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "band")
         if err:
             return err
         data = _body(event)
-        update_id = data.get("id", "")
+        qs = _qs(event)
+        update_id = data.get("id", "") or qs.get("id", "")
         if not update_id:
             return error("Missing update id")
         existing = _get_item(f"UPDATE#{update_id}")
@@ -430,14 +448,15 @@ def handle_updates(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
-        return ok({"update": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        update_id = data.get("id", "")
+        qs = _qs(event)
+        update_id = data.get("id", "") or qs.get("id", "")
         if not update_id:
             return error("Missing update id")
         _delete_item(f"UPDATE#{update_id}")
@@ -452,8 +471,12 @@ def handle_updates(event, method, parts):
 
 def handle_press(event, method, parts):
     if method == "GET":
-        items = _query_entity("PRESS", public=True)
-        return ok({"press": items})
+        qs = _qs(event)
+        if qs.get("all") == "true":
+            items = _query_entity("PRESS")
+        else:
+            items = _query_entity("PRESS", public=True)
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -478,14 +501,15 @@ def handle_press(event, method, parts):
             "entitySk": f"{created_at}#{press_id}",
         }
         table.put_item(Item=item)
-        return ok({"press": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "editor")
         if err:
             return err
         data = _body(event)
-        press_id = data.get("id", "")
+        qs = _qs(event)
+        press_id = data.get("id", "") or qs.get("id", "")
         if not press_id:
             return error("Missing press id")
         existing = _get_item(f"PRESS#{press_id}")
@@ -495,14 +519,15 @@ def handle_press(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
-        return ok({"press": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        press_id = data.get("id", "")
+        qs = _qs(event)
+        press_id = data.get("id", "") or qs.get("id", "")
         if not press_id:
             return error("Missing press id")
         _delete_item(f"PRESS#{press_id}")
@@ -522,15 +547,24 @@ def handle_media(event, method, parts):
         if err:
             return err
         items = _query_entity("MEDIA")
-        return ok({"media": items})
+        return ok(items)
 
     # GET /media — public only, with filters
     if method == "GET":
-        items = _query_entity("MEDIA", public=True)
         qs = _qs(event)
+
+        # Single item lookup: GET /media?id=xxx
+        media_id = qs.get("id")
+        if media_id:
+            item = _get_item(f"MEDIA#{media_id}")
+            if not item:
+                return error("Media not found", 404)
+            return ok(item)
+
+        items = _query_entity("MEDIA", public=True)
         media_type = qs.get("type")
-        query = qs.get("q", "").lower()
-        category_ids = qs.get("categoryIds", "")
+        query = qs.get("search", qs.get("q", "")).lower()
+        category_ids = qs.get("categoryIds", qs.get("category", ""))
 
         if media_type:
             items = [m for m in items if m.get("mediaType") == media_type]
@@ -546,7 +580,7 @@ def handle_media(event, method, parts):
                 m for m in items
                 if cat_set.intersection(set(m.get("categories", [])))
             ]
-        return ok({"media": items})
+        return ok(items)
 
     # POST /media/upload — presigned URL
     if method == "POST" and len(parts) >= 2 and parts[1] == "upload":
@@ -653,7 +687,7 @@ def handle_media(event, method, parts):
         }
         table.put_item(Item=item)
         _invoke_thumb(media_id, s3_key, media_type)
-        return ok({"media": item}, 201)
+        return ok({"mediaId": media_id}, 201)
 
     # POST /media — create media record (after client-side upload)
     if method == "POST":
@@ -692,7 +726,7 @@ def handle_media(event, method, parts):
         table.put_item(Item=item)
         if s3_key:
             _invoke_thumb(media_id, s3_key, media_type)
-        return ok({"media": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "band")
@@ -714,14 +748,15 @@ def handle_media(event, method, parts):
         if "categories" in data:
             existing["categoryId"] = data["categories"][0] if data["categories"] else "NONE"
         table.put_item(Item=existing)
-        return ok({"media": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        media_id = data.get("id", "")
+        qs = _qs(event)
+        media_id = data.get("id", "") or qs.get("id", "")
         if not media_id:
             return error("Missing media id")
         existing = _get_item(f"MEDIA#{media_id}")
@@ -747,7 +782,7 @@ def handle_media(event, method, parts):
 def handle_categories(event, method, parts):
     if method == "GET":
         items = _query_entity("CATEGORY")
-        return ok({"categories": items})
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "manager")
@@ -765,7 +800,7 @@ def handle_categories(event, method, parts):
             "entitySk": f"{name}#{cat_id}",
         }
         table.put_item(Item=item)
-        return ok({"category": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "manager")
@@ -782,14 +817,15 @@ def handle_categories(event, method, parts):
             existing["name"] = data["name"]
             existing["entitySk"] = f"{data['name']}#{cat_id}"
         table.put_item(Item=existing)
-        return ok({"category": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "manager")
         if err:
             return err
         data = _body(event)
-        cat_id = data.get("id", "")
+        qs = _qs(event)
+        cat_id = data.get("id", "") or qs.get("id", "")
         if not cat_id:
             return error("Missing category id")
         _delete_item(f"CATEGORY#{cat_id}")
@@ -819,7 +855,11 @@ def handle_profile(event, method, parts):
         profile = _get_item(f"USER#{user_id}", "PROFILE")
         if not profile:
             profile = {"displayName": "", "email": user["email"], "bio": ""}
-        return ok({"profile": profile})
+        # Merge role info from JWT for the frontend
+        profile["role"] = user["role"]
+        profile["groups"] = user["groups"]
+        profile["customGroups"] = user.get("customGroups", [])
+        return ok(profile)
 
     if method == "PUT":
         data = _body(event)
@@ -831,7 +871,11 @@ def handle_profile(event, method, parts):
             "bio": data.get("bio", ""),
         }
         table.put_item(Item=item)
-        return ok({"profile": item})
+        # Merge role info back for the frontend
+        item["role"] = user["role"]
+        item["groups"] = user["groups"]
+        item["customGroups"] = user.get("customGroups", [])
+        return ok(item)
 
     return error("Method not allowed", 405)
 
@@ -882,7 +926,7 @@ def handle_my_groups(event, method, parts):
 def handle_groups(event, method, parts):
     if method == "GET":
         items = _query_entity("GROUP")
-        return ok({"groups": items})
+        return ok(items)
     return error("Method not allowed", 405)
 
 
@@ -938,7 +982,7 @@ def handle_admin_users(event, method, parts):
                     "created": u.get("UserCreateDate", "").isoformat()
                     if hasattr(u.get("UserCreateDate", ""), "isoformat") else "",
                 })
-            return ok({"users": users})
+            return ok(users)
         except ClientError:
             logger.exception("Failed to list users")
             return error("Failed to list users", 500)
@@ -1020,7 +1064,7 @@ def handle_admin_groups(event, method, parts):
     # GET /admin/groups
     if method == "GET":
         items = _query_entity("GROUP")
-        return ok({"groups": items})
+        return ok(items)
 
     # POST /admin/groups
     if method == "POST":
@@ -1038,7 +1082,7 @@ def handle_admin_groups(event, method, parts):
             "entitySk": name,
         }
         table.put_item(Item=item)
-        return ok({"group": item}, 201)
+        return ok(item, 201)
 
     # PUT /admin/groups/{name}
     if method == "PUT" and len(parts) >= 3:
@@ -1051,7 +1095,7 @@ def handle_admin_groups(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
-        return ok({"group": existing})
+        return ok(existing)
 
     # DELETE /admin/groups/{name}
     if method == "DELETE" and len(parts) >= 3:
@@ -1092,7 +1136,8 @@ def handle_admin_api_keys(event, method, parts):
             pk = item.get("PK", "")
             key_val = pk.replace("APIKEY#", "")
             item["keyPreview"] = key_val[:8] + "..." if len(key_val) > 8 else key_val
-        return ok({"apiKeys": items})
+            item["id"] = key_val  # frontend uses id field
+        return ok(items)
 
     if method == "POST":
         data = _body(event)
@@ -1108,11 +1153,12 @@ def handle_admin_api_keys(event, method, parts):
             "entitySk": f"{_now_iso()}#{api_key}",
         }
         table.put_item(Item=item)
-        return ok({"apiKey": api_key, "item": item}, 201)
+        return ok({"id": api_key, "label": item["label"], "fullKey": api_key}, 201)
 
     if method == "DELETE":
         data = _body(event)
-        api_key = data.get("key", "")
+        qs = _qs(event)
+        api_key = data.get("key", "") or data.get("id", "") or qs.get("id", "")
         if not api_key:
             return error("Missing API key")
         _delete_item(f"APIKEY#{api_key}")

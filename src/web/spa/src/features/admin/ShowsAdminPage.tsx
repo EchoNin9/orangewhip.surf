@@ -148,8 +148,8 @@ function MediaPickerModal({
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
 
   useEffect(() => {
-    apiGet<{ items: MediaItem[] }>("/media?limit=50")
-      .then((res) => setMedia(res.items))
+    apiGet<MediaItem[]>("/media?limit=50")
+      .then((items) => setMedia(items))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
