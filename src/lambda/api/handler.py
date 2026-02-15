@@ -57,10 +57,54 @@ def get_role(groups: list[str]) -> str:
 
 
 def _parse_jwt_claims(event: dict) -> dict:
-    """Extract JWT claims from API Gateway v2 event."""
+    """Extract JWT claims from API Gateway v2 event (when authorizer ran).
+    For public routes (GET /media, /updates, /press), the authorizer does not run,
+    so we fall back to decoding the JWT from the Authorization header.
+    """
     try:
-        return event["requestContext"]["authorizer"]["jwt"]["claims"]
+        claims = event["requestContext"]["authorizer"]["jwt"]["claims"]
+        if claims:
+            return claims
     except (KeyError, TypeError):
+        pass
+
+    # Fallback: decode JWT from Authorization header (public routes)
+    auth_header = _get_header(event, "authorization") or ""
+    if not auth_header.startswith("Bearer "):
+        return {}
+    token = auth_header[7:].strip()
+    if not token:
+        return {}
+
+    try:
+        import jwt
+        pool_id = COGNITO_USER_POOL_ID
+        if not pool_id:
+            return {}
+        region = pool_id.split("_")[0] if "_" in pool_id else "us-east-1"
+        jwks_url = f"https://cognito-idp.{region}.amazonaws.com/{pool_id}/.well-known/jwks.json"
+        jwks_client = jwt.PyJWKClient(jwks_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_aud": False},
+        )
+        # Normalize to match API Gateway authorizer shape
+        groups = payload.get("cognito:groups") or payload.get("cognito_groups")
+        if isinstance(groups, str):
+            try:
+                groups = json.loads(groups) if groups.startswith("[") else [groups]
+            except (json.JSONDecodeError, ValueError):
+                groups = [g.strip().strip('"') for g in groups.strip("[]").replace(",", " ").split()]
+        return {
+            "sub": payload.get("sub", ""),
+            "email": payload.get("email", ""),
+            "cognito:groups": groups if isinstance(groups, list) else (groups or []),
+        }
+    except Exception:
+        logger.debug("JWT decode fallback failed", exc_info=True)
         return {}
 
 
@@ -81,13 +125,10 @@ def _get_header(event: dict, name: str) -> str | None:
 def get_user_info(event: dict) -> dict | None:
     """Return user info dict from the JWT, or None if unauthenticated.
     Supports admin impersonation via X-Impersonate-User and X-Impersonate-Role headers.
+    For public routes, decodes JWT from Authorization header (authorizer does not run).
     """
     claims = _parse_jwt_claims(event)
-    if not claims:
-        auth_header = event.get("headers", {}).get("authorization", "")
-        if not auth_header:
-            return None
-        # Fallback: try to decode from header (API GW should have done this)
+    if not claims or not claims.get("sub"):
         return None
 
     sub = claims.get("sub", "")
