@@ -107,7 +107,12 @@ export function PressAdminPage() {
     setLoading(true);
     apiGet<PressCard[]>("/press?all=true")
       .then((data) => {
-        const sorted = [...data].sort(
+        const normalised = (data ?? []).map((c) => ({
+          ...c,
+          attachments: c.attachments ?? [],
+          links: c.links ?? [],
+        }));
+        const sorted = normalised.sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
@@ -326,8 +331,8 @@ export function PressAdminPage() {
                 </p>
                 <p className="text-xs text-secondary-600 mt-1">
                   {formatDate(card.createdAt)} &middot;{" "}
-                  {card.attachments.length} file(s) &middot;{" "}
-                  {card.links.length} link(s)
+                  {(card.attachments ?? []).length} file(s) &middot;{" "}
+                  {(card.links ?? []).length} link(s)
                 </p>
               </div>
 
