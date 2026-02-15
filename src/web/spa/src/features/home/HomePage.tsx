@@ -8,6 +8,7 @@ import {
   MapPinIcon,
 } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
+import { useAuth, hasRole } from "../../shell/AuthContext";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -33,10 +34,14 @@ interface Update {
 interface Show {
   id: string;
   date: string;
-  venue: string;
-  city?: string;
+  venue?: {
+    name: string;
+    address?: string;
+    website?: string;
+  };
   description?: string;
-  thumbnailUrl?: string;
+  thumbnail?: string;
+  media?: { url: string; type: "image" | "video" }[];
   ticketUrl?: string;
 }
 
@@ -78,6 +83,8 @@ function isToday(iso: string): boolean {
 /* ------------------------------------------------------------------ */
 
 export function HomePage() {
+  const { user } = useAuth();
+  const canEdit = hasRole(user, 'editor');
   const [pinnedUpdate, setPinnedUpdate] = useState<Update | null>(null);
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
@@ -278,10 +285,10 @@ export function HomePage() {
                         : ""
                     }`}
                   >
-                    {show.thumbnailUrl && (
+                    {show.thumbnail && (
                       <div className="h-40 -mx-5 -mt-5 mb-4 rounded-t-xl overflow-hidden bg-secondary-700">
                         <img
-                          src={show.thumbnailUrl}
+                          src={show.thumbnail}
                           alt=""
                           className="w-full h-full object-cover"
                         />
@@ -300,19 +307,64 @@ export function HomePage() {
                     </div>
 
                     <h3 className="text-lg font-display font-bold text-secondary-100">
-                      {show.venue}
+                      {show.venue?.name}
                     </h3>
 
-                    {show.city && (
+                    {show.venue?.address && (
                       <div className="flex items-center gap-1 text-sm text-secondary-500 mt-1">
                         <MapPinIcon className="w-3.5 h-3.5" />
-                        <span>{show.city}</span>
+                        <span>{show.venue.address}</span>
                       </div>
                     )}
                   </Link>
                 </motion.div>
               ))}
             </div>
+          </motion.div>
+        </section>
+      )}
+
+      {/* ── Content coming soon (visible when no data loaded) ── */}
+      {!loading && !pinnedUpdate && shows.length === 0 && (
+        <section className="container-max section-padding">
+          <motion.div
+            className="text-center py-12 sm:py-16"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl mx-auto mb-12">
+              {[
+                { label: 'Shows', icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5', to: '/shows' },
+                { label: 'Music', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z', to: '/media' },
+                { label: 'News', icon: 'M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z', to: '/updates' },
+              ].map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  className="card p-6 text-center hover:border-primary-500/50 transition-colors group"
+                >
+                  <div className="mx-auto w-14 h-14 rounded-xl bg-primary-500/10 flex items-center justify-center mb-4 group-hover:bg-primary-500/20 transition-colors">
+                    <svg className="w-7 h-7 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+                    </svg>
+                  </div>
+                  <span className="text-lg font-display font-bold text-secondary-200 group-hover:text-primary-400 transition-colors">
+                    {item.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+
+            <p className="text-secondary-400 text-lg mb-6">
+              Content is on the way. Stay tuned!
+            </p>
+
+            {canEdit && (
+              <Link to="/admin" className="btn-primary">
+                Go to Admin Dashboard
+              </Link>
+            )}
           </motion.div>
         </section>
       )}

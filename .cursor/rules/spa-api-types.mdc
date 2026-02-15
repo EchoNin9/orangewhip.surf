@@ -1,0 +1,72 @@
+---
+description: API response shapes and SPA type conventions — prevents type mismatches between frontend interfaces and Lambda API responses
+globs: src/web/spa/**/*.tsx,src/web/spa/**/*.ts
+alwaysApply: false
+---
+
+# SPA ↔ API Type Contract
+
+The Lambda API (handler.py) transforms DynamoDB items before returning them.
+Frontend interfaces MUST match these actual shapes, not assumed ones.
+
+## Show (GET /shows)
+
+`venue` is an **embedded object**, NOT a string. The handler resolves `venueId` → full venue.
+
+```typescript
+// ✅ CORRECT — matches API response
+interface Show {
+  id: string;
+  title: string;
+  date: string;
+  venueId?: string;
+  venue?: { name: string; address?: string; website?: string };
+  description?: string;
+  thumbnail?: string;          // presigned URL from thumbnailMediaId
+  media?: { url: string; type: "image" | "video" }[];
+}
+
+// ❌ WRONG — caused React error #31 in production
+interface Show { venue: string; city?: string; thumbnailUrl?: string; }
+```
+
+Canonical source: `src/web/spa/src/features/shows/ShowsPage.tsx`
+
+## Update (GET /updates)
+
+`media[]` uses `thumbnailUrl` (not `thumbnail`), and `filename` (not `title`).
+
+```typescript
+interface Update {
+  id: string; title: string; content: string; createdAt: string;
+  pinned?: boolean; visible?: boolean;
+  media?: { id: string; url: string; type: "image"|"video"|"audio"; thumbnailUrl?: string; filename?: string }[];
+}
+```
+
+## Media (GET /media)
+
+Top-level media items use `thumbnail` (not `thumbnailUrl`). Different from Update.media[].
+
+```typescript
+interface MediaItem {
+  id: string; title: string; type: "image"|"audio"|"video";
+  url: string; thumbnail?: string;
+  format?: string; filesize?: number; categories?: string[];
+  addedBy?: string; addedAt?: string; aiSummary?: string;
+}
+```
+
+## Venue (GET /venues)
+
+```typescript
+interface Venue { id: string; name: string; address?: string; info?: string; website?: string; }
+```
+
+## Key Rules
+
+1. **Never type `venue` as `string`** — it is always `{ name, address, website }` when resolved
+2. **Never render API objects directly in JSX** — always access `.name`, `.url` etc.
+3. **`thumbnail` vs `thumbnailUrl`**: `/media` items use `thumbnail`; Update.media[] uses `thumbnailUrl`
+4. **DynamoDB fields leak through**: responses include `PK`, `SK`, `entityType` — ignore them in interfaces
+5. **Canonical types live in their feature's list page** (ShowsPage, MediaPage) — import or match them

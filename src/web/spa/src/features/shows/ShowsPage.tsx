@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { apiGet } from "../../utils/api";
+import { EmptyState } from "../../shell/EmptyState";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -11,14 +12,17 @@ export interface Show {
   id: string;
   title: string;
   date: string; // ISO date string
-  venue: {
+  venueId?: string;
+  venue?: {
     name: string;
     address?: string;
     website?: string;
   };
   description?: string;
   thumbnail?: string;
-  media?: { url: string; type: "image" | "video" }[];
+  thumbnailMediaId?: string;
+  mediaIds?: string[];
+  media?: { id: string; url: string; type: "image" | "video"; thumbnail?: string }[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -130,7 +134,7 @@ function ShowCard({ show, index }: { show: Show; index: number }) {
             {toDateStr(show.date)}
           </p>
           <p className="mt-1 text-sm text-secondary-400">
-            {show.venue.name}
+            {show.venue?.name}
           </p>
           {show.description && (
             <p className="mt-3 text-sm text-secondary-300 line-clamp-2">
@@ -244,12 +248,13 @@ export default function ShowsPage() {
       )}
 
       {!loading && !error && shows.length === 0 && (
-        <div className="text-center py-20">
-          <svg className="mx-auto w-16 h-16 text-secondary-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-          <p className="text-secondary-400 text-lg">No shows yet. Check back soon!</p>
-        </div>
+        <EmptyState
+          iconPath="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+          title="No Shows Scheduled Yet"
+          description="We're cooking up some live dates. Check back soon for upcoming gigs and past shows."
+          adminLink="/admin/shows"
+          adminLabel="Create First Show"
+        />
       )}
 
       {!loading && !error && shows.length > 0 && (

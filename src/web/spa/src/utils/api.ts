@@ -7,18 +7,25 @@
 /** Read the API base URL injected by config.js */
 export function getApiBase(): string {
   const base = window.API_BASE_URL;
-  if (!base) throw new Error('API_BASE_URL is not configured. Ensure config.js is loaded.');
+  if (!base) {
+    console.warn('API_BASE_URL is not configured. API calls will fail.');
+    return '';
+  }
   return base.replace(/\/+$/, '');
 }
 
-/** Promise wrapper around auth.js getAccessToken callback */
+/**
+ * Promise wrapper around auth.js getIdToken callback.
+ * Uses ID token (not access token) because it contains cognito:groups,
+ * which the API needs for role-based authorization.
+ */
 export function getToken(): Promise<string | null> {
   return new Promise((resolve) => {
     if (!window.auth) {
       resolve(null);
       return;
     }
-    window.auth.getAccessToken((err, token) => {
+    window.auth.getIdToken((err, token) => {
       if (err || !token) {
         resolve(null);
       } else {

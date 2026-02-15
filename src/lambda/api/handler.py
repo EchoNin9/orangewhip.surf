@@ -13,6 +13,7 @@ import urllib.error
 from datetime import datetime, timezone
 
 import boto3
+from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
 # ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ THUMB_FUNCTION_NAME = os.environ.get("THUMB_FUNCTION_NAME", "ows-thumb")
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(TABLE_NAME)
-s3 = boto3.client("s3")
+s3 = boto3.client("s3", config=BotoConfig(signature_version="s3v4"))
 cognito = boto3.client("cognito-idp")
 lambda_client = boto3.client("lambda")
 bedrock = boto3.client("bedrock-runtime")
@@ -75,14 +76,26 @@ def get_user_info(event: dict) -> dict | None:
 
     sub = claims.get("sub", "")
     email = claims.get("email", "")
-    cognito_groups_raw = claims.get("cognito:groups", "[]")
+    # Cognito/API GW may use cognito:groups or cognito_groups
+    cognito_groups_raw = claims.get("cognito:groups") or claims.get("cognito_groups") or "[]"
 
-    # cognito:groups can come as a string like "[admin editor]" or a real list
+    # cognito:groups can arrive as:
+    #   - a real list            ["admin", "band"]
+    #   - a JSON-encoded string  '["admin","band"]'
+    #   - API GW v2 stringified  '[admin, band]'
+    #   - space-separated        'admin band'
     if isinstance(cognito_groups_raw, list):
         groups = cognito_groups_raw
     elif isinstance(cognito_groups_raw, str):
-        cleaned = cognito_groups_raw.strip("[]")
-        groups = [g.strip() for g in cleaned.split() if g.strip()] if cleaned else []
+        # Try JSON first (handles '["admin","band"]')
+        try:
+            parsed = json.loads(cognito_groups_raw)
+            groups = parsed if isinstance(parsed, list) else [str(parsed)]
+        except (json.JSONDecodeError, ValueError):
+            # Fallback: strip brackets, split on commas or whitespace, clean quotes
+            cleaned = cognito_groups_raw.strip("[]")
+            parts = cleaned.replace(",", " ").split()
+            groups = [p.strip().strip('"').strip("'") for p in parts if p.strip()]
     else:
         groups = []
 
@@ -115,11 +128,16 @@ def require_role(event: dict, min_role: str) -> tuple[dict | None, dict | None]:
     """
     user = get_user_info(event)
     if user is None:
+        logger.warning("require_role: no user info (missing/invalid JWT)")
         return None, error("Unauthorized", 401)
 
     user_level = ROLE_HIERARCHY.index(user["role"])
     required_level = ROLE_HIERARCHY.index(min_role)
     if user_level < required_level:
+        logger.warning(
+            "require_role: user role=%s groups=%s insufficient for min_role=%s",
+            user["role"], user.get("groups", []), min_role,
+        )
         return user, error("Forbidden", 403)
     return user, None
 
@@ -159,15 +177,22 @@ def _path_parts(event: dict) -> list[str]:
 
 
 def _query_entity(entity_type: str, **extra_filters) -> list[dict]:
-    """Query GSI1 by entityType."""
+    """Query byEntity GSI by entityType, paginating through all results."""
     try:
-        resp = table.query(
-            IndexName="GSI1",
-            KeyConditionExpression="entityType = :et",
-            ExpressionAttributeValues={":et": entity_type},
-            ScanIndexForward=False,
-        )
-        items = resp.get("Items", [])
+        query_params = {
+            "IndexName": "byEntity",
+            "KeyConditionExpression": "entityType = :et",
+            "ExpressionAttributeValues": {":et": entity_type},
+            "ScanIndexForward": False,
+        }
+        items: list[dict] = []
+        while True:
+            resp = table.query(**query_params)
+            items.extend(resp.get("Items", []))
+            last_key = resp.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            query_params["ExclusiveStartKey"] = last_key
         # Apply extra filters in-memory
         for key, val in extra_filters.items():
             items = [i for i in items if i.get(key) == val]
@@ -226,6 +251,97 @@ def _generate_ai_summary(title: str, media_type: str) -> str:
         return ""
 
 
+PRESIGNED_GET_EXPIRY = 3600  # 1 hour
+
+
+def _presign_get(s3_key: str) -> str:
+    """Generate a presigned GET URL for an S3 key."""
+    if not s3_key:
+        return ""
+    try:
+        return s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": s3_key},
+            ExpiresIn=PRESIGNED_GET_EXPIRY,
+        )
+    except Exception:
+        logger.exception("Failed to generate presigned GET URL for %s", s3_key)
+        return ""
+
+
+def _enrich_media_item(item: dict) -> dict:
+    """Add url, thumbnail, and type fields for frontend consumption."""
+    url = _presign_get(item.get("s3Key", ""))
+    item["url"] = url
+    thumb = _presign_get(item.get("thumbnailKey", ""))
+    # For images, fall back to the main URL as the thumbnail preview
+    if not thumb and item.get("mediaType") == "image":
+        thumb = url
+    item["thumbnail"] = thumb
+    item["type"] = item.get("mediaType", "image")
+    return item
+
+
+def _enrich_media_items(items: list[dict]) -> list[dict]:
+    """Enrich a list of media items with presigned URLs."""
+    return [_enrich_media_item(item) for item in items]
+
+
+def _resolve_media_ids(media_ids: list[str]) -> list[dict]:
+    """Look up media items by IDs and return enriched items."""
+    if not media_ids:
+        return []
+    result = []
+    for mid in media_ids:
+        item = _get_item(f"MEDIA#{mid}")
+        if item:
+            result.append(_enrich_media_item(item))
+    return result
+
+
+def _resolve_show_media(show: dict) -> dict:
+    """Resolve thumbnailMediaId and mediaIds on a show for frontend display."""
+    thumb_media_id = show.get("thumbnailMediaId", "")
+    if thumb_media_id:
+        thumb_item = _get_item(f"MEDIA#{thumb_media_id}")
+        if thumb_item:
+            enriched = _enrich_media_item(thumb_item)
+            # Use the thumbnail URL, or the main URL for images
+            show["thumbnail"] = enriched.get("thumbnail") or enriched.get("url", "")
+
+    media_ids = show.get("mediaIds", [])
+    if media_ids:
+        resolved = _resolve_media_ids(media_ids)
+        show["media"] = resolved
+
+        # Fallback: if no explicit thumbnail, use first image media's thumbnail
+        if not show.get("thumbnail") and resolved:
+            for m in resolved:
+                if m.get("type") == "image":
+                    show["thumbnail"] = m.get("thumbnail") or m.get("url", "")
+                    break
+    return show
+
+
+def _resolve_update_media(update: dict) -> dict:
+    """Resolve mediaIds on an update for frontend display."""
+    media_ids = update.get("mediaIds", [])
+    if media_ids:
+        media_items = _resolve_media_ids(media_ids)
+        # Map to the shape the frontend expects
+        update["media"] = [
+            {
+                "id": m.get("id", ""),
+                "url": m.get("url", ""),
+                "type": m.get("type", "image"),
+                "thumbnailUrl": m.get("thumbnail", ""),
+                "filename": m.get("title", ""),
+            }
+            for m in media_items
+        ]
+    return update
+
+
 def _validate_api_key(event: dict, scope: str = "embed") -> bool:
     """Validate X-Api-Key header against DynamoDB APIKEY records."""
     api_key = event.get("headers", {}).get("x-api-key", "")
@@ -250,9 +366,44 @@ def handle_health(event, method):
 # Route: Shows
 # ---------------------------------------------------------------------------
 
+def _resolve_venues(shows: list[dict]) -> list[dict]:
+    """Attach a 'venue' object to each show that has a venueId."""
+    venue_ids = {s.get("venueId") for s in shows if s.get("venueId")}
+    if not venue_ids:
+        return shows
+    venue_map: dict[str, dict] = {}
+    for vid in venue_ids:
+        v = _get_item(f"VENUE#{vid}")
+        if v:
+            venue_map[vid] = {
+                "name": v.get("name", ""),
+                "address": v.get("address", ""),
+                "website": v.get("website", v.get("websiteUrl", "")),
+            }
+    for show in shows:
+        vid = show.get("venueId", "")
+        if vid and vid in venue_map:
+            show["venue"] = venue_map[vid]
+    return shows
+
+
 def handle_shows(event, method, parts):
     if method == "GET":
+        qs = _qs(event)
+        # Single show lookup: GET /shows?id=xxx
+        show_id = qs.get("id")
+        if show_id:
+            item = _get_item(f"SHOW#{show_id}")
+            if not item:
+                return error("Show not found", 404)
+            _resolve_venues([item])
+            _resolve_show_media(item)
+            return ok(item)
+
         items = _query_entity("SHOW")
+        _resolve_venues(items)
+        for item in items:
+            _resolve_show_media(item)
         now = _now_iso()
         upcoming = sorted(
             [s for s in items if s.get("date", "") >= now[:10]],
@@ -263,7 +414,7 @@ def handle_shows(event, method, parts):
             key=lambda s: s.get("date", ""),
             reverse=True,
         )
-        return ok({"shows": upcoming + past})
+        return ok(upcoming + past)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -288,14 +439,15 @@ def handle_shows(event, method, parts):
             "entitySk": f"{date}#{show_id}",
         }
         table.put_item(Item=item)
-        return ok({"show": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "editor")
         if err:
             return err
         data = _body(event)
-        show_id = data.get("id", "")
+        qs = _qs(event)
+        show_id = data.get("id", "") or qs.get("id", "")
         if not show_id:
             return error("Missing show id")
         existing = _get_item(f"SHOW#{show_id}")
@@ -307,14 +459,15 @@ def handle_shows(event, method, parts):
         if "date" in data:
             existing["entitySk"] = f"{data['date']}#{show_id}"
         table.put_item(Item=existing)
-        return ok({"show": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        show_id = data.get("id", "")
+        qs = _qs(event)
+        show_id = data.get("id", "") or qs.get("id", "")
         if not show_id:
             return error("Missing show id")
         _delete_item(f"SHOW#{show_id}")
@@ -330,7 +483,7 @@ def handle_shows(event, method, parts):
 def handle_venues(event, method, parts):
     if method == "GET":
         items = _query_entity("VENUE")
-        return ok({"venues": items})
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -347,12 +500,12 @@ def handle_venues(event, method, parts):
             "address": data.get("address", ""),
             "thumbnailUrl": data.get("thumbnailUrl", ""),
             "info": data.get("info", ""),
-            "websiteUrl": data.get("websiteUrl", ""),
+            "website": data.get("website", data.get("websiteUrl", "")),
             "entityType": "VENUE",
             "entitySk": f"{name}#{venue_id}",
         }
         table.put_item(Item=item)
-        return ok({"venue": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "editor")
@@ -365,13 +518,13 @@ def handle_venues(event, method, parts):
         existing = _get_item(f"VENUE#{venue_id}")
         if not existing:
             return error("Venue not found", 404)
-        for field in ["name", "address", "thumbnailUrl", "info", "websiteUrl"]:
+        for field in ["name", "address", "thumbnailUrl", "info", "website"]:
             if field in data:
                 existing[field] = data[field]
         if "name" in data:
             existing["entitySk"] = f"{data['name']}#{venue_id}"
         table.put_item(Item=existing)
-        return ok({"venue": existing})
+        return ok(existing)
 
     return error("Method not allowed", 405)
 
@@ -384,12 +537,21 @@ def handle_updates(event, method, parts):
     # GET /updates/pinned
     if method == "GET" and len(parts) >= 2 and parts[1] == "pinned":
         items = _query_entity("UPDATE", pinned=True, visible=True)
-        pinned = items[0] if items else None
-        return ok({"update": pinned})
+        if not items:
+            return error("No pinned update", 404)
+        _resolve_update_media(items[0])
+        return ok(items[0])
 
     if method == "GET":
-        items = _query_entity("UPDATE", visible=True)
-        return ok({"updates": items})
+        qs = _qs(event)
+        # When all=true, return all updates (admin use)
+        if qs.get("all") == "true":
+            items = _query_entity("UPDATE")
+        else:
+            items = _query_entity("UPDATE", visible=True)
+        for item in items:
+            _resolve_update_media(item)
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "band")
@@ -413,14 +575,15 @@ def handle_updates(event, method, parts):
             "entitySk": f"{created_at}#{update_id}",
         }
         table.put_item(Item=item)
-        return ok({"update": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "band")
         if err:
             return err
         data = _body(event)
-        update_id = data.get("id", "")
+        qs = _qs(event)
+        update_id = data.get("id", "") or qs.get("id", "")
         if not update_id:
             return error("Missing update id")
         existing = _get_item(f"UPDATE#{update_id}")
@@ -430,14 +593,15 @@ def handle_updates(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
-        return ok({"update": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        update_id = data.get("id", "")
+        qs = _qs(event)
+        update_id = data.get("id", "") or qs.get("id", "")
         if not update_id:
             return error("Missing update id")
         _delete_item(f"UPDATE#{update_id}")
@@ -452,8 +616,12 @@ def handle_updates(event, method, parts):
 
 def handle_press(event, method, parts):
     if method == "GET":
-        items = _query_entity("PRESS", public=True)
-        return ok({"press": items})
+        qs = _qs(event)
+        if qs.get("all") == "true":
+            items = _query_entity("PRESS")
+        else:
+            items = _query_entity("PRESS", public=True)
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -478,14 +646,15 @@ def handle_press(event, method, parts):
             "entitySk": f"{created_at}#{press_id}",
         }
         table.put_item(Item=item)
-        return ok({"press": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "editor")
         if err:
             return err
         data = _body(event)
-        press_id = data.get("id", "")
+        qs = _qs(event)
+        press_id = data.get("id", "") or qs.get("id", "")
         if not press_id:
             return error("Missing press id")
         existing = _get_item(f"PRESS#{press_id}")
@@ -495,14 +664,15 @@ def handle_press(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
-        return ok({"press": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        press_id = data.get("id", "")
+        qs = _qs(event)
+        press_id = data.get("id", "") or qs.get("id", "")
         if not press_id:
             return error("Missing press id")
         _delete_item(f"PRESS#{press_id}")
@@ -522,15 +692,26 @@ def handle_media(event, method, parts):
         if err:
             return err
         items = _query_entity("MEDIA")
-        return ok({"media": items})
+        _enrich_media_items(items)
+        return ok(items)
 
     # GET /media — public only, with filters
     if method == "GET":
-        items = _query_entity("MEDIA", public=True)
         qs = _qs(event)
+
+        # Single item lookup: GET /media?id=xxx
+        media_id = qs.get("id")
+        if media_id:
+            item = _get_item(f"MEDIA#{media_id}")
+            if not item:
+                return error("Media not found", 404)
+            _enrich_media_item(item)
+            return ok(item)
+
+        items = _query_entity("MEDIA", public=True)
         media_type = qs.get("type")
-        query = qs.get("q", "").lower()
-        category_ids = qs.get("categoryIds", "")
+        query = qs.get("search", qs.get("q", "")).lower()
+        category_ids = qs.get("categoryIds", qs.get("category", ""))
 
         if media_type:
             items = [m for m in items if m.get("mediaType") == media_type]
@@ -546,7 +727,8 @@ def handle_media(event, method, parts):
                 m for m in items
                 if cat_set.intersection(set(m.get("categories", [])))
             ]
-        return ok({"media": items})
+        _enrich_media_items(items)
+        return ok(items)
 
     # POST /media/upload — presigned URL
     if method == "POST" and len(parts) >= 2 and parts[1] == "upload":
@@ -653,7 +835,7 @@ def handle_media(event, method, parts):
         }
         table.put_item(Item=item)
         _invoke_thumb(media_id, s3_key, media_type)
-        return ok({"media": item}, 201)
+        return ok({"mediaId": media_id}, 201)
 
     # POST /media — create media record (after client-side upload)
     if method == "POST":
@@ -692,7 +874,7 @@ def handle_media(event, method, parts):
         table.put_item(Item=item)
         if s3_key:
             _invoke_thumb(media_id, s3_key, media_type)
-        return ok({"media": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "band")
@@ -714,14 +896,15 @@ def handle_media(event, method, parts):
         if "categories" in data:
             existing["categoryId"] = data["categories"][0] if data["categories"] else "NONE"
         table.put_item(Item=existing)
-        return ok({"media": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "admin")
         if err:
             return err
         data = _body(event)
-        media_id = data.get("id", "")
+        qs = _qs(event)
+        media_id = data.get("id", "") or qs.get("id", "")
         if not media_id:
             return error("Missing media id")
         existing = _get_item(f"MEDIA#{media_id}")
@@ -747,7 +930,7 @@ def handle_media(event, method, parts):
 def handle_categories(event, method, parts):
     if method == "GET":
         items = _query_entity("CATEGORY")
-        return ok({"categories": items})
+        return ok(items)
 
     if method == "POST":
         user, err = require_role(event, "manager")
@@ -765,7 +948,7 @@ def handle_categories(event, method, parts):
             "entitySk": f"{name}#{cat_id}",
         }
         table.put_item(Item=item)
-        return ok({"category": item}, 201)
+        return ok(item, 201)
 
     if method == "PUT":
         user, err = require_role(event, "manager")
@@ -782,14 +965,15 @@ def handle_categories(event, method, parts):
             existing["name"] = data["name"]
             existing["entitySk"] = f"{data['name']}#{cat_id}"
         table.put_item(Item=existing)
-        return ok({"category": existing})
+        return ok(existing)
 
     if method == "DELETE":
         user, err = require_role(event, "manager")
         if err:
             return err
         data = _body(event)
-        cat_id = data.get("id", "")
+        qs = _qs(event)
+        cat_id = data.get("id", "") or qs.get("id", "")
         if not cat_id:
             return error("Missing category id")
         _delete_item(f"CATEGORY#{cat_id}")
@@ -819,7 +1003,11 @@ def handle_profile(event, method, parts):
         profile = _get_item(f"USER#{user_id}", "PROFILE")
         if not profile:
             profile = {"displayName": "", "email": user["email"], "bio": ""}
-        return ok({"profile": profile})
+        # Merge role info from JWT for the frontend
+        profile["role"] = user["role"]
+        profile["groups"] = user["groups"]
+        profile["customGroups"] = user.get("customGroups", [])
+        return ok(profile)
 
     if method == "PUT":
         data = _body(event)
@@ -831,7 +1019,11 @@ def handle_profile(event, method, parts):
             "bio": data.get("bio", ""),
         }
         table.put_item(Item=item)
-        return ok({"profile": item})
+        # Merge role info back for the frontend
+        item["role"] = user["role"]
+        item["groups"] = user["groups"]
+        item["customGroups"] = user.get("customGroups", [])
+        return ok(item)
 
     return error("Method not allowed", 405)
 
@@ -882,7 +1074,7 @@ def handle_my_groups(event, method, parts):
 def handle_groups(event, method, parts):
     if method == "GET":
         items = _query_entity("GROUP")
-        return ok({"groups": items})
+        return ok(items)
     return error("Method not allowed", 405)
 
 
@@ -930,15 +1122,53 @@ def handle_admin_users(event, method, parts):
             users = []
             for u in resp.get("Users", []):
                 attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
+                username = u["Username"]
+                user_id = attrs.get("sub", username)
+
+                # Fetch Cognito groups for this user
+                cognito_groups = []
+                try:
+                    groups_resp = cognito.admin_list_groups_for_user(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Username=username,
+                    )
+                    cognito_groups = [g["GroupName"] for g in groups_resp.get("Groups", [])]
+                except ClientError:
+                    logger.warning("Failed to fetch groups for user %s", username)
+
+                # Fetch custom groups from DynamoDB
+                custom_groups = []
+                try:
+                    cg_resp = table.query(
+                        KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
+                        ExpressionAttributeValues={
+                            ":pk": f"USER#{user_id}",
+                            ":sk": "GROUP#",
+                        },
+                    )
+                    custom_groups = [
+                        item.get("groupName", "") for item in cg_resp.get("Items", [])
+                    ]
+                except Exception:
+                    logger.warning("Failed to fetch custom groups for user %s", user_id)
+
+                # Fetch display name from profile
+                display_name = ""
+                profile = _get_item(f"USER#{user_id}", "PROFILE")
+                if profile:
+                    display_name = profile.get("displayName", "")
+
                 users.append({
-                    "username": u["Username"],
+                    "userId": user_id,
+                    "username": username,
                     "email": attrs.get("email", ""),
-                    "status": u.get("UserStatus", ""),
-                    "enabled": u.get("Enabled", False),
-                    "created": u.get("UserCreateDate", "").isoformat()
+                    "displayName": display_name,
+                    "groups": cognito_groups,
+                    "customGroups": custom_groups,
+                    "createdAt": u.get("UserCreateDate", "").isoformat()
                     if hasattr(u.get("UserCreateDate", ""), "isoformat") else "",
                 })
-            return ok({"users": users})
+            return ok(users)
         except ClientError:
             logger.exception("Failed to list users")
             return error("Failed to list users", 500)
@@ -977,33 +1207,99 @@ def handle_admin_users(event, method, parts):
             # POST /admin/users/{username}/groups
             if method == "POST":
                 data = _body(event)
-                group_name = data.get("groupName", "")
+                group_type = data.get("type", "cognito")
+                group_name = data.get("group") or data.get("groupName", "")
                 if not group_name:
-                    return error("Missing groupName")
-                try:
-                    cognito.admin_add_user_to_group(
-                        UserPoolId=COGNITO_USER_POOL_ID,
-                        Username=username,
-                        GroupName=group_name,
-                    )
-                    return ok({"added": group_name, "username": username})
-                except ClientError:
-                    logger.exception("Failed to add %s to group %s", username, group_name)
-                    return error("Failed to add user to group", 500)
+                    return error("Missing group name")
 
-            # DELETE /admin/users/{username}/groups/{groupName}
-            if method == "DELETE" and len(parts) >= 5:
-                group_name = parts[4]
-                try:
-                    cognito.admin_remove_user_from_group(
-                        UserPoolId=COGNITO_USER_POOL_ID,
-                        Username=username,
-                        GroupName=group_name,
-                    )
-                    return ok({"removed": group_name, "username": username})
-                except ClientError:
-                    logger.exception("Failed to remove %s from group %s", username, group_name)
-                    return error("Failed to remove user from group", 500)
+                if group_type == "custom":
+                    # Look up user sub from Cognito attrs for DynamoDB key
+                    try:
+                        u_resp = cognito.admin_get_user(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                        )
+                        u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                        user_id = u_attrs.get("sub", username)
+                    except ClientError:
+                        user_id = username
+
+                    try:
+                        # Write membership from both sides for efficient lookups
+                        table.put_item(Item={
+                            "PK": f"USER#{user_id}",
+                            "SK": f"GROUP#{group_name}",
+                            "groupName": group_name,
+                            "entityType": "USER_GROUP",
+                        })
+                        table.put_item(Item={
+                            "PK": f"GROUP#{group_name}",
+                            "SK": f"MEMBER#{user_id}",
+                            "userId": user_id,
+                        })
+                        return ok({"added": group_name, "username": username, "type": "custom"})
+                    except Exception:
+                        logger.exception("Failed to add %s to custom group %s", username, group_name)
+                        return error("Failed to add user to custom group", 500)
+                else:
+                    try:
+                        cognito.admin_add_user_to_group(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                            GroupName=group_name,
+                        )
+                        return ok({"added": group_name, "username": username, "type": "cognito"})
+                    except ClientError:
+                        logger.exception("Failed to add %s to group %s", username, group_name)
+                        return error("Failed to add user to group", 500)
+
+            # DELETE /admin/users/{username}/groups
+            if method == "DELETE":
+                qs = _qs(event)
+                group_type = qs.get("type", "cognito")
+                group_name = qs.get("group", "")
+
+                # Fallback: group name in path /admin/users/{username}/groups/{groupName}
+                if not group_name and len(parts) >= 5:
+                    group_name = parts[4]
+                if not group_name:
+                    return error("Missing group name")
+
+                if group_type == "custom":
+                    try:
+                        u_resp = cognito.admin_get_user(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                        )
+                        u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                        user_id = u_attrs.get("sub", username)
+                    except ClientError:
+                        user_id = username
+
+                    try:
+                        table.delete_item(Key={
+                            "PK": f"USER#{user_id}",
+                            "SK": f"GROUP#{group_name}",
+                        })
+                        table.delete_item(Key={
+                            "PK": f"GROUP#{group_name}",
+                            "SK": f"MEMBER#{user_id}",
+                        })
+                        return ok({"removed": group_name, "username": username, "type": "custom"})
+                    except Exception:
+                        logger.exception("Failed to remove %s from custom group %s", username, group_name)
+                        return error("Failed to remove user from custom group", 500)
+                else:
+                    try:
+                        cognito.admin_remove_user_from_group(
+                            UserPoolId=COGNITO_USER_POOL_ID,
+                            Username=username,
+                            GroupName=group_name,
+                        )
+                        return ok({"removed": group_name, "username": username, "type": "cognito"})
+                    except ClientError:
+                        logger.exception("Failed to remove %s from group %s", username, group_name)
+                        return error("Failed to remove user from group", 500)
 
     return error("Not found", 404)
 
@@ -1020,7 +1316,7 @@ def handle_admin_groups(event, method, parts):
     # GET /admin/groups
     if method == "GET":
         items = _query_entity("GROUP")
-        return ok({"groups": items})
+        return ok(items)
 
     # POST /admin/groups
     if method == "POST":
@@ -1038,7 +1334,7 @@ def handle_admin_groups(event, method, parts):
             "entitySk": name,
         }
         table.put_item(Item=item)
-        return ok({"group": item}, 201)
+        return ok(item, 201)
 
     # PUT /admin/groups/{name}
     if method == "PUT" and len(parts) >= 3:
@@ -1051,7 +1347,7 @@ def handle_admin_groups(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
-        return ok({"group": existing})
+        return ok(existing)
 
     # DELETE /admin/groups/{name}
     if method == "DELETE" and len(parts) >= 3:
@@ -1092,7 +1388,8 @@ def handle_admin_api_keys(event, method, parts):
             pk = item.get("PK", "")
             key_val = pk.replace("APIKEY#", "")
             item["keyPreview"] = key_val[:8] + "..." if len(key_val) > 8 else key_val
-        return ok({"apiKeys": items})
+            item["id"] = key_val  # frontend uses id field
+        return ok(items)
 
     if method == "POST":
         data = _body(event)
@@ -1108,11 +1405,12 @@ def handle_admin_api_keys(event, method, parts):
             "entitySk": f"{_now_iso()}#{api_key}",
         }
         table.put_item(Item=item)
-        return ok({"apiKey": api_key, "item": item}, 201)
+        return ok({"id": api_key, "label": item["label"], "fullKey": api_key}, 201)
 
     if method == "DELETE":
         data = _body(event)
-        api_key = data.get("key", "")
+        qs = _qs(event)
+        api_key = data.get("key", "") or data.get("id", "") or qs.get("id", "")
         if not api_key:
             return error("Missing API key")
         _delete_item(f"APIKEY#{api_key}")

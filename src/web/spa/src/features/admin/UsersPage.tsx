@@ -17,6 +17,7 @@ import { useAuth, canAdminister, type UserRole } from "../../shell/AuthContext";
 
 interface ManagedUser {
   userId: string;
+  username: string;          /* Cognito Username (used for API calls) */
   email: string;
   displayName?: string;
   groups: string[];          /* Cognito groups */
@@ -69,7 +70,16 @@ export function UsersPage() {
   const fetchUsers = () => {
     setLoading(true);
     apiGet<ManagedUser[]>("/admin/users")
-      .then(setUsers)
+      .then((data) =>
+        setUsers(
+          data.map((u) => ({
+            ...u,
+            username: u.username || u.userId,
+            groups: u.groups ?? [],
+            customGroups: u.customGroups ?? [],
+          })),
+        ),
+      )
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
@@ -111,7 +121,7 @@ export function UsersPage() {
 
   async function addCognitoGroup(u: ManagedUser, role: string) {
     try {
-      await apiPost(`/admin/users/${u.userId}/groups`, {
+      await apiPost(`/admin/users/${u.username}/groups`, {
         type: "cognito",
         group: role,
       });
@@ -123,7 +133,7 @@ export function UsersPage() {
 
   async function removeCognitoGroup(u: ManagedUser, role: string) {
     try {
-      await apiDelete(`/admin/users/${u.userId}/groups?type=cognito&group=${role}`);
+      await apiDelete(`/admin/users/${u.username}/groups?type=cognito&group=${role}`);
       fetchUsers();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to remove group");
@@ -132,7 +142,7 @@ export function UsersPage() {
 
   async function addCustomGroup(u: ManagedUser, group: string) {
     try {
-      await apiPost(`/admin/users/${u.userId}/groups`, {
+      await apiPost(`/admin/users/${u.username}/groups`, {
         type: "custom",
         group,
       });
@@ -145,7 +155,7 @@ export function UsersPage() {
   async function removeCustomGroup(u: ManagedUser, group: string) {
     try {
       await apiDelete(
-        `/admin/users/${u.userId}/groups?type=custom&group=${encodeURIComponent(group)}`,
+        `/admin/users/${u.username}/groups?type=custom&group=${encodeURIComponent(group)}`,
       );
       fetchUsers();
     } catch (err: unknown) {
@@ -158,7 +168,7 @@ export function UsersPage() {
   async function confirmDeleteUser() {
     if (!deleteTarget) return;
     try {
-      await apiDelete(`/admin/users/${deleteTarget.userId}`);
+      await apiDelete(`/admin/users/${deleteTarget.username}`);
       setDeleteTarget(null);
       fetchUsers();
     } catch (err: unknown) {

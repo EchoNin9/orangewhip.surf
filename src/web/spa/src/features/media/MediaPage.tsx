@@ -4,6 +4,7 @@ import { Tab } from "@headlessui/react";
 import { MagnifyingGlassIcon, PlayIcon } from "@heroicons/react/24/solid";
 import { motion } from "framer-motion";
 import { apiGet, searchCache } from "../../utils/api";
+import { EmptyState } from "../../shell/EmptyState";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -30,10 +31,10 @@ interface Category {
   name: string;
 }
 
-interface MediaListResponse {
+/* The API returns a flat MediaItem[] — we wrap it locally for caching */
+interface MediaListCache {
   items: MediaItem[];
   total: number;
-  nextToken?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -95,15 +96,20 @@ function MediaCard({ item, index }: { item: MediaItem; index: number }) {
               alt={item.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
+          ) : item.type === "video" && item.url ? (
+            /* Videos without a dedicated thumbnail: render a muted <video>
+               that loads just enough metadata to display the first frame. */
+            <video
+              src={`${item.url}#t=0.1`}
+              muted
+              preload="metadata"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
           ) : (
             <div className="flex items-center justify-center h-full text-secondary-600">
               {item.type === "audio" ? (
                 <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
-                </svg>
-              ) : item.type === "video" ? (
-                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z" />
                 </svg>
               ) : (
                 <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -204,18 +210,23 @@ export default function MediaPage() {
   const fetchMedia = useCallback(async () => {
     const type = TABS[activeTab].type;
     const key = cacheKey(type, debouncedSearch, category, page);
+    const hasFilters = !!(debouncedSearch || category);
 
-    // Check cache
-    const cached = searchCache.get<MediaListResponse>(key);
-    if (cached) {
-      if (page === 1) {
-        setItems(cached.items);
-      } else {
-        setItems((prev) => [...prev, ...cached.items]);
+    // Only use cache for filtered (search / category) results.
+    // The default unfiltered view always fetches fresh data so newly
+    // added items are visible immediately.
+    if (hasFilters) {
+      const cached = searchCache.get<MediaListCache>(key);
+      if (cached) {
+        if (page === 1) {
+          setItems(cached.items);
+        } else {
+          setItems((prev) => [...prev, ...cached.items]);
+        }
+        setTotal(cached.total);
+        setLoading(false);
+        return;
       }
-      setTotal(cached.total);
-      setLoading(false);
-      return;
     }
 
     setLoading(true);
@@ -226,15 +237,20 @@ export default function MediaPage() {
       if (debouncedSearch) path += `&search=${encodeURIComponent(debouncedSearch)}`;
       if (category) path += `&category=${encodeURIComponent(category)}`;
 
-      const data = await apiGet<MediaListResponse>(path);
-      searchCache.set(key, data);
+      const rawItems = await apiGet<MediaItem[]>(path);
+
+      // Cache only filtered results
+      if (hasFilters) {
+        const cacheEntry: MediaListCache = { items: rawItems, total: rawItems.length };
+        searchCache.set(key, cacheEntry);
+      }
 
       if (page === 1) {
-        setItems(data.items);
+        setItems(rawItems);
       } else {
-        setItems((prev) => [...prev, ...data.items]);
+        setItems((prev) => [...prev, ...rawItems]);
       }
-      setTotal(data.total);
+      setTotal(rawItems.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load media");
     } finally {
@@ -326,14 +342,23 @@ export default function MediaPage() {
 
       {/* Empty */}
       {!loading && !error && items.length === 0 && (
-        <div className="text-center py-20">
-          <svg className="mx-auto w-16 h-16 text-secondary-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-          </svg>
-          <p className="text-secondary-400 text-lg">
-            No {TABS[activeTab].label.toLowerCase()} found.
-          </p>
-        </div>
+        <EmptyState
+          iconPath={
+            activeTab === 0
+              ? "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
+              : activeTab === 1
+                ? "M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z"
+                : "M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
+          }
+          title={`No ${TABS[activeTab].label} Yet`}
+          description={
+            debouncedSearch || category
+              ? `No ${TABS[activeTab].label.toLowerCase()} match your current filters. Try adjusting your search.`
+              : `${TABS[activeTab].label} files will be shared here — tracks, videos, photos, and more.`
+          }
+          adminLink="/admin/media"
+          adminLabel="Upload Media"
+        />
       )}
 
       {/* Grid */}

@@ -38,6 +38,17 @@ jobs:
       - name: Run pytest
         run: pytest src/lambda/tests -v
 
+      - name: Build Pillow Lambda layer
+        working-directory: infra
+        run: |
+          mkdir -p build/layer/python/lib/python3.12/site-packages
+          pip install -r layer_requirements.txt \
+            -t build/layer/python/lib/python3.12/site-packages \
+            --quiet \
+            --platform manylinux2014_x86_64 \
+            --only-binary=:all:
+          cd build/layer && zip -rq ../pillow_layer.zip python
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:

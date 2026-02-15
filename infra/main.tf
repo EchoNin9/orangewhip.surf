@@ -618,22 +618,14 @@ data "archive_file" "api" {
   excludes    = ["**/__pycache__/**", "**/*.pyc"]
 }
 
-# Pillow layer for image processing / dimension validation
-resource "null_resource" "pillow_layer" {
-  triggers = {
-    requirements = file("${path.module}/layer_requirements.txt")
-  }
-  provisioner "local-exec" {
-    command     = "mkdir -p build/layer/python/lib/python3.12/site-packages && python3 -m pip install -r ${path.module}/layer_requirements.txt -t build/layer/python/lib/python3.12/site-packages --quiet && cd build/layer && zip -r ../pillow_layer.zip python"
-    working_dir = path.module
-  }
-}
-
+# Pillow layer for image processing / thumbnail generation
+# The layer zip is built by CI (GitHub Actions) before Terraform runs,
+# ensuring correct Linux x86_64 binaries for the Lambda runtime.
 resource "aws_lambda_layer_version" "pillow" {
   filename            = "${path.module}/build/pillow_layer.zip"
+  source_code_hash    = filebase64sha256("${path.module}/build/pillow_layer.zip")
   layer_name          = "ows-pillow-layer"
   compatible_runtimes = ["python3.12"]
-  depends_on          = [null_resource.pillow_layer]
 }
 
 resource "aws_iam_role" "lambdaApi" {
@@ -678,6 +670,11 @@ resource "aws_iam_role_policy" "lambdaApi" {
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
         Resource = "${aws_s3_bucket.media.arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = aws_s3_bucket.media.arn
       },
       {
         Effect   = "Allow"
@@ -814,6 +811,8 @@ resource "aws_lambda_function" "thumb" {
   source_code_hash = data.archive_file.api.output_base64sha256
   runtime          = "python3.12"
   timeout          = 120
+  memory_size      = 512
+  layers           = [aws_lambda_layer_version.pillow.arn]
 
   environment {
     variables = {
@@ -838,13 +837,13 @@ resource "aws_s3_bucket_notification" "media" {
   lambda_function {
     lambda_function_arn = aws_lambda_function.thumb.arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "media/images/"
+    filter_prefix       = "media/image/"
   }
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.thumb.arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "media/videos/"
+    filter_prefix       = "media/video/"
   }
 
   lambda_function {
@@ -1333,6 +1332,12 @@ resource "aws_apigatewayv2_route" "updatesOptions" {
 resource "aws_apigatewayv2_route" "pressOptions" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "OPTIONS /press"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "venuesOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /venues"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 

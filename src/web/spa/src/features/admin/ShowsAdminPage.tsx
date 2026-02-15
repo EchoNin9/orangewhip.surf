@@ -31,7 +31,7 @@ interface ShowFormData {
   description: string;
   venueId: string;
   mediaIds: string[];
-  thumbnailId: string;
+  thumbnailMediaId: string;
 }
 
 const emptyForm: ShowFormData = {
@@ -40,95 +40,8 @@ const emptyForm: ShowFormData = {
   description: "",
   venueId: "",
   mediaIds: [],
-  thumbnailId: "",
+  thumbnailMediaId: "",
 };
-
-/* ------------------------------------------------------------------ */
-/*  New Venue inline form                                              */
-/* ------------------------------------------------------------------ */
-
-function NewVenueForm({
-  onCreated,
-  onCancel,
-}: {
-  onCreated: (v: Venue) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
-  const [info, setInfo] = useState("");
-  const [website, setWebsite] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      const venue = await apiPost<Venue>("/venues", {
-        name: name.trim(),
-        address: address.trim() || undefined,
-        info: info.trim() || undefined,
-        website: website.trim() || undefined,
-      });
-      onCreated(venue);
-    } catch {
-      alert("Failed to create venue");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: "auto" }}
-      exit={{ opacity: 0, height: 0 }}
-      className="overflow-hidden"
-    >
-      <form onSubmit={handleSubmit} className="card p-4 mt-2 space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-white">Add New Venue</h4>
-          <button type="button" onClick={onCancel} className="text-secondary-400 hover:text-white">
-            <XMarkIcon className="w-4 h-4" />
-          </button>
-        </div>
-        <input
-          type="text"
-          placeholder="Venue name *"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="input-field text-sm"
-          required
-        />
-        <input
-          type="text"
-          placeholder="Address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          className="input-field text-sm"
-        />
-        <input
-          type="text"
-          placeholder="Additional info"
-          value={info}
-          onChange={(e) => setInfo(e.target.value)}
-          className="input-field text-sm"
-        />
-        <input
-          type="url"
-          placeholder="Website URL"
-          value={website}
-          onChange={(e) => setWebsite(e.target.value)}
-          className="input-field text-sm"
-        />
-        <button type="submit" disabled={saving} className="btn-primary text-sm w-full">
-          {saving ? "Creating..." : "Create Venue"}
-        </button>
-      </form>
-    </motion.div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  Media Picker Modal                                                 */
@@ -148,8 +61,8 @@ function MediaPickerModal({
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
 
   useEffect(() => {
-    apiGet<{ items: MediaItem[] }>("/media?limit=50")
-      .then((res) => setMedia(res.items))
+    apiGet<MediaItem[]>("/media?limit=50")
+      .then((items) => setMedia(items))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -260,15 +173,9 @@ function ShowForm({
   isSaving: boolean;
 }) {
   const [form, setForm] = useState<ShowFormData>(initial);
-  const [showNewVenue, setShowNewVenue] = useState(false);
-  const [venueList, setVenueList] = useState<Venue[]>(venues);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadUrl, setUploadUrl] = useState("");
-
-  useEffect(() => {
-    setVenueList(venues);
-  }, [venues]);
 
   const update = (partial: Partial<ShowFormData>) =>
     setForm((prev) => ({ ...prev, ...partial }));
@@ -350,42 +257,30 @@ function ShowForm({
         />
       </div>
 
-      {/* Venue */}
+      {/* Venue (optional) */}
       <div>
-        <label className="block text-sm font-medium text-secondary-300 mb-1">Venue</label>
+        <label className="block text-sm font-medium text-secondary-300 mb-1">
+          Venue <span className="text-secondary-500 font-normal">(optional)</span>
+        </label>
         <select
           value={form.venueId}
           onChange={(e) => update({ venueId: e.target.value })}
           className="input-field"
-          required
         >
-          <option value="">Select a venue...</option>
-          {venueList.map((v) => (
+          <option value="">No venue selected</option>
+          {venues.map((v) => (
             <option key={v.id} value={v.id}>
               {v.name}
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={() => setShowNewVenue((p) => !p)}
+        <Link
+          to="/admin/venues"
           className="mt-2 text-sm text-primary-400 hover:text-primary-300 transition-colors inline-flex items-center gap-1"
         >
           <PlusIcon className="w-4 h-4" />
-          {showNewVenue ? "Cancel" : "Add New Venue"}
-        </button>
-        <AnimatePresence>
-          {showNewVenue && (
-            <NewVenueForm
-              onCreated={(v) => {
-                setVenueList((prev) => [...prev, v]);
-                update({ venueId: v.id });
-                setShowNewVenue(false);
-              }}
-              onCancel={() => setShowNewVenue(false)}
-            />
-          )}
-        </AnimatePresence>
+          Manage Venues
+        </Link>
       </div>
 
       {/* Media */}
@@ -462,8 +357,8 @@ function ShowForm({
             Thumbnail (select from attached media)
           </label>
           <select
-            value={form.thumbnailId}
-            onChange={(e) => update({ thumbnailId: e.target.value })}
+            value={form.thumbnailMediaId}
+            onChange={(e) => update({ thumbnailMediaId: e.target.value })}
             className="input-field"
           >
             <option value="">Auto-select</option>
@@ -630,9 +525,9 @@ export default function ShowsAdminPage() {
                     title: editingShow.title,
                     date: editingShow.date.slice(0, 10),
                     description: editingShow.description ?? "",
-                    venueId: editingShow.venue?.name ?? "",
-                    mediaIds: editingShow.media?.map((_, i) => String(i)) ?? [],
-                    thumbnailId: "",
+                    venueId: editingShow.venueId ?? "",
+                    mediaIds: editingShow.mediaIds ?? editingShow.media?.map((m) => m.id).filter(Boolean) ?? [],
+                    thumbnailMediaId: editingShow.thumbnailMediaId ?? "",
                   }
                 : emptyForm
             }

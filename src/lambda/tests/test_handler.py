@@ -18,6 +18,7 @@ mock_table = MagicMock()
 mock_dynamodb_resource.Table.return_value = mock_table
 
 mock_s3 = MagicMock()
+mock_s3.generate_presigned_url.return_value = "https://test-bucket.s3.amazonaws.com/presigned"
 mock_cognito = MagicMock()
 mock_lambda_client = MagicMock()
 mock_bedrock = MagicMock()
@@ -139,12 +140,11 @@ class TestShows:
         event = _make_event("GET", "/shows")
         status, body = _parse_response(handler(event, None))
         assert status == 200
-        assert "shows" in body
-        shows = body["shows"]
-        assert len(shows) == 2
+        assert isinstance(body, list)
+        assert len(body) == 2
         # Upcoming first, then past
-        assert shows[0]["date"] == "2026-03-15"
-        assert shows[1]["date"] == "2025-01-10"
+        assert body[0]["date"] == "2026-03-15"
+        assert body[1]["date"] == "2025-01-10"
 
 
 class TestMedia:
@@ -179,9 +179,9 @@ class TestMedia:
         event["queryStringParameters"] = {"type": "video"}
         status, body = _parse_response(handler(event, None))
         assert status == 200
-        assert "media" in body
+        assert isinstance(body, list)
         # Only videos returned
-        assert all(m["mediaType"] == "video" for m in body["media"])
+        assert all(m["mediaType"] == "video" for m in body)
 
     def test_media_get_search(self, _patch_boto3):
         handler = _patch_boto3
@@ -205,7 +205,44 @@ class TestMedia:
         event["queryStringParameters"] = {"q": "commodore"}
         status, body = _parse_response(handler(event, None))
         assert status == 200
-        assert len(body["media"]) == 1
+        assert isinstance(body, list)
+        assert len(body) == 1
+
+
+class TestVenues:
+    def test_venue_create(self, _patch_boto3):
+        """Authenticated editor can create a venue (verifies group parsing)."""
+        handler = _patch_boto3
+        mock_table.put_item.return_value = {}
+
+        event = _make_event(
+            "POST", "/venues",
+            body={"name": "The Commodore"},
+            auth=True, groups=["editor"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 201
+        assert body["name"] == "The Commodore"
+        assert "id" in body
+        mock_table.put_item.assert_called()
+
+    def test_venue_create_apigw_format(self, _patch_boto3):
+        """Handles API GW v2 stringified group format '[editor, band]'."""
+        handler = _patch_boto3
+        mock_table.put_item.return_value = {}
+
+        event = _make_event("POST", "/venues", body={"name": "Biltmore"})
+        # Simulate API GW v2 stringified array (no JSON quotes)
+        event["requestContext"]["authorizer"] = {
+            "jwt": {"claims": {
+                "sub": "user-456",
+                "email": "editor@orangewhip.surf",
+                "cognito:groups": "[editor, band]",
+            }}
+        }
+        status, body = _parse_response(handler(event, None))
+        assert status == 201
+        assert body["name"] == "Biltmore"
 
 
 class TestUnauthorized:

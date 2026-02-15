@@ -98,3 +98,14 @@ Adhere to this structure for all new files. Do not create files outside these fo
 - **Components:** `.btn-primary` (orange gradient), `.btn-secondary` (dark slate), `.text-gradient` (orange gradient text), `.container-max` (responsive container).
 - **Brand identity:** This is a rock band website — bold, energetic, dark with vibrant orange.
 - **Top bar:** Social links (Spotify, Instagram, Facebook, Bluesky, YouTube, SoundCloud) always visible.
+
+## 8. Future Multi-Band Clone Strategy
+- **Intent:** When OWS is complete, this codebase will serve as a template for nearly exact clones for other rock bands on different domains. Clones differ by **design elements only** — not architecture or features.
+- **What changes per band (design-only):**
+  - Domain, band name, branding copy.
+  - Theme colors (accent palette, gradients).
+  - Fonts (display/body).
+  - Logo, favicon, imagery.
+  - Social links (Spotify, Instagram, etc.).
+- **What stays the same:** Architecture, modules (Shows, Updates, Press, Media), auth model, infrastructure patterns, directory structure.
+- **Guidance for cloning:** Copy the repo, update Terraform variables (prefix, domain, buckets), replace design tokens (colors, fonts, assets), and configure Cognito/CloudFront for the new domain.

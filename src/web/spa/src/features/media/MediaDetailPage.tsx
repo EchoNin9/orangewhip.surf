@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
+import { useAuth, canManageMedia } from "../../shell/AuthContext";
 import type { MediaItem } from "./MediaPage";
 
 /* ------------------------------------------------------------------ */
@@ -93,6 +94,8 @@ interface MediaDetailItem extends MediaItem {
 
 export default function MediaDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const showEdit = canManageMedia(user);
   const [item, setItem] = useState<MediaDetailItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,10 +156,21 @@ export default function MediaDetailPage() {
           transition={{ duration: 0.5 }}
           className="space-y-8"
         >
-          {/* Title */}
-          <h1 className="text-3xl sm:text-4xl font-display font-bold text-white">
-            {item.title}
-          </h1>
+          {/* Title + Edit */}
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-3xl sm:text-4xl font-display font-bold text-white">
+              {item.title}
+            </h1>
+            {showEdit && (
+              <Link
+                to="/admin/media"
+                className="shrink-0 inline-flex items-center gap-1.5 text-sm text-secondary-400 hover:text-primary-400 transition-colors"
+              >
+                <PencilSquareIcon className="w-4 h-4" />
+                Edit
+              </Link>
+            )}
+          </div>
 
           {/* Player / Viewer */}
           {item.type === "image" && (
