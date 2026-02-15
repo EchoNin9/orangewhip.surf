@@ -1336,6 +1336,12 @@ resource "aws_apigatewayv2_route" "pressOptions" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+resource "aws_apigatewayv2_route" "venuesOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /venues"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.main.id
   name        = "$default"

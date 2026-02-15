@@ -75,7 +75,8 @@ def get_user_info(event: dict) -> dict | None:
 
     sub = claims.get("sub", "")
     email = claims.get("email", "")
-    cognito_groups_raw = claims.get("cognito:groups", "[]")
+    # Cognito/API GW may use cognito:groups or cognito_groups
+    cognito_groups_raw = claims.get("cognito:groups") or claims.get("cognito_groups") or "[]"
 
     # cognito:groups can arrive as:
     #   - a real list            ["admin", "band"]
@@ -126,11 +127,16 @@ def require_role(event: dict, min_role: str) -> tuple[dict | None, dict | None]:
     """
     user = get_user_info(event)
     if user is None:
+        logger.warning("require_role: no user info (missing/invalid JWT)")
         return None, error("Unauthorized", 401)
 
     user_level = ROLE_HIERARCHY.index(user["role"])
     required_level = ROLE_HIERARCHY.index(min_role)
     if user_level < required_level:
+        logger.warning(
+            "require_role: user role=%s groups=%s insufficient for min_role=%s",
+            user["role"], user.get("groups", []), min_role,
+        )
         return user, error("Forbidden", 403)
     return user, None
 

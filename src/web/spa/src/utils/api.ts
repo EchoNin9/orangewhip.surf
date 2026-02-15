@@ -11,14 +11,18 @@ export function getApiBase(): string {
   return base.replace(/\/+$/, '');
 }
 
-/** Promise wrapper around auth.js getAccessToken callback */
+/**
+ * Promise wrapper around auth.js getIdToken callback.
+ * Uses ID token (not access token) because it contains cognito:groups,
+ * which the API needs for role-based authorization.
+ */
 export function getToken(): Promise<string | null> {
   return new Promise((resolve) => {
     if (!window.auth) {
       resolve(null);
       return;
     }
-    window.auth.getAccessToken((err, token) => {
+    window.auth.getIdToken((err, token) => {
       if (err || !token) {
         resolve(null);
       } else {

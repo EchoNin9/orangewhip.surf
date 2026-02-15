@@ -8,7 +8,7 @@ import {
   XMarkIcon,
   PhotoIcon,
 } from "@heroicons/react/24/outline";
-import { apiGet, apiPost, apiPut, apiDelete } from "../../utils/api";
+import { apiGet, apiPost, apiPut, apiDelete, ApiError } from "../../utils/api";
 import { useAuth, hasRole, canEditContent } from "../../shell/AuthContext";
 import type { Show } from "../shows/ShowsPage";
 import type { MediaItem } from "../media/MediaPage";
@@ -72,8 +72,19 @@ function NewVenueForm({
         website: website.trim() || undefined,
       });
       onCreated(venue);
-    } catch {
-      alert("Failed to create venue");
+    } catch (err) {
+      let msg = "Failed to create venue";
+      if (err instanceof ApiError) {
+        try {
+          const parsed = JSON.parse(err.body || "{}");
+          msg = parsed.error ? `Venue creation failed: ${parsed.error}` : msg;
+        } catch {
+          msg = err.body ? `Venue creation failed: ${err.body}` : msg;
+        }
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      alert(msg);
     } finally {
       setSaving(false);
     }
