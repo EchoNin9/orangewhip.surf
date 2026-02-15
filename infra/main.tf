@@ -972,6 +972,13 @@ resource "aws_apigatewayv2_route" "venuesGet" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Public profile by identifier (handle or userId)
+resource "aws_apigatewayv2_route" "profileByIdentifierGet" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /profile/{identifier}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # Embed: API-key gated public content for embedding
 resource "aws_apigatewayv2_route" "embedShowsGet" {
   api_id    = aws_apigatewayv2_api.main.id
@@ -1008,6 +1015,14 @@ resource "aws_apigatewayv2_route" "profileGet" {
 resource "aws_apigatewayv2_route" "profilePut" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "PUT /profile"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "profilePhotoUpload" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /profile/photo-upload"
   target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id

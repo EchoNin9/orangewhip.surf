@@ -11,6 +11,7 @@ import { PressPage } from '@/features/press/PressPage';
 import { PressDetailPage } from '@/features/press/PressDetailPage';
 import { AuthPage } from '@/features/auth/AuthPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
+import { PublicProfilePage } from '@/features/profile/PublicProfilePage';
 
 /* ── Lazy-loaded feature pages ── */
 const ShowsPage = lazy(() => import('@/features/shows/ShowsPage'));
@@ -64,6 +65,7 @@ export function AppLayout() {
 
             {/* Authenticated */}
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/:identifier" element={<PublicProfilePage />} />
 
             {/* Admin */}
             <Route path="/admin" element={<AdminDashboard />} />

@@ -1127,7 +1127,103 @@ def handle_me(event, method, parts):
     return ok(user)
 
 
+def _resolve_profile_identifier(identifier: str) -> str | None:
+    """Resolve identifier (userId or handle slug) to userId. Returns None if not found."""
+    if not identifier:
+        return None
+    # Try direct userId lookup (UUID format or Cognito sub)
+    profile = _get_item(f"USER#{identifier}", "PROFILE")
+    if profile:
+        return identifier
+    # Try handle lookup: HANDLE#<slug> -> userId
+    handle_lookup = _get_item(f"HANDLE#{identifier.lower()}", "META")
+    if handle_lookup:
+        return handle_lookup.get("userId")
+    return None
+
+
+def handle_public_profile(event, method, parts):
+    """GET /profile/:identifier — public profile view. No auth required."""
+    if method != "GET" or len(parts) < 2:
+        return error("Not found", 404)
+    identifier = parts[1]
+    user_id = _resolve_profile_identifier(identifier)
+    if not user_id:
+        return error("Profile not found", 404)
+    profile = _get_item(f"USER#{user_id}", "PROFILE")
+    if not profile:
+        return error("Profile not found", 404)
+    if not profile.get("profilePublic", False):
+        return error("This user's profile is private", 403)
+    # Return sanitized public profile (no email, no internal fields)
+    key = profile.get("profilePhotoKey", "")
+    photo_url = _presign_get(key) if key and _is_image_key(key) else ""
+    public = {
+        "displayName": profile.get("displayName", ""),
+        "userHandle": profile.get("userHandle", ""),
+        "about": profile.get("about", profile.get("bio", "")),
+        "profilePhotoUrl": photo_url,
+    }
+    return ok(public)
+
+
+def _enrich_profile_with_photo(profile: dict) -> dict:
+    """Add profilePhotoUrl (presigned) from profilePhotoKey."""
+    key = profile.get("profilePhotoKey", "")
+    if key and _is_image_key(key):
+        profile["profilePhotoUrl"] = _presign_get(key)
+    elif not profile.get("profilePhotoUrl"):
+        profile["profilePhotoUrl"] = ""
+    return profile
+
+
+def _update_last_login(profile: dict, event: dict) -> None:
+    """Update profile with last login timestamp and IP from request."""
+    try:
+        ctx = event.get("requestContext", {})
+        http = ctx.get("http", {})
+        source_ip = http.get("sourceIp", "")
+        now = _now_iso()
+        profile["lastLoginAt"] = now
+        profile["lastLoginIp"] = source_ip
+        # Persist to DynamoDB
+        pk = profile.get("PK", "")
+        sk = profile.get("SK", "PROFILE")
+        if pk and sk:
+            table.update_item(
+                Key={"PK": pk, "SK": sk},
+                UpdateExpression="SET lastLoginAt = :t, lastLoginIp = :ip",
+                ExpressionAttributeValues={":t": now, ":ip": source_ip},
+            )
+    except Exception:
+        logger.exception("Failed to update last login")
+
+
 def handle_profile(event, method, parts):
+    # POST /profile/photo-upload — presigned URL for profile photo
+    if method == "POST" and len(parts) >= 2 and parts[1] == "photo-upload":
+        user, err = require_role(event, "band")
+        if err:
+            return err
+        data = _body(event)
+        filename = data.get("filename", "avatar.jpg")
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
+        if ext not in ("jpg", "jpeg", "png", "webp", "gif"):
+            ext = "jpg"
+        user_id = user["userId"]
+        file_uuid = str(uuid.uuid4())
+        s3_key = f"profiles/{user_id}/{file_uuid}.{ext}"
+        presigned = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": s3_key},
+            ExpiresIn=3600,
+        )
+        return ok({"uploadUrl": presigned, "s3Key": s3_key})
+
+    # Public profile by identifier: GET /profile/:identifier
+    if method == "GET" and len(parts) >= 2:
+        return handle_public_profile(event, method, parts)
+
     user, err = require_role(event, "band")
     if err:
         return err
@@ -1137,26 +1233,56 @@ def handle_profile(event, method, parts):
         profile = _get_item(f"USER#{user_id}", "PROFILE")
         if not profile:
             profile = {"displayName": "", "email": user["email"], "bio": ""}
-        # Merge role info from JWT for the frontend
+        profile["PK"] = f"USER#{user_id}"
+        profile["SK"] = "PROFILE"
+        _update_last_login(profile, event)
+        _enrich_profile_with_photo(profile)
         profile["role"] = user["role"]
         profile["groups"] = user["groups"]
         profile["customGroups"] = user.get("customGroups", [])
+        profile["about"] = profile.get("about", profile.get("bio", ""))
         return ok(profile)
 
     if method == "PUT":
         data = _body(event)
+        about_val = data.get("about", data.get("bio", ""))
         item = {
             "PK": f"USER#{user_id}",
             "SK": "PROFILE",
             "displayName": data.get("displayName", ""),
             "email": data.get("email", user["email"]),
-            "bio": data.get("bio", ""),
+            "bio": about_val,
+            "about": about_val,
+            "profilePublic": data.get("profilePublic", False),
+            "userHandle": data.get("userHandle", ""),
+            "profilePhotoKey": data.get("profilePhotoKey", ""),
         }
+        # Handle slug lookup for userHandle (for /profile/:handle URLs)
+        user_handle = (item.get("userHandle") or "").strip()
+        handle_slug = user_handle.lower().replace(" ", "-").replace("_", "-") if user_handle else ""
+        existing = _get_item(f"USER#{user_id}", "PROFILE")
+        old_slug = ""
+        if existing and existing.get("userHandle"):
+            old_slug = existing.get("userHandle", "").lower().replace(" ", "-").replace("_", "-")
+        if handle_slug:
+            existing_handle = _get_item(f"HANDLE#{handle_slug}", "META")
+            if existing_handle and existing_handle.get("userId") != user_id:
+                return error("That handle is already taken", 400)
+        if old_slug and old_slug != handle_slug:
+            _delete_item(f"HANDLE#{old_slug}", "META")
+        if handle_slug:
+            table.put_item(Item={
+                "PK": f"HANDLE#{handle_slug}",
+                "SK": "META",
+                "userId": user_id,
+                "entityType": "HANDLE_LOOKUP",
+            })
         table.put_item(Item=item)
-        # Merge role info back for the frontend
+        # Merge role info and enrich photo URL for the frontend
         item["role"] = user["role"]
         item["groups"] = user["groups"]
         item["customGroups"] = user.get("customGroups", [])
+        _enrich_profile_with_photo(item)
         return ok(item)
 
     return error("Method not allowed", 405)
