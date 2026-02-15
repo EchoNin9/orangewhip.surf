@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeftIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, PencilSquareIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { useAuth, canManageMedia } from "../../shell/AuthContext";
-import type { MediaItem } from "./MediaPage";
+import type { MediaItem, MediaFile } from "./MediaPage";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -92,6 +92,113 @@ interface MediaDetailItem extends MediaItem {
   dimensions?: string;
 }
 
+/* ------------------------------------------------------------------ */
+/*  File gallery with navigation                                       */
+/* ------------------------------------------------------------------ */
+
+function FileGallery({ files, title }: { files: MediaFile[]; type: string; title: string }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const active = files[activeIdx];
+
+  if (!active) return null;
+
+  const isImage = active.contentType?.startsWith("image/");
+  const isVideo = active.contentType?.startsWith("video/");
+
+  return (
+    <div className="space-y-3">
+      {/* Main viewer */}
+      <div className="relative rounded-xl overflow-hidden bg-secondary-800">
+        {isImage && (
+          <img
+            src={active.url}
+            alt={active.filename || title}
+            className="w-full max-h-[70vh] object-contain mx-auto"
+          />
+        )}
+        {isVideo && (
+          <video
+            src={active.url}
+            controls
+            className="w-full max-h-[70vh]"
+            preload="metadata"
+          />
+        )}
+        {!isImage && !isVideo && (
+          <div className="flex items-center justify-center h-48 text-secondary-500">
+            {active.filename}
+          </div>
+        )}
+
+        {/* Navigation arrows */}
+        {files.length > 1 && (
+          <>
+            <button
+              onClick={() => setActiveIdx((i) => (i > 0 ? i - 1 : files.length - 1))}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setActiveIdx((i) => (i < files.length - 1 ? i + 1 : 0))}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </>
+        )}
+
+        {/* Counter badge */}
+        {files.length > 1 && (
+          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+            {activeIdx + 1} / {files.length}
+          </div>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
+      {files.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {files.map((f, idx) => {
+            const fIsImage = f.contentType?.startsWith("image/");
+            const fIsVideo = f.contentType?.startsWith("video/");
+            return (
+              <button
+                key={f.s3Key}
+                onClick={() => setActiveIdx(idx)}
+                className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                  idx === activeIdx
+                    ? "border-primary-500 ring-2 ring-primary-500/30"
+                    : "border-secondary-700 hover:border-secondary-500"
+                }`}
+              >
+                {fIsImage ? (
+                  <img src={f.url} alt={f.filename} className="w-full h-full object-cover" />
+                ) : fIsVideo ? (
+                  <video
+                    src={`${f.url}#t=0.1`}
+                    muted
+                    preload="metadata"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-secondary-800 text-secondary-500 text-[10px] text-center p-1">
+                    {f.filename?.split(".").pop()?.toUpperCase()}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
 export default function MediaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -117,6 +224,8 @@ export default function MediaDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  const hasMultipleFiles = item?.files && item.files.length > 1;
 
   return (
     <main className="container-max section-padding max-w-4xl">
@@ -163,7 +272,7 @@ export default function MediaDetailPage() {
             </h1>
             {showEdit && (
               <Link
-                to="/admin/media"
+                to={`/admin/media?edit=${id}`}
                 className="shrink-0 inline-flex items-center gap-1.5 text-sm text-secondary-400 hover:text-primary-400 transition-colors"
               >
                 <PencilSquareIcon className="w-4 h-4" />
@@ -172,29 +281,53 @@ export default function MediaDetailPage() {
             )}
           </div>
 
-          {/* Player / Viewer */}
-          {item.type === "image" && (
-            <div className="rounded-xl overflow-hidden bg-secondary-800">
-              <img
-                src={item.url}
-                alt={item.title}
-                className="w-full max-h-[70vh] object-contain mx-auto"
-              />
-            </div>
+          {/* Multi-file gallery */}
+          {hasMultipleFiles && (
+            <FileGallery files={item.files!} type={item.type} title={item.title} />
           )}
 
-          {item.type === "video" && (
-            <div className="rounded-xl overflow-hidden bg-black">
-              <video
-                src={item.url}
-                controls
-                className="w-full max-h-[70vh]"
-                preload="metadata"
-              />
-            </div>
-          )}
+          {/* Single-file player/viewer (legacy or single-file items) */}
+          {!hasMultipleFiles && (
+            <>
+              {item.type === "image" && (
+                <div className="rounded-xl overflow-hidden bg-secondary-800">
+                  <img
+                    src={item.url}
+                    alt={item.title}
+                    className="w-full max-h-[70vh] object-contain mx-auto"
+                  />
+                </div>
+              )}
 
-          {item.type === "audio" && <AudioWaveform src={item.url} />}
+              {item.type === "video" && (
+                <div className="rounded-xl overflow-hidden bg-black">
+                  <video
+                    src={item.url}
+                    controls
+                    className="w-full max-h-[70vh]"
+                    preload="metadata"
+                  />
+                </div>
+              )}
+
+              {item.type === "audio" && (
+                <>
+                  {/* Show cover art if available */}
+                  {item.thumbnail && (
+                    <div className="rounded-xl overflow-hidden bg-secondary-800">
+                      <img
+                        src={item.thumbnail}
+                        alt={`${item.title} cover art`}
+                        className="w-full max-h-[50vh] object-contain mx-auto"
+                      />
+                    </div>
+                  )}
+                  {/* Audio player with waveform */}
+                  <AudioWaveform src={item.url} />
+                </>
+              )}
+            </>
+          )}
 
           {/* Metadata panel */}
           <div className="card p-6">
@@ -210,6 +343,9 @@ export default function MediaDetailPage() {
                 label="File size"
                 value={item.filesize != null ? formatBytes(item.filesize) : undefined}
               />
+              {item.files && item.files.length > 1 && (
+                <MetaRow label="Files" value={`${item.files.length} files`} />
+              )}
               <MetaRow label="Added by" value={item.addedBy} />
               <MetaRow
                 label="Added"

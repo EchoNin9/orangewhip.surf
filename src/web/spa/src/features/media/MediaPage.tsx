@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Tab } from "@headlessui/react";
-import { MagnifyingGlassIcon, PlayIcon } from "@heroicons/react/24/solid";
+import { MagnifyingGlassIcon, PlayIcon, MusicalNoteIcon } from "@heroicons/react/24/solid";
 import { motion } from "framer-motion";
 import { apiGet, searchCache } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
@@ -12,18 +12,28 @@ import { EmptyState } from "../../shell/EmptyState";
 
 export type MediaType = "audio" | "video" | "image";
 
+export interface MediaFile {
+  s3Key: string;
+  url: string;
+  filename: string;
+  contentType: string;
+  filesize: number;
+}
+
 export interface MediaItem {
   id: string;
   title: string;
   type: MediaType;
   url: string;
   thumbnail?: string;
+  thumbnailKey?: string;
   format?: string;
   filesize?: number;
   addedBy?: string;
   addedAt?: string;
   aiSummary?: string;
   categories?: string[];
+  files?: MediaFile[];
 }
 
 interface Category {
@@ -82,6 +92,8 @@ const cardVariants = {
 };
 
 function MediaCard({ item, index }: { item: MediaItem; index: number }) {
+  const hasThumb = !!item.thumbnail;
+
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
       <Link
@@ -90,39 +102,38 @@ function MediaCard({ item, index }: { item: MediaItem; index: number }) {
       >
         {/* Thumbnail */}
         <div className="relative h-40 bg-secondary-800 overflow-hidden">
-          {item.thumbnail ? (
+          {hasThumb ? (
             <img
               src={item.thumbnail}
               alt={item.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
-          ) : item.type === "video" && item.url ? (
-            /* Videos without a dedicated thumbnail: render a muted <video>
-               that loads just enough metadata to display the first frame. */
-            <video
-              src={`${item.url}#t=0.1`}
-              muted
-              preload="metadata"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
+          ) : item.type === "video" ? (
+            /* Video without a generated thumbnail — styled placeholder */
+            <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-secondary-800 to-secondary-900">
+              <svg className="w-10 h-10 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z" />
+              </svg>
+            </div>
+          ) : item.type === "audio" ? (
+            /* Audio: show thumbnail if available, otherwise styled placeholder */
+            <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-secondary-800 to-secondary-900">
+              <MusicalNoteIcon className="w-10 h-10 text-secondary-500" />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-secondary-600">
-              {item.type === "audio" ? (
-                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
-                </svg>
-              ) : (
-                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-                </svg>
-              )}
+              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+              </svg>
             </div>
           )}
 
-          {/* Audio play overlay */}
-          {item.type === "audio" && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="w-12 h-12 rounded-full bg-primary-500 flex items-center justify-center shadow-lg">
+          {/* Play overlay for video and audio */}
+          {(item.type === "video" || item.type === "audio") && (
+            <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${
+              hasThumb ? "bg-black/30 opacity-0 group-hover:opacity-100" : "opacity-100"
+            }`}>
+              <div className="w-12 h-12 rounded-full bg-primary-500/90 flex items-center justify-center shadow-lg group-hover:bg-primary-500 group-hover:scale-110 transition-all">
                 <PlayIcon className="w-6 h-6 text-white ml-0.5" />
               </div>
             </div>
@@ -132,6 +143,13 @@ function MediaCard({ item, index }: { item: MediaItem; index: number }) {
           {item.format && (
             <span className="absolute top-2 left-2 px-2 py-0.5 bg-secondary-900/80 text-secondary-200 text-xs font-medium rounded">
               {item.format.toUpperCase()}
+            </span>
+          )}
+
+          {/* Multi-file count badge */}
+          {item.files && item.files.length > 1 && (
+            <span className="absolute top-2 right-2 px-2 py-0.5 bg-secondary-900/80 text-secondary-200 text-xs font-medium rounded">
+              {item.files.length} files
             </span>
           )}
         </div>

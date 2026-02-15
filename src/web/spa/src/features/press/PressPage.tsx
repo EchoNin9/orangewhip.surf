@@ -83,12 +83,13 @@ function SoundCloudIcon({ className }: { className?: string }) {
   );
 }
 
+/* Match topbar social links (Header.tsx) */
 const socialLinks = [
-  { name: "Spotify", href: "https://open.spotify.com", Icon: SpotifyIcon },
-  { name: "Instagram", href: "https://instagram.com", Icon: InstagramIcon },
-  { name: "Facebook", href: "https://facebook.com", Icon: FacebookIcon },
-  { name: "Bluesky", href: "https://bsky.app", Icon: BlueskyIcon },
-  { name: "YouTube", href: "https://youtube.com", Icon: YouTubeIcon },
+  { name: "Spotify", href: "https://open.spotify.com/playlist/3Np0DOO7qnA1jWjmBV2Kjc", Icon: SpotifyIcon },
+  { name: "Instagram", href: "https://instagram.com/orangewhip.surf", Icon: InstagramIcon },
+  { name: "Facebook", href: "https://facebook.com/orangewhipmusic", Icon: FacebookIcon },
+  { name: "Bluesky", href: "https://bsky.app/profile/jinks.ninja", Icon: BlueskyIcon },
+  { name: "YouTube", href: "https://www.youtube.com/watch?v=cThz9hTD74E&list=PLQDmWUyxw2hQXcrCibYxB8GLsRH9eKnaq", Icon: YouTubeIcon },
   { name: "SoundCloud", href: "https://soundcloud.com", Icon: SoundCloudIcon },
 ];
 
@@ -131,8 +132,15 @@ export function PressPage() {
   useEffect(() => {
     apiGet<PressCard[]>("/press")
       .then((data) => {
+        const raw = data ?? [];
+        /* Normalise API shape: fileAttachments → attachments, guard links */
+        const normalised = raw.map((c) => ({
+          ...c,
+          attachments: c.attachments ?? (c as { fileAttachments?: FileAttachment[] }).fileAttachments ?? [],
+          links: c.links ?? [],
+        }));
         /* Filter non-public for guests */
-        const visible = user ? data : data.filter((c) => c.public);
+        const visible = user ? normalised : normalised.filter((c) => c.public);
         /* Pinned first, then newest */
         const sorted = [...visible].sort((a, b) => {
           if (a.pinned && !b.pinned) return -1;
@@ -255,13 +263,13 @@ export function PressPage() {
               </p>
 
               {/* Attachments */}
-              {card.attachments.length > 0 && (
+              {(card.attachments ?? []).length > 0 && (
                 <div className="mb-4">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-secondary-500 mb-2">
                     Downloads
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {card.attachments.map((att) => (
+                    {(card.attachments ?? []).map((att) => (
                       <a
                         key={att.id}
                         href={att.url}
@@ -277,13 +285,13 @@ export function PressPage() {
               )}
 
               {/* External links */}
-              {card.links.length > 0 && (
+              {(card.links ?? []).length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-secondary-500 mb-2">
                     Links
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {card.links.map((link, i) => (
+                    {(card.links ?? []).map((link, i) => (
                       <a
                         key={i}
                         href={link.url}

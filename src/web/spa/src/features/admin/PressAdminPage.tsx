@@ -107,7 +107,12 @@ export function PressAdminPage() {
     setLoading(true);
     apiGet<PressCard[]>("/press?all=true")
       .then((data) => {
-        const sorted = [...data].sort(
+        const normalised = (data ?? []).map((c) => ({
+          ...c,
+          attachments: c.attachments ?? (c as { fileAttachments?: FileAttachment[] }).fileAttachments ?? [],
+          links: c.links ?? [],
+        }));
+        const sorted = normalised.sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
@@ -234,12 +239,12 @@ export function PressAdminPage() {
     }
   }
 
-  async function pinCard(card: PressCard) {
+  async function togglePin(card: PressCard) {
     try {
-      await apiPut(`/press?id=${card.id}`, { pinned: true });
+      await apiPut(`/press?id=${card.id}`, { pinned: !card.pinned });
       fetchCards();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to pin card");
+      setError(err instanceof Error ? err.message : "Failed to update pin");
     }
   }
 
@@ -326,8 +331,8 @@ export function PressAdminPage() {
                 </p>
                 <p className="text-xs text-secondary-600 mt-1">
                   {formatDate(card.createdAt)} &middot;{" "}
-                  {card.attachments.length} file(s) &middot;{" "}
-                  {card.links.length} link(s)
+                  {(card.attachments ?? []).length} file(s) &middot;{" "}
+                  {(card.links ?? []).length} link(s)
                 </p>
               </div>
 
@@ -340,8 +345,8 @@ export function PressAdminPage() {
                   <PencilIcon className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => pinCard(card)}
-                  title="Pin"
+                  onClick={() => togglePin(card)}
+                  title={card.pinned ? "Unpin (remove featured)" : "Pin (feature)"}
                   className={`p-2 rounded-lg transition-colors ${
                     card.pinned
                       ? "text-primary-400 bg-primary-500/10"

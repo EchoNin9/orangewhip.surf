@@ -48,11 +48,11 @@ function SoundCloudIcon({ className }: { className?: string }) {
 }
 
 const socialLinks = [
-  { name: "Spotify", href: "https://open.spotify.com", Icon: SpotifyIcon },
-  { name: "Instagram", href: "https://instagram.com", Icon: InstagramIcon },
-  { name: "Facebook", href: "https://facebook.com", Icon: FacebookIcon },
-  { name: "Bluesky", href: "https://bsky.app", Icon: BlueskyIcon },
-  { name: "YouTube", href: "https://youtube.com", Icon: YouTubeIcon },
+  { name: "Spotify", href: "https://open.spotify.com/playlist/3Np0DOO7qnA1jWjmBV2Kjc", Icon: SpotifyIcon },
+  { name: "Instagram", href: "https://instagram.com/orangewhip.surf", Icon: InstagramIcon },
+  { name: "Facebook", href: "https://facebook.com/orangewhipmusic", Icon: FacebookIcon },
+  { name: "Bluesky", href: "https://bsky.app/profile/jinks.ninja", Icon: BlueskyIcon },
+  { name: "YouTube", href: "https://www.youtube.com/watch?v=cThz9hTD74E&list=PLQDmWUyxw2hQXcrCibYxB8GLsRH9eKnaq", Icon: YouTubeIcon },
   { name: "SoundCloud", href: "https://soundcloud.com", Icon: SoundCloudIcon },
 ];
 
