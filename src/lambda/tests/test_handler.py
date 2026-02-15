@@ -261,6 +261,35 @@ class TestUnauthorized:
         assert "error" in body
 
 
+class TestPress:
+    def test_press_upload_url(self, _patch_boto3):
+        """Editor can get presigned upload URL for press attachments."""
+        handler = _patch_boto3
+
+        event = _make_event(
+            "POST", "/press/upload-url",
+            body={"filename": "bio.pdf", "contentType": "application/pdf"},
+            auth=True, groups=["editor"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert "uploadUrl" in body
+        assert "fileUrl" in body
+        assert "fileId" in body
+        assert "s3Key" in body
+        assert "press/" in body["s3Key"]
+
+    def test_press_upload_url_unauthorized(self, _patch_boto3):
+        """Unauthenticated request to upload-url returns 401."""
+        handler = _patch_boto3
+        event = _make_event(
+            "POST", "/press/upload-url",
+            body={"filename": "bio.pdf", "contentType": "application/pdf"},
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 401
+
+
 class TestOptions:
     def test_options_preflight(self, _patch_boto3):
         handler = _patch_boto3

@@ -639,13 +639,72 @@ def handle_updates(event, method, parts):
 # Route: Press
 # ---------------------------------------------------------------------------
 
+def _enrich_press_attachments(item: dict) -> dict:
+    """Add presigned URLs to fileAttachments in a press item."""
+    attachments = item.get("fileAttachments", []) or item.get("attachments", [])
+    if not attachments:
+        return item
+    enriched = []
+    for att in attachments:
+        a = dict(att)
+        s3_key = a.get("s3Key", "")
+        if s3_key:
+            a["url"] = _presign_get(s3_key)
+        enriched.append(a)
+    item["fileAttachments"] = enriched
+    item["attachments"] = enriched
+    return item
+
+
 def handle_press(event, method, parts):
+    # POST /press/upload-url — presigned URL for file upload
+    if method == "POST" and len(parts) >= 2 and parts[1] == "upload-url":
+        user, err = require_role(event, "editor")
+        if err:
+            return err
+        data = _body(event)
+        filename = data.get("filename", "upload.bin")
+        content_type = data.get("contentType", "application/octet-stream")
+        ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+        file_id = _new_id()
+        file_uuid = str(uuid.uuid4())
+        s3_key = f"press/{file_id}/{file_uuid}.{ext}"
+
+        presigned_put = s3.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": MEDIA_BUCKET,
+                "Key": s3_key,
+                "ContentType": content_type,
+            },
+            ExpiresIn=3600,
+        )
+        file_url = _presign_get(s3_key)
+        return ok({
+            "uploadUrl": presigned_put,
+            "fileUrl": file_url,
+            "fileId": file_id,
+            "s3Key": s3_key,
+        })
+
     if method == "GET":
         qs = _qs(event)
+        # Single item: GET /press?id=xxx
+        press_id = qs.get("id")
+        if press_id:
+            item = _get_item(f"PRESS#{press_id}")
+            if not item:
+                return error("Press not found", 404)
+            if not item.get("public") and not get_user_info(event):
+                return error("Press not found", 404)
+            _enrich_press_attachments(item)
+            return ok(item)
         if qs.get("all") == "true":
             items = _query_entity("PRESS")
         else:
             items = _query_entity("PRESS", public=True)
+        for item in items:
+            _enrich_press_attachments(item)
         return ok(items)
 
     if method == "POST":

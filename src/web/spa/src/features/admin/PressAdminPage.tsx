@@ -21,6 +21,7 @@ interface FileAttachment {
   id: string;
   filename: string;
   url: string;
+  s3Key?: string;
 }
 
 interface ExternalLink {
@@ -52,22 +53,26 @@ function formatDate(iso: string): string {
 }
 
 async function uploadAttachment(file: File): Promise<FileAttachment> {
-  const { uploadUrl, fileUrl, fileId } = await apiPost<{
+  const { uploadUrl, fileUrl, fileId, s3Key } = await apiPost<{
     uploadUrl: string;
     fileUrl: string;
     fileId: string;
+    s3Key: string;
   }>("/press/upload-url", {
     filename: file.name,
     contentType: file.type || "application/octet-stream",
   });
 
-  await fetch(uploadUrl, {
+  const putRes = await fetch(uploadUrl, {
     method: "PUT",
     headers: { "Content-Type": file.type || "application/octet-stream" },
     body: file,
   });
+  if (!putRes.ok) {
+    throw new Error(`Upload failed: ${putRes.status} ${putRes.statusText}`);
+  }
 
-  return { id: fileId, filename: file.name, url: fileUrl };
+  return { id: fileId, filename: file.name, url: fileUrl, s3Key: s3Key ?? "" };
 }
 
 /* ------------------------------------------------------------------ */
@@ -219,7 +224,11 @@ export function PressAdminPage() {
         title,
         description,
         public: isPublic,
-        attachmentIds: attachments.map((a) => a.id),
+        fileAttachments: attachments.map((a) => ({
+          id: a.id,
+          filename: a.filename,
+          s3Key: a.s3Key,
+        })),
         links: links.filter((l) => l.url.trim()),
       };
 

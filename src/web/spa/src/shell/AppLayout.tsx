@@ -8,6 +8,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { HomePage } from '@/features/home/HomePage';
 import { UpdatesPage } from '@/features/updates/UpdatesPage';
 import { PressPage } from '@/features/press/PressPage';
+import { PressDetailPage } from '@/features/press/PressDetailPage';
 import { AuthPage } from '@/features/auth/AuthPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 
@@ -50,6 +51,7 @@ export function AppLayout() {
             <Route path="/" element={<HomePage />} />
             <Route path="/updates" element={<UpdatesPage />} />
             <Route path="/press" element={<PressPage />} />
+            <Route path="/press/:id" element={<PressDetailPage />} />
             <Route path="/login" element={<AuthPage />} />
 
             {/* Public shows */}
