@@ -208,6 +208,42 @@ class TestMedia:
         assert len(body) == 1
 
 
+class TestVenues:
+    def test_venue_create(self, _patch_boto3):
+        """Authenticated editor can create a venue (verifies group parsing)."""
+        handler = _patch_boto3
+        mock_table.put_item.return_value = {}
+
+        event = _make_event(
+            "POST", "/venues",
+            body={"name": "The Commodore"},
+            auth=True, groups=["editor"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 201
+        assert body["name"] == "The Commodore"
+        assert "id" in body
+        mock_table.put_item.assert_called()
+
+    def test_venue_create_apigw_format(self, _patch_boto3):
+        """Handles API GW v2 stringified group format '[editor, band]'."""
+        handler = _patch_boto3
+        mock_table.put_item.return_value = {}
+
+        event = _make_event("POST", "/venues", body={"name": "Biltmore"})
+        # Simulate API GW v2 stringified array (no JSON quotes)
+        event["requestContext"]["authorizer"] = {
+            "jwt": {"claims": {
+                "sub": "user-456",
+                "email": "editor@orangewhip.surf",
+                "cognito:groups": "[editor, band]",
+            }}
+        }
+        status, body = _parse_response(handler(event, None))
+        assert status == 201
+        assert body["name"] == "Biltmore"
+
+
 class TestUnauthorized:
     def test_unauthorized_post(self, _patch_boto3):
         handler = _patch_boto3

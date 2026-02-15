@@ -77,12 +77,23 @@ def get_user_info(event: dict) -> dict | None:
     email = claims.get("email", "")
     cognito_groups_raw = claims.get("cognito:groups", "[]")
 
-    # cognito:groups can come as a string like "[admin editor]" or a real list
+    # cognito:groups can arrive as:
+    #   - a real list            ["admin", "band"]
+    #   - a JSON-encoded string  '["admin","band"]'
+    #   - API GW v2 stringified  '[admin, band]'
+    #   - space-separated        'admin band'
     if isinstance(cognito_groups_raw, list):
         groups = cognito_groups_raw
     elif isinstance(cognito_groups_raw, str):
-        cleaned = cognito_groups_raw.strip("[]")
-        groups = [g.strip() for g in cleaned.split() if g.strip()] if cleaned else []
+        # Try JSON first (handles '["admin","band"]')
+        try:
+            parsed = json.loads(cognito_groups_raw)
+            groups = parsed if isinstance(parsed, list) else [str(parsed)]
+        except (json.JSONDecodeError, ValueError):
+            # Fallback: strip brackets, split on commas or whitespace, clean quotes
+            cleaned = cognito_groups_raw.strip("[]")
+            parts = cleaned.replace(",", " ").split()
+            groups = [p.strip().strip('"').strip("'") for p in parts if p.strip()]
     else:
         groups = []
 
