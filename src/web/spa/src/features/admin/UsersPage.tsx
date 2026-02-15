@@ -9,7 +9,7 @@ import {
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { apiGet, apiPost, apiDelete } from "../../utils/api";
-import { useAuth, canAdminister, type UserRole } from "../../shell/AuthContext";
+import { useAuth, canManageUsers, canAdminister, type UserRole } from "../../shell/AuthContext";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -22,6 +22,7 @@ interface ManagedUser {
   displayName?: string;
   groups: string[];          /* Cognito groups */
   customGroups: string[];    /* DynamoDB custom groups */
+  markedForDeletion?: boolean;
   createdAt?: string;
 }
 
@@ -29,7 +30,7 @@ interface ManagedUser {
 /*  Constants                                                         */
 /* ------------------------------------------------------------------ */
 
-const COGNITO_ROLES: UserRole[] = ["admin", "manager", "editor", "band"];
+const ALL_COGNITO_ROLES: UserRole[] = ["admin", "manager", "editor", "band"];
 
 const roleBadgeClass: Record<string, string> = {
   admin: "bg-red-500/20 text-red-400",
@@ -85,7 +86,7 @@ export function UsersPage() {
   };
 
   useEffect(() => {
-    if (user && canAdminister(user)) {
+    if (user && canManageUsers(user)) {
       fetchUsers();
       /* Also fetch available custom groups for the group assignment UI */
       apiGet<{ id: string; name: string }[]>("/admin/groups")
@@ -94,6 +95,11 @@ export function UsersPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  /* Roles available for assignment (managers cannot see/assign admin) */
+  const cognitoRoles = user && canAdminister(user)
+    ? ALL_COGNITO_ROLES
+    : ALL_COGNITO_ROLES.filter((r) => r !== "admin");
 
   /* Permission */
   if (authLoading) {
@@ -104,14 +110,14 @@ export function UsersPage() {
     );
   }
 
-  if (!user || !canAdminister(user)) {
+  if (!user || !canManageUsers(user)) {
     return (
       <div className="container-max section-padding text-center">
         <h1 className="text-2xl font-display font-bold text-secondary-100 mb-4">
           Access Denied
         </h1>
         <p className="text-secondary-400">
-          Only admins can manage users.
+          Manager access or above required to manage users.
         </p>
       </div>
     );
@@ -170,11 +176,24 @@ export function UsersPage() {
   async function confirmDeleteUser() {
     if (!deleteTarget) return;
     try {
-      await apiDelete(`/admin/users/${deleteTarget.username}`);
+      if (canAdminister(user!)) {
+        await apiDelete(`/admin/users/${deleteTarget.username}`);
+      } else {
+        await apiPost(`/admin/users/${deleteTarget.username}/mark-for-deletion`, {});
+      }
       setDeleteTarget(null);
       fetchUsers();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to delete user");
+    }
+  }
+
+  async function unmarkForDeletion(u: ManagedUser) {
+    try {
+      await apiDelete(`/admin/users/${encodeURIComponent(u.username)}/mark-for-deletion`);
+      fetchUsers();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to unmark");
     }
   }
 
@@ -231,6 +250,11 @@ export function UsersPage() {
                     <span className="font-display font-bold text-secondary-100">
                       {u.displayName || u.email}
                     </span>
+                    {u.markedForDeletion && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">
+                        Marked for deletion
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-secondary-500">{u.email}</p>
                   <p className="text-xs text-secondary-600 mt-0.5">
@@ -315,11 +339,20 @@ export function UsersPage() {
                   </div>
                 </div>
 
-                {/* Delete */}
-                <div className="flex-shrink-0">
+                {/* Actions */}
+                <div className="flex-shrink-0 flex items-center gap-1">
+                  {u.markedForDeletion && (
+                    <button
+                      onClick={() => unmarkForDeletion(u)}
+                      title="Unmark for deletion"
+                      className="p-2 rounded-lg text-secondary-400 hover:text-primary-400 hover:bg-secondary-700 transition-colors"
+                    >
+                      Unmark
+                    </button>
+                  )}
                   <button
                     onClick={() => setDeleteTarget(u)}
-                    title="Delete user"
+                    title={canAdminister(user!) ? "Delete user" : "Mark for deletion"}
                     className="p-2 rounded-lg text-secondary-400 hover:text-red-400 hover:bg-secondary-700 transition-colors"
                   >
                     <TrashIcon className="w-5 h-5" />
@@ -377,7 +410,7 @@ export function UsersPage() {
 
                   {groupType === "cognito" ? (
                     <div className="space-y-2 mb-6">
-                      {COGNITO_ROLES.filter(
+                      {cognitoRoles.filter(
                         (r) => !groupTarget?.groups.includes(r),
                       ).map((role) => (
                         <button
@@ -394,7 +427,7 @@ export function UsersPage() {
                           {role}
                         </button>
                       ))}
-                      {COGNITO_ROLES.filter(
+                      {cognitoRoles.filter(
                         (r) => !groupTarget?.groups.includes(r),
                       ).length === 0 && (
                         <p className="text-sm text-secondary-500">
@@ -453,7 +486,7 @@ export function UsersPage() {
         </Dialog>
       </Transition>
 
-      {/* ── Delete Confirmation ── */}
+      {/* ── Delete / Mark for Deletion Confirmation ── */}
       <Transition appear show={deleteTarget !== null} as={Fragment}>
         <Dialog
           as="div"
@@ -485,10 +518,12 @@ export function UsersPage() {
               >
                 <Dialog.Panel className="w-full max-w-sm card p-6 text-center">
                   <Dialog.Title className="text-lg font-display font-bold text-secondary-100 mb-3">
-                    Delete User?
+                    {canAdminister(user!) ? "Delete User?" : "Mark for Deletion?"}
                   </Dialog.Title>
                   <p className="text-sm text-secondary-400 mb-2">
-                    This will permanently remove:
+                    {canAdminister(user!)
+                      ? "This will permanently remove:"
+                      : "This will mark the user for deletion. An admin must confirm to permanently remove:"}
                   </p>
                   <p className="text-sm font-semibold text-secondary-200 mb-6">
                     {deleteTarget?.displayName || deleteTarget?.email}
@@ -504,7 +539,7 @@ export function UsersPage() {
                       onClick={confirmDeleteUser}
                       className="inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-sm transition-colors"
                     >
-                      Delete User
+                      {canAdminister(user!) ? "Delete User" : "Mark for Deletion"}
                     </button>
                   </div>
                 </Dialog.Panel>

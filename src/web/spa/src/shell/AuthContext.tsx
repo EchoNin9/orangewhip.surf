@@ -71,6 +71,8 @@ export function isInGroup(user: AuthUser | null, groupName: string): boolean {
 export const canManageMedia = (user: AuthUser | null): boolean => hasRole(user, 'band');
 export const canEditContent = (user: AuthUser | null): boolean => hasRole(user, 'editor');
 export const canAdminister = (user: AuthUser | null): boolean => hasRole(user, 'admin');
+/** Managers can manage users (except admin visibility/assignment); admins have full access. */
+export const canManageUsers = (user: AuthUser | null): boolean => hasRole(user, 'manager');
 
 /* ------------------------------------------------------------------ */
 /*  Context                                                           */

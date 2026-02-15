@@ -1378,10 +1378,22 @@ def handle_embed(event, method, parts):
 # Route: Admin — Users
 # ---------------------------------------------------------------------------
 
+def _caller_is_admin(user_info: dict) -> bool:
+    """Return True if the caller has admin role."""
+    return user_info.get("role") == "admin"
+
+
+def _user_is_admin(cognito_groups: list[str]) -> bool:
+    """Return True if user is in the admin Cognito group."""
+    return "admin" in [g.lower() for g in cognito_groups]
+
+
 def handle_admin_users(event, method, parts):
-    user, err = require_role(event, "admin")
+    user, err = require_role(event, "manager")
     if err:
         return err
+
+    is_admin = _caller_is_admin(user)
 
     # GET /admin/users
     if method == "GET" and len(parts) == 2:
@@ -1403,6 +1415,10 @@ def handle_admin_users(event, method, parts):
                     cognito_groups = [g["GroupName"] for g in groups_resp.get("Groups", [])]
                 except ClientError:
                     logger.warning("Failed to fetch groups for user %s", username)
+
+                # Managers cannot see admin users
+                if not is_admin and _user_is_admin(cognito_groups):
+                    continue
 
                 # Fetch custom groups from DynamoDB
                 custom_groups = []
@@ -1426,6 +1442,10 @@ def handle_admin_users(event, method, parts):
                 if profile:
                     display_name = profile.get("displayName", "")
 
+                # Fetch marked-for-deletion flag
+                admin_meta = _get_item(f"USER#{user_id}", "ADMIN_META")
+                marked_for_deletion = bool(admin_meta and admin_meta.get("markedForDeletion"))
+
                 users.append({
                     "userId": user_id,
                     "username": username,
@@ -1433,6 +1453,7 @@ def handle_admin_users(event, method, parts):
                     "displayName": display_name,
                     "groups": cognito_groups,
                     "customGroups": custom_groups,
+                    "markedForDeletion": marked_for_deletion,
                     "createdAt": u.get("UserCreateDate", "").isoformat()
                     if hasattr(u.get("UserCreateDate", ""), "isoformat") else "",
                 })
@@ -1445,8 +1466,63 @@ def handle_admin_users(event, method, parts):
     if len(parts) >= 3:
         username = parts[2]
 
-        # DELETE /admin/users/{username}
+        # POST /admin/users/{username}/mark-for-deletion — manager can mark
+        if method == "POST" and len(parts) >= 4 and parts[3] == "mark-for-deletion":
+            try:
+                u_resp = cognito.admin_get_user(
+                    UserPoolId=COGNITO_USER_POOL_ID,
+                    Username=username,
+                )
+                u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                target_user_id = u_attrs.get("sub", username)
+                target_groups = [
+                    g["GroupName"] for g in cognito.admin_list_groups_for_user(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Username=username,
+                    ).get("Groups", [])
+                ]
+            except ClientError:
+                logger.exception("Failed to get user %s", username)
+                return error("Failed to get user", 500)
+
+            if not is_admin and _user_is_admin(target_groups):
+                return error("Forbidden", 403)
+
+            table.put_item(Item={
+                "PK": f"USER#{target_user_id}",
+                "SK": "ADMIN_META",
+                "markedForDeletion": True,
+                "markedBy": user["userId"],
+                "markedAt": _now_iso(),
+                "entityType": "USER_ADMIN_META",
+            })
+            return ok({"markedForDeletion": True, "username": username})
+
+        # DELETE /admin/users/{username}/mark-for-deletion — unmark
+        if method == "DELETE" and len(parts) >= 4 and parts[3] == "mark-for-deletion":
+            try:
+                u_resp = cognito.admin_get_user(
+                    UserPoolId=COGNITO_USER_POOL_ID,
+                    Username=username,
+                )
+                u_attrs = {a["Name"]: a["Value"] for a in u_resp.get("UserAttributes", [])}
+                target_user_id = u_attrs.get("sub", username)
+            except ClientError:
+                target_user_id = username
+
+            try:
+                table.delete_item(Key={
+                    "PK": f"USER#{target_user_id}",
+                    "SK": "ADMIN_META",
+                })
+            except Exception:
+                pass
+            return ok({"markedForDeletion": False, "username": username})
+
+        # DELETE /admin/users/{username} — only admin can actually delete
         if method == "DELETE" and len(parts) == 3:
+            if not is_admin:
+                return error("Forbidden: only admins can delete users", 403)
             try:
                 cognito.admin_disable_user(
                     UserPoolId=COGNITO_USER_POOL_ID,
@@ -1479,6 +1555,10 @@ def handle_admin_users(event, method, parts):
                 group_name = data.get("group") or data.get("groupName", "")
                 if not group_name:
                     return error("Missing group name")
+
+                # Managers cannot assign admin role
+                if not is_admin and group_type == "cognito" and group_name.lower() == "admin":
+                    return error("Forbidden: managers cannot assign admin role", 403)
 
                 if group_type == "custom":
                     # Look up user sub from Cognito attrs for DynamoDB key
@@ -1533,6 +1613,10 @@ def handle_admin_users(event, method, parts):
                 if not group_name:
                     return error("Missing group name")
 
+                # Managers cannot remove admin role
+                if not is_admin and group_type == "cognito" and group_name.lower() == "admin":
+                    return error("Forbidden: managers cannot remove admin role", 403)
+
                 if group_type == "custom":
                     try:
                         u_resp = cognito.admin_get_user(
@@ -1577,14 +1661,70 @@ def handle_admin_users(event, method, parts):
 # ---------------------------------------------------------------------------
 
 def handle_admin_groups(event, method, parts):
-    user, err = require_role(event, "admin")
+    user, err = require_role(event, "manager")
     if err:
         return err
 
+    is_admin = _caller_is_admin(user)
+    qs = _qs(event)
+
     # GET /admin/groups
-    if method == "GET":
+    if method == "GET" and len(parts) == 2:
         items = _query_entity("GROUP")
+        for item in items:
+            item["id"] = item.get("id") or item.get("name", "")
         return ok(items)
+
+    # GET /admin/groups/{name}/members
+    if method == "GET" and len(parts) >= 4 and parts[3] == "members":
+        group_name = parts[2]
+        try:
+            resp = table.query(
+                KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
+                ExpressionAttributeValues={
+                    ":pk": f"GROUP#{group_name}",
+                    ":sk": "MEMBER#",
+                },
+            )
+            members = []
+            for m in resp.get("Items", []):
+                user_id = m.get("userId", "")
+                if not user_id:
+                    continue
+                attrs = {}
+                cognito_groups = []
+                try:
+                    cognito_resp = cognito.list_users(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Filter=f'sub = "{user_id}"',
+                        Limit=1,
+                    )
+                    users = cognito_resp.get("Users", [])
+                    if not users:
+                        continue
+                    u = users[0]
+                    attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
+                    groups_resp = cognito.admin_list_groups_for_user(
+                        UserPoolId=COGNITO_USER_POOL_ID,
+                        Username=u["Username"],
+                    )
+                    cognito_groups = [g["GroupName"] for g in groups_resp.get("Groups", [])]
+                except ClientError:
+                    pass
+                # Managers cannot see admin users in member lists
+                if not is_admin and _user_is_admin(cognito_groups):
+                    continue
+                profile = _get_item(f"USER#{user_id}", "PROFILE")
+                display_name = profile.get("displayName", "") if profile else ""
+                members.append({
+                    "userId": user_id,
+                    "email": attrs.get("email", ""),
+                    "displayName": display_name,
+                })
+            return ok(members)
+        except ClientError:
+            logger.exception("Failed to list members for group %s", group_name)
+            return error("Failed to list members", 500)
 
     # POST /admin/groups
     if method == "POST":
@@ -1602,11 +1742,12 @@ def handle_admin_groups(event, method, parts):
             "entitySk": name,
         }
         table.put_item(Item=item)
+        item["id"] = name
         return ok(item, 201)
 
-    # PUT /admin/groups/{name}
-    if method == "PUT" and len(parts) >= 3:
-        name = parts[2]
+    # PUT /admin/groups/{name} or PUT /admin/groups?id={name}
+    name = parts[2] if len(parts) >= 3 else qs.get("id", "")
+    if method == "PUT" and name:
         existing = _get_item(f"GROUP#{name}")
         if not existing:
             return error("Group not found", 404)
@@ -1615,14 +1756,15 @@ def handle_admin_groups(event, method, parts):
             if field in data:
                 existing[field] = data[field]
         table.put_item(Item=existing)
+        existing["id"] = existing.get("id") or existing.get("name", "")
         return ok(existing)
 
-    # DELETE /admin/groups/{name}
-    if method == "DELETE" and len(parts) >= 3:
-        name = parts[2]
-        # Delete group metadata
-        _delete_item(f"GROUP#{name}")
-        # Delete all members
+    # DELETE /admin/groups/{name} or DELETE /admin/groups?id={name}
+    if method == "DELETE":
+        name = parts[2] if len(parts) >= 3 else qs.get("id", "")
+        if not name:
+            return error("Missing group name", 400)
+        _delete_item(f"GROUP#{name}", "META")
         try:
             resp = table.query(
                 KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
