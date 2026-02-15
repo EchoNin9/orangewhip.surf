@@ -20,6 +20,7 @@ const MediaDetailPage = lazy(() => import('@/features/media/MediaDetailPage'));
 /* ── Lazy-loaded admin pages ── */
 const AdminDashboard = lazy(() => import('@/features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const ShowsAdminPage = lazy(() => import('@/features/admin/ShowsAdminPage'));
+const VenuesAdminPage = lazy(() => import('@/features/admin/VenuesAdminPage'));
 const MediaAdminPage = lazy(() => import('@/features/admin/MediaAdminPage'));
 const UpdatesAdminPage = lazy(() => import('@/features/admin/UpdatesAdminPage').then(m => ({ default: m.UpdatesAdminPage })));
 const PressAdminPage = lazy(() => import('@/features/admin/PressAdminPage').then(m => ({ default: m.PressAdminPage })));
@@ -65,6 +66,7 @@ export function AppLayout() {
             {/* Admin */}
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/shows" element={<ShowsAdminPage />} />
+            <Route path="/admin/venues" element={<VenuesAdminPage />} />
             <Route path="/admin/media" element={<MediaAdminPage />} />
             <Route path="/admin/updates" element={<UpdatesAdminPage />} />
             <Route path="/admin/press" element={<PressAdminPage />} />

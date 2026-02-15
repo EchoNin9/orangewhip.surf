@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   MusicalNoteIcon,
   CalendarIcon,
+  MapPinIcon,
   NewspaperIcon,
   DocumentTextIcon,
   UserGroupIcon,
@@ -43,6 +44,13 @@ const modules: ModuleCard[] = [
     description: "Create and manage upcoming shows and past gigs.",
     icon: CalendarIcon,
     to: "/admin/shows",
+    visible: (u) => canEditContent(u),
+  },
+  {
+    title: "Venues",
+    description: "Add and manage venues for shows.",
+    icon: MapPinIcon,
+    to: "/admin/venues",
     visible: (u) => canEditContent(u),
   },
   {
