@@ -18,6 +18,7 @@ mock_table = MagicMock()
 mock_dynamodb_resource.Table.return_value = mock_table
 
 mock_s3 = MagicMock()
+mock_s3.generate_presigned_url.return_value = "https://test-bucket.s3.amazonaws.com/presigned"
 mock_cognito = MagicMock()
 mock_lambda_client = MagicMock()
 mock_bedrock = MagicMock()

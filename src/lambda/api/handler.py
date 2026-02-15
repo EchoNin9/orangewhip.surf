@@ -243,6 +243,84 @@ def _generate_ai_summary(title: str, media_type: str) -> str:
         return ""
 
 
+PRESIGNED_GET_EXPIRY = 3600  # 1 hour
+
+
+def _presign_get(s3_key: str) -> str:
+    """Generate a presigned GET URL for an S3 key."""
+    if not s3_key:
+        return ""
+    try:
+        return s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": s3_key},
+            ExpiresIn=PRESIGNED_GET_EXPIRY,
+        )
+    except Exception:
+        logger.exception("Failed to generate presigned GET URL for %s", s3_key)
+        return ""
+
+
+def _enrich_media_item(item: dict) -> dict:
+    """Add url, thumbnail, and type fields for frontend consumption."""
+    item["url"] = _presign_get(item.get("s3Key", ""))
+    item["thumbnail"] = _presign_get(item.get("thumbnailKey", ""))
+    item["type"] = item.get("mediaType", "image")
+    return item
+
+
+def _enrich_media_items(items: list[dict]) -> list[dict]:
+    """Enrich a list of media items with presigned URLs."""
+    return [_enrich_media_item(item) for item in items]
+
+
+def _resolve_media_ids(media_ids: list[str]) -> list[dict]:
+    """Look up media items by IDs and return enriched items."""
+    if not media_ids:
+        return []
+    result = []
+    for mid in media_ids:
+        item = _get_item(f"MEDIA#{mid}")
+        if item:
+            result.append(_enrich_media_item(item))
+    return result
+
+
+def _resolve_show_media(show: dict) -> dict:
+    """Resolve thumbnailMediaId and mediaIds on a show for frontend display."""
+    thumb_media_id = show.get("thumbnailMediaId", "")
+    if thumb_media_id:
+        thumb_item = _get_item(f"MEDIA#{thumb_media_id}")
+        if thumb_item:
+            enriched = _enrich_media_item(thumb_item)
+            # Use the thumbnail URL, or the main URL for images
+            show["thumbnail"] = enriched.get("thumbnail") or enriched.get("url", "")
+
+    media_ids = show.get("mediaIds", [])
+    if media_ids:
+        show["media"] = _resolve_media_ids(media_ids)
+    return show
+
+
+def _resolve_update_media(update: dict) -> dict:
+    """Resolve mediaIds on an update for frontend display."""
+    media_ids = update.get("mediaIds", [])
+    if media_ids:
+        media_items = _resolve_media_ids(media_ids)
+        # Map to the shape the frontend expects
+        update["media"] = [
+            {
+                "id": m.get("id", ""),
+                "url": m.get("url", ""),
+                "type": m.get("type", "image"),
+                "thumbnailUrl": m.get("thumbnail", ""),
+                "filename": m.get("title", ""),
+            }
+            for m in media_items
+        ]
+    return update
+
+
 def _validate_api_key(event: dict, scope: str = "embed") -> bool:
     """Validate X-Api-Key header against DynamoDB APIKEY records."""
     api_key = event.get("headers", {}).get("x-api-key", "")
@@ -298,10 +376,13 @@ def handle_shows(event, method, parts):
             if not item:
                 return error("Show not found", 404)
             _resolve_venues([item])
+            _resolve_show_media(item)
             return ok(item)
 
         items = _query_entity("SHOW")
         _resolve_venues(items)
+        for item in items:
+            _resolve_show_media(item)
         now = _now_iso()
         upcoming = sorted(
             [s for s in items if s.get("date", "") >= now[:10]],
@@ -437,6 +518,7 @@ def handle_updates(event, method, parts):
         items = _query_entity("UPDATE", pinned=True, visible=True)
         if not items:
             return error("No pinned update", 404)
+        _resolve_update_media(items[0])
         return ok(items[0])
 
     if method == "GET":
@@ -446,6 +528,8 @@ def handle_updates(event, method, parts):
             items = _query_entity("UPDATE")
         else:
             items = _query_entity("UPDATE", visible=True)
+        for item in items:
+            _resolve_update_media(item)
         return ok(items)
 
     if method == "POST":
@@ -587,6 +671,7 @@ def handle_media(event, method, parts):
         if err:
             return err
         items = _query_entity("MEDIA")
+        _enrich_media_items(items)
         return ok(items)
 
     # GET /media — public only, with filters
@@ -599,6 +684,7 @@ def handle_media(event, method, parts):
             item = _get_item(f"MEDIA#{media_id}")
             if not item:
                 return error("Media not found", 404)
+            _enrich_media_item(item)
             return ok(item)
 
         items = _query_entity("MEDIA", public=True)
@@ -620,6 +706,7 @@ def handle_media(event, method, parts):
                 m for m in items
                 if cat_set.intersection(set(m.get("categories", [])))
             ]
+        _enrich_media_items(items)
         return ok(items)
 
     # POST /media/upload — presigned URL
