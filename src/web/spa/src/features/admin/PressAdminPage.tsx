@@ -109,7 +109,7 @@ export function PressAdminPage() {
       .then((data) => {
         const normalised = (data ?? []).map((c) => ({
           ...c,
-          attachments: c.attachments ?? [],
+          attachments: c.attachments ?? (c as { fileAttachments?: FileAttachment[] }).fileAttachments ?? [],
           links: c.links ?? [],
         }));
         const sorted = normalised.sort(
