@@ -279,6 +279,13 @@ def _enrich_media_item(item: dict) -> dict:
         thumb = url
     item["thumbnail"] = thumb
     item["type"] = item.get("mediaType", "image")
+
+    # Enrich files array with presigned URLs
+    files = item.get("files", [])
+    if files:
+        for f in files:
+            f["url"] = _presign_get(f.get("s3Key", ""))
+        item["files"] = files
     return item
 
 
@@ -850,6 +857,24 @@ def handle_media(event, method, parts):
         categories = data.get("categories", [])
         ai_summary = _generate_ai_summary(title, media_type) if title else ""
         s3_key = data.get("s3Key", "")
+        files = data.get("files", [])
+
+        # Validate max 15 files
+        if len(files) > 15:
+            return error("Maximum 15 files per media item", 400)
+
+        # If files provided but no explicit s3Key, use first file as primary
+        if files and not s3_key:
+            s3_key = files[0].get("s3Key", "")
+
+        # Auto-assign thumbnailKey: use explicit value, or first image/video file
+        thumbnail_key = data.get("thumbnailKey", "")
+        if not thumbnail_key and files:
+            for f in files:
+                ct = f.get("contentType", "")
+                if ct.startswith("image/") or ct.startswith("video/"):
+                    thumbnail_key = f.get("s3Key", "")
+                    break
 
         item = {
             "PK": f"MEDIA#{media_id}",
@@ -861,7 +886,8 @@ def handle_media(event, method, parts):
             "dimensions": data.get("dimensions", ""),
             "filesize": data.get("filesize", 0),
             "s3Key": s3_key,
-            "thumbnailKey": data.get("thumbnailKey", ""),
+            "thumbnailKey": thumbnail_key,
+            "files": files,
             "categories": categories,
             "public": data.get("public", True),
             "addedBy": user["userId"],
@@ -887,6 +913,27 @@ def handle_media(event, method, parts):
         existing = _get_item(f"MEDIA#{media_id}")
         if not existing:
             return error("Media not found", 404)
+
+        # Handle files array update
+        if "files" in data:
+            new_files = data["files"]
+            if len(new_files) > 15:
+                return error("Maximum 15 files per media item", 400)
+            # Clean up removed S3 objects
+            old_keys = {f.get("s3Key") for f in existing.get("files", [])}
+            new_keys = {f.get("s3Key") for f in new_files}
+            removed_keys = old_keys - new_keys
+            for rk in removed_keys:
+                if rk:
+                    try:
+                        s3.delete_object(Bucket=MEDIA_BUCKET, Key=rk)
+                    except Exception:
+                        logger.exception("Failed to delete removed file %s", rk)
+            existing["files"] = new_files
+            # Update primary s3Key to first file if present
+            if new_files:
+                existing["s3Key"] = new_files[0].get("s3Key", existing.get("s3Key", ""))
+
         for field in [
             "title", "mediaType", "format", "dimensions", "filesize",
             "s3Key", "thumbnailKey", "categories", "public", "aiSummary",
@@ -896,6 +943,7 @@ def handle_media(event, method, parts):
         if "categories" in data:
             existing["categoryId"] = data["categories"][0] if data["categories"] else "NONE"
         table.put_item(Item=existing)
+        _enrich_media_item(existing)
         return ok(existing)
 
     if method == "DELETE":
@@ -909,7 +957,7 @@ def handle_media(event, method, parts):
             return error("Missing media id")
         existing = _get_item(f"MEDIA#{media_id}")
         if existing:
-            # Clean up S3 objects
+            # Clean up legacy top-level S3 objects
             for key_field in ["s3Key", "thumbnailKey"]:
                 s3_key = existing.get(key_field, "")
                 if s3_key:
@@ -917,6 +965,14 @@ def handle_media(event, method, parts):
                         s3.delete_object(Bucket=MEDIA_BUCKET, Key=s3_key)
                     except Exception:
                         logger.exception("Failed to delete S3 object %s", s3_key)
+            # Clean up all files in the files array
+            for f in existing.get("files", []):
+                fk = f.get("s3Key", "")
+                if fk:
+                    try:
+                        s3.delete_object(Bucket=MEDIA_BUCKET, Key=fk)
+                    except Exception:
+                        logger.exception("Failed to delete file S3 object %s", fk)
         _delete_item(f"MEDIA#{media_id}")
         return ok({"deleted": media_id})
 

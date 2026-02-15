@@ -12,18 +12,28 @@ import { EmptyState } from "../../shell/EmptyState";
 
 export type MediaType = "audio" | "video" | "image";
 
+export interface MediaFile {
+  s3Key: string;
+  url: string;
+  filename: string;
+  contentType: string;
+  filesize: number;
+}
+
 export interface MediaItem {
   id: string;
   title: string;
   type: MediaType;
   url: string;
   thumbnail?: string;
+  thumbnailKey?: string;
   format?: string;
   filesize?: number;
   addedBy?: string;
   addedAt?: string;
   aiSummary?: string;
   categories?: string[];
+  files?: MediaFile[];
 }
 
 interface Category {
