@@ -34,10 +34,14 @@ interface Update {
 interface Show {
   id: string;
   date: string;
-  venue: string;
-  city?: string;
+  venue?: {
+    name: string;
+    address?: string;
+    website?: string;
+  };
   description?: string;
-  thumbnailUrl?: string;
+  thumbnail?: string;
+  media?: { url: string; type: "image" | "video" }[];
   ticketUrl?: string;
 }
 
@@ -281,10 +285,10 @@ export function HomePage() {
                         : ""
                     }`}
                   >
-                    {show.thumbnailUrl && (
+                    {show.thumbnail && (
                       <div className="h-40 -mx-5 -mt-5 mb-4 rounded-t-xl overflow-hidden bg-secondary-700">
                         <img
-                          src={show.thumbnailUrl}
+                          src={show.thumbnail}
                           alt=""
                           className="w-full h-full object-cover"
                         />
@@ -303,13 +307,13 @@ export function HomePage() {
                     </div>
 
                     <h3 className="text-lg font-display font-bold text-secondary-100">
-                      {show.venue}
+                      {show.venue?.name}
                     </h3>
 
-                    {show.city && (
+                    {show.venue?.address && (
                       <div className="flex items-center gap-1 text-sm text-secondary-500 mt-1">
                         <MapPinIcon className="w-3.5 h-3.5" />
-                        <span>{show.city}</span>
+                        <span>{show.venue.address}</span>
                       </div>
                     )}
                   </Link>
