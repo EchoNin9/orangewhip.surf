@@ -619,27 +619,13 @@ data "archive_file" "api" {
 }
 
 # Pillow layer for image processing / thumbnail generation
-resource "null_resource" "pillow_layer" {
-  triggers = {
-    requirements = file("${path.module}/layer_requirements.txt")
-    # Force rebuild: ensure Linux x86_64 binaries for Lambda runtime
-    build_cmd = "v2-linux-x86_64"
-  }
-  provisioner "local-exec" {
-    command     = "rm -rf build/layer && mkdir -p build/layer/python/lib/python3.12/site-packages && python3 -m pip install -r ${path.module}/layer_requirements.txt -t build/layer/python/lib/python3.12/site-packages --quiet --platform manylinux2014_x86_64 --only-binary=:all: && cd build/layer && zip -r ../pillow_layer.zip python"
-    working_dir = path.module
-  }
-}
-
+# The layer zip is built by CI (GitHub Actions) before Terraform runs,
+# ensuring correct Linux x86_64 binaries for the Lambda runtime.
 resource "aws_lambda_layer_version" "pillow" {
   filename            = "${path.module}/build/pillow_layer.zip"
+  source_code_hash    = filebase64sha256("${path.module}/build/pillow_layer.zip")
   layer_name          = "ows-pillow-layer"
   compatible_runtimes = ["python3.12"]
-  depends_on          = [null_resource.pillow_layer]
-
-  # Force new layer version when the build null_resource is recreated,
-  # ensuring the zip contains correct platform binaries.
-  description = "Build ${null_resource.pillow_layer.id}"
 }
 
 resource "aws_iam_role" "lambdaApi" {
