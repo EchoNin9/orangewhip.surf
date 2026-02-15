@@ -31,7 +31,7 @@ interface ShowFormData {
   description: string;
   venueId: string;
   mediaIds: string[];
-  thumbnailId: string;
+  thumbnailMediaId: string;
 }
 
 const emptyForm: ShowFormData = {
@@ -40,7 +40,7 @@ const emptyForm: ShowFormData = {
   description: "",
   venueId: "",
   mediaIds: [],
-  thumbnailId: "",
+  thumbnailMediaId: "",
 };
 
 /* ------------------------------------------------------------------ */
@@ -357,8 +357,8 @@ function ShowForm({
             Thumbnail (select from attached media)
           </label>
           <select
-            value={form.thumbnailId}
-            onChange={(e) => update({ thumbnailId: e.target.value })}
+            value={form.thumbnailMediaId}
+            onChange={(e) => update({ thumbnailMediaId: e.target.value })}
             className="input-field"
           >
             <option value="">Auto-select</option>
@@ -526,8 +526,8 @@ export default function ShowsAdminPage() {
                     date: editingShow.date.slice(0, 10),
                     description: editingShow.description ?? "",
                     venueId: editingShow.venueId ?? "",
-                    mediaIds: editingShow.media?.map((_, i) => String(i)) ?? [],
-                    thumbnailId: "",
+                    mediaIds: editingShow.mediaIds ?? editingShow.media?.map((m) => m.id).filter(Boolean) ?? [],
+                    thumbnailMediaId: editingShow.thumbnailMediaId ?? "",
                   }
                 : emptyForm
             }

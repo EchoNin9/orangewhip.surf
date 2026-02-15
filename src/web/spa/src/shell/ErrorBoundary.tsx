@@ -25,7 +25,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
+    console.error('[ErrorBoundary] Error caught:', error);
+    console.error('[ErrorBoundary] Error message:', error.message);
+    console.error('[ErrorBoundary] Error stack:', error.stack);
+    console.error('[ErrorBoundary] Component stack:', info.componentStack);
   }
 
   handleReset = () => {
@@ -61,6 +64,21 @@ export class ErrorBoundary extends Component<Props, State> {
               This page ran into an unexpected error. Try going back to the
               home page or refreshing.
             </p>
+            
+            {/* Display error details in development */}
+            {this.state.error && (
+              <div className="text-left mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
+                <p className="text-xs font-mono text-red-400 mb-2">
+                  <strong>Error:</strong> {this.state.error.message}
+                </p>
+                <details className="text-xs font-mono text-red-300/70">
+                  <summary className="cursor-pointer hover:text-red-300">Stack trace</summary>
+                  <pre className="mt-2 text-[10px] overflow-auto max-h-40">
+                    {this.state.error.stack}
+                  </pre>
+                </details>
+              </div>
+            )}
 
             <div className="flex justify-center gap-4">
               <Link to="/" className="btn-primary" onClick={this.handleReset}>

@@ -1,0 +1,44 @@
+---
+description: SPA debugging patterns — ErrorBoundary, staging verification, headless Chrome testing
+globs: src/web/spa/**/*.tsx
+alwaysApply: false
+---
+
+# SPA Debugging Playbook
+
+## ErrorBoundary
+
+The app wraps routes in `src/web/spa/src/shell/ErrorBoundary.tsx`. When you see "Something went wrong":
+
+1. The error is a **render-time crash** (not an async/API error — those are caught in useEffect)
+2. Common cause: rendering a JS object directly in JSX (React error #31)
+3. ErrorBoundary logs to console: `[ErrorBoundary] Error caught:` — capture with headless Chrome
+
+## Verifying on Staging
+
+Localhost may work fine while staging (`stage.orangewhip.surf`) crashes. Always test both.
+
+```bash
+# Capture rendered DOM from staging
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless=new --dump-dom --virtual-time-budget=8000 \
+  https://stage.orangewhip.surf/ 2>/dev/null | grep "Something went wrong"
+
+# Capture console errors
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless=new --enable-logging=stderr --v=0 --virtual-time-budget=8000 \
+  https://stage.orangewhip.surf/ 2>&1 | grep "CONSOLE.*error"
+```
+
+## CI/CD Pipeline
+
+- Push to `develop` → GitHub Actions deploys to staging (S3 + CloudFront invalidation)
+- `config.js` is generated during deploy with real Cognito/API values (not the dev placeholder)
+- `auth.js` is copied from `src/web/auth.js` into the dist folder
+- Check deploy status: `gh run list --limit 3 --branch develop`
+
+## Dev Server
+
+- `public/config.js` and `public/auth.js` exist for local dev only
+- Vite serves from `src/web/spa/` on port 3000
+- HMR may require full reload when shell exports change (e.g. AuthContext)

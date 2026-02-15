@@ -10,7 +10,7 @@ import type { Show } from "./ShowsPage";
 /* ------------------------------------------------------------------ */
 
 interface ShowDetail extends Show {
-  media?: { url: string; type: "image" | "video" }[];
+  media?: { id: string; url: string; type: "image" | "video"; thumbnail?: string }[];
 }
 
 /* ------------------------------------------------------------------ */

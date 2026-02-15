@@ -311,7 +311,15 @@ def _resolve_show_media(show: dict) -> dict:
 
     media_ids = show.get("mediaIds", [])
     if media_ids:
-        show["media"] = _resolve_media_ids(media_ids)
+        resolved = _resolve_media_ids(media_ids)
+        show["media"] = resolved
+
+        # Fallback: if no explicit thumbnail, use first image media's thumbnail
+        if not show.get("thumbnail") and resolved:
+            for m in resolved:
+                if m.get("type") == "image":
+                    show["thumbnail"] = m.get("thumbnail") or m.get("url", "")
+                    break
     return show
 
 

@@ -20,7 +20,9 @@ export interface Show {
   };
   description?: string;
   thumbnail?: string;
-  media?: { url: string; type: "image" | "video" }[];
+  thumbnailMediaId?: string;
+  mediaIds?: string[];
+  media?: { id: string; url: string; type: "image" | "video"; thumbnail?: string }[];
 }
 
 /* ------------------------------------------------------------------ */
