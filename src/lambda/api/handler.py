@@ -269,11 +269,29 @@ def _presign_get(s3_key: str) -> str:
         return ""
 
 
+def _is_image_key(s3_key: str) -> bool:
+    """Check if an S3 key points to an image (not a video/audio media file)."""
+    if not s3_key:
+        return False
+    # Generated thumbnails are always images
+    if s3_key.startswith("thumbnails/"):
+        return True
+    # Image media files are valid thumbnails
+    if s3_key.startswith("media/image"):
+        return True
+    # Check extension as fallback
+    ext = s3_key.rsplit(".", 1)[-1].lower() if "." in s3_key else ""
+    return ext in ("jpg", "jpeg", "png", "webp", "gif")
+
+
 def _enrich_media_item(item: dict) -> dict:
     """Add url, thumbnail, and type fields for frontend consumption."""
     url = _presign_get(item.get("s3Key", ""))
     item["url"] = url
-    thumb = _presign_get(item.get("thumbnailKey", ""))
+
+    # Only presign thumbnailKey if it points to an actual image file
+    thumb_key = item.get("thumbnailKey", "")
+    thumb = _presign_get(thumb_key) if _is_image_key(thumb_key) else ""
     # For images, fall back to the main URL as the thumbnail preview
     if not thumb and item.get("mediaType") == "image":
         thumb = url
@@ -867,12 +885,16 @@ def handle_media(event, method, parts):
         if files and not s3_key:
             s3_key = files[0].get("s3Key", "")
 
-        # Auto-assign thumbnailKey: use explicit value, or first image/video file
+        # Auto-assign thumbnailKey: use explicit value if it's an image,
+        # or fall back to first image file. Video/audio s3Keys are never
+        # valid thumbnails — the thumb Lambda generates those async.
         thumbnail_key = data.get("thumbnailKey", "")
+        if thumbnail_key and not _is_image_key(thumbnail_key):
+            thumbnail_key = ""  # discard non-image thumbnailKey
         if not thumbnail_key and files:
             for f in files:
                 ct = f.get("contentType", "")
-                if ct.startswith("image/") or ct.startswith("video/"):
+                if ct.startswith("image/"):
                     thumbnail_key = f.get("s3Key", "")
                     break
 

@@ -261,9 +261,14 @@ function UploadTab({ categories }: { categories: Category[] }) {
 
       setUploadProgress("Creating media record...");
 
-      // 3) Determine thumbnail: use the chosen file's s3Key
-      const thumbFile = uploadedFiles[thumbIdx] || uploadedFiles[0];
-      const thumbnailKey = thumbFile ? thumbFile.s3Key : "";
+      // 3) Determine thumbnail: only use image files as thumbnail source.
+      //    Video/audio s3Keys can't be rendered in <img> — the thumb Lambda
+      //    will async-generate thumbnails for those via MediaConvert.
+      const chosenFile = uploadedFiles[thumbIdx] || uploadedFiles[0];
+      const thumbnailKey =
+        chosenFile && chosenFile.contentType.startsWith("image/")
+          ? chosenFile.s3Key
+          : (uploadedFiles.find((f) => f.contentType.startsWith("image/"))?.s3Key || "");
 
       // 4) Create media record with files array
       await apiPost("/media", {
@@ -776,10 +781,13 @@ export default function MediaAdminPage() {
   const [editFiles, setEditFiles] = useState<MediaFile[]>([]);
   const [editThumbKey, setEditThumbKey] = useState<string>("");
   const [editNewFiles, setEditNewFiles] = useState<QueuedFile[]>([]);
+  const [editAudioThumbFile, setEditAudioThumbFile] = useState<File | null>(null);
+  const [editAudioThumbPreview, setEditAudioThumbPreview] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const editFileRef = useRef<HTMLInputElement>(null);
+  const editAudioThumbRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     apiGet<Category[]>("/categories")
@@ -795,8 +803,10 @@ export default function MediaAdminPage() {
     setEditCats(item.categories || []);
     setEditPublic(item.public !== false);
     setEditFiles(item.files || []);
-    setEditThumbKey(item.thumbnailKey || item.files?.[0]?.s3Key || "");
+    setEditThumbKey(item.thumbnailKey || "");
     setEditNewFiles([]);
+    setEditAudioThumbFile(null);
+    setEditAudioThumbPreview(null);
     setEditError(null);
     setEditSaving(false);
     setEditOpen(true);
@@ -826,6 +836,9 @@ export default function MediaAdminPage() {
     // Clean up new file previews
     editNewFiles.forEach((q) => { if (q.previewUrl) URL.revokeObjectURL(q.previewUrl); });
     setEditNewFiles([]);
+    if (editAudioThumbPreview) URL.revokeObjectURL(editAudioThumbPreview);
+    setEditAudioThumbFile(null);
+    setEditAudioThumbPreview(null);
     setSearchParams((prev) => { prev.delete("edit"); return prev; }, { replace: true });
   }
 
@@ -920,8 +933,60 @@ export default function MediaAdminPage() {
 
       // 3) Determine thumbnail
       let thumbKey = editThumbKey;
+
+      // For audio: handle cover art removal
+      if (editType === "audio" && thumbKey === "__remove__") {
+        thumbKey = "";
+      }
+
+      // For audio: upload cover art if a new file was chosen
+      if (editType === "audio" && editAudioThumbFile) {
+        const { uploadUrl, s3Key: coverKey } = await apiPost<{
+          uploadUrl: string;
+          s3Key: string;
+        }>("/media/thumbnail-upload", {
+          mediaId: editItem.id,
+          filename: editAudioThumbFile.name,
+        });
+        const putRes = await fetch(uploadUrl, {
+          method: "PUT",
+          body: editAudioThumbFile,
+          headers: { "Content-Type": editAudioThumbFile.type },
+        });
+        if (!putRes.ok) {
+          throw new Error(`Cover art upload failed (${putRes.status})`);
+        }
+        thumbKey = coverKey;
+      }
+
+      // For image/video with multiple files: thumbnail is mandatory
+      if (editType !== "audio" && allFiles.length > 1) {
+        // Only image s3Keys are valid thumbnails
+        const imageFileKeys = new Set(
+          allFiles.filter((f) => f.contentType?.startsWith("image/")).map((f) => f.s3Key),
+        );
+        const isValidThumb =
+          thumbKey &&
+          (imageFileKeys.has(thumbKey) ||
+            thumbKey.startsWith("thumbnails/"));
+
+        if (!isValidThumb) {
+          // Try auto-selecting first image
+          const firstImage = allFiles.find((f) => f.contentType?.startsWith("image/"));
+          if (firstImage) {
+            thumbKey = firstImage.s3Key;
+          } else {
+            setEditError("Please add at least one image file or select a thumbnail.");
+            setEditSaving(false);
+            return;
+          }
+        }
+      }
+
+      // Fallback: pick first image file if no explicit thumb
       if (!thumbKey && allFiles.length > 0) {
-        thumbKey = allFiles[0].s3Key;
+        const firstImage = allFiles.find((f) => f.contentType?.startsWith("image/"));
+        if (firstImage) thumbKey = firstImage.s3Key;
       }
 
       // 4) Save
@@ -1042,8 +1107,90 @@ export default function MediaAdminPage() {
                   </Dialog.Title>
 
                   <form onSubmit={handleEditSubmit} className="space-y-5">
-                    {/* ── Existing files grid ── */}
-                    {editFiles.length > 0 && (
+                    {/* ── Audio Cover Art section ── */}
+                    {editType === "audio" && (
+                      <div>
+                        <label className="block text-sm font-medium text-secondary-300 mb-2">
+                          <PhotoIcon className="w-4 h-4 inline mr-1" />
+                          Cover Art
+                        </label>
+                        <div className="flex items-start gap-4">
+                          {/* Current or new cover preview */}
+                          <div className="w-32 h-32 rounded-lg overflow-hidden bg-secondary-800 border-2 border-secondary-700 shrink-0 flex items-center justify-center">
+                            {editAudioThumbPreview ? (
+                              <img
+                                src={editAudioThumbPreview}
+                                alt="New cover art"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : editItem?.thumbnail ? (
+                              <img
+                                src={editItem.thumbnail}
+                                alt="Current cover art"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="text-center text-secondary-500">
+                                <svg className="w-8 h-8 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+                                </svg>
+                                <span className="text-[10px]">No cover</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => editAudioThumbRef.current?.click()}
+                              disabled={editSaving}
+                              className="btn-secondary text-sm inline-flex items-center gap-2"
+                            >
+                              <CloudArrowUpIcon className="w-4 h-4" />
+                              {editItem?.thumbnail || editAudioThumbFile ? "Replace" : "Upload"} Cover Art
+                            </button>
+                            {(editAudioThumbFile || editItem?.thumbnail) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (editAudioThumbPreview) URL.revokeObjectURL(editAudioThumbPreview);
+                                  setEditAudioThumbFile(null);
+                                  setEditAudioThumbPreview(null);
+                                  setEditThumbKey("__remove__");
+                                }}
+                                disabled={editSaving}
+                                className="block text-xs text-red-400 hover:text-red-300 transition-colors"
+                              >
+                                Remove cover art
+                              </button>
+                            )}
+                            {editAudioThumbFile && (
+                              <p className="text-xs text-primary-400">
+                                New: {editAudioThumbFile.name}
+                              </p>
+                            )}
+                            <input
+                              ref={editAudioThumbRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                  if (editAudioThumbPreview) URL.revokeObjectURL(editAudioThumbPreview);
+                                  setEditAudioThumbFile(f);
+                                  setEditAudioThumbPreview(URL.createObjectURL(f));
+                                  setEditThumbKey(""); // will be set on save
+                                }
+                                e.target.value = "";
+                              }}
+                              className="hidden"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Existing files grid (image/video only) ── */}
+                    {editType !== "audio" && (editFiles.length > 0 || editNewFiles.length > 0) && (
                       <div>
                         <label className="block text-sm font-medium text-secondary-300 mb-2">
                           Files ({editTotalFiles}/{MAX_FILES})
@@ -1056,12 +1203,16 @@ export default function MediaAdminPage() {
                             return (
                               <div
                                 key={f.s3Key}
-                                className={`relative group rounded-lg overflow-hidden bg-secondary-800 border-2 transition-colors cursor-pointer ${
+                                className={`relative group rounded-lg overflow-hidden bg-secondary-800 border-2 transition-colors ${
+                                  isImage ? "cursor-pointer" : ""
+                                } ${
                                   isThumb
                                     ? "border-primary-500 ring-2 ring-primary-500/30"
                                     : "border-secondary-700 hover:border-secondary-500"
                                 }`}
-                                onClick={() => setEditThumbKey(f.s3Key)}
+                                onClick={() => {
+                                  if (isImage) setEditThumbKey(f.s3Key);
+                                }}
                               >
                                 <div className="aspect-square flex items-center justify-center">
                                   {isImage && f.url ? (
@@ -1157,15 +1308,15 @@ export default function MediaAdminPage() {
                       </div>
                     )}
 
-                    {/* No files yet — show message */}
-                    {editFiles.length === 0 && editNewFiles.length === 0 && (
+                    {/* No files yet for image/video — show message */}
+                    {editType !== "audio" && editFiles.length === 0 && editNewFiles.length === 0 && (
                       <div className="text-center py-4 text-secondary-500 text-sm">
                         No files attached. Add files below.
                       </div>
                     )}
 
-                    {/* Add more files */}
-                    {editTotalFiles < MAX_FILES && (
+                    {/* Add more files (image/video only) */}
+                    {editType !== "audio" && editTotalFiles < MAX_FILES && (
                       <div>
                         <button
                           type="button"
@@ -1190,30 +1341,45 @@ export default function MediaAdminPage() {
                       </div>
                     )}
 
-                    {/* Thumbnail selector dropdown */}
-                    {(editFiles.length + editNewFiles.length) > 0 && (
-                      <div>
-                        <label className="block text-sm font-medium text-secondary-300 mb-1">
-                          <PhotoIcon className="w-4 h-4 inline mr-1" />
-                          Thumbnail
-                        </label>
-                        <select
-                          value={editThumbKey}
-                          onChange={(e) => setEditThumbKey(e.target.value)}
-                          className="input-field"
-                        >
-                          <option value="">Auto (first file)</option>
-                          {editFiles.map((f) => (
-                            <option key={f.s3Key} value={f.s3Key}>
-                              {f.filename || f.s3Key.split("/").pop()}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-secondary-500 mt-1">
-                          Click a file above or use this dropdown to set the thumbnail.
-                        </p>
-                      </div>
-                    )}
+                    {/* Thumbnail selector dropdown (image/video items only) */}
+                    {editType !== "audio" && editTotalFiles > 1 && (() => {
+                      const imageOptions = editFiles.filter((f) => f.contentType?.startsWith("image/"));
+                      const hasGenerated = editThumbKey.startsWith("thumbnails/");
+                      const isMandatory = editTotalFiles > 1;
+                      return (
+                        <div>
+                          <label className="block text-sm font-medium text-secondary-300 mb-1">
+                            <PhotoIcon className="w-4 h-4 inline mr-1" />
+                            Thumbnail
+                            {isMandatory && <span className="text-red-400 ml-1">*</span>}
+                          </label>
+                          <select
+                            value={editThumbKey}
+                            onChange={(e) => setEditThumbKey(e.target.value)}
+                            className={`input-field ${isMandatory && !editThumbKey ? "border-red-500/50" : ""}`}
+                            required={isMandatory}
+                          >
+                            {!isMandatory && <option value="">Auto (first image)</option>}
+                            {isMandatory && !editThumbKey && (
+                              <option value="" disabled>-- Select a thumbnail --</option>
+                            )}
+                            {hasGenerated && (
+                              <option value={editThumbKey}>Current generated thumbnail</option>
+                            )}
+                            {imageOptions.map((f) => (
+                              <option key={f.s3Key} value={f.s3Key}>
+                                {f.filename || f.s3Key.split("/").pop()}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-secondary-500 mt-1">
+                            {imageOptions.length > 0
+                              ? "Click an image above or use this dropdown. Only image files can be thumbnails."
+                              : "Add at least one image file to use as a thumbnail."}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                     {/* Title */}
                     <div>

@@ -310,7 +310,22 @@ export default function MediaDetailPage() {
                 </div>
               )}
 
-              {item.type === "audio" && <AudioWaveform src={item.url} />}
+              {item.type === "audio" && (
+                <>
+                  {/* Show cover art if available */}
+                  {item.thumbnail && (
+                    <div className="rounded-xl overflow-hidden bg-secondary-800">
+                      <img
+                        src={item.thumbnail}
+                        alt={`${item.title} cover art`}
+                        className="w-full max-h-[50vh] object-contain mx-auto"
+                      />
+                    </div>
+                  )}
+                  {/* Audio player with waveform */}
+                  <AudioWaveform src={item.url} />
+                </>
+              )}
             </>
           )}
 
