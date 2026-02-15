@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Bars3Icon, XMarkIcon, UserCircleIcon } from "@heroicons/react/24/outline";
-import { useAuth, canEditContent, canManageMedia } from "./AuthContext";
+import { useAuth, canEditContent, canManageMedia, isMember } from "./AuthContext";
+import { useImpersonation } from "./ImpersonationContext";
 
 /* ── SVG social icons (inline so we don't need extra deps) ── */
 function SpotifyIcon({ className }: { className?: string }) {
@@ -61,6 +62,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function Header() {
   const { user, signOut } = useAuth();
+  const { isImpersonating, stopImpersonation } = useImpersonation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -78,16 +80,47 @@ export function Header() {
         scrolled ? "bg-secondary-900/95 backdrop-blur-sm shadow-lg" : "bg-secondary-900"
       }`}
     >
+      {/* Impersonation banner */}
+      {isImpersonating && (
+        <div className="bg-amber-500/20 border-b border-amber-500/40 px-4 py-1.5 flex items-center justify-center gap-3 text-sm">
+          <span className="text-amber-300 font-medium">Impersonating another user</span>
+          <button
+            onClick={() => {
+              stopImpersonation();
+              window.location.reload();
+            }}
+            className="text-amber-400 hover:text-amber-200 underline font-semibold"
+          >
+            Stop impersonation
+          </button>
+        </div>
+      )}
       {/* Social bar */}
       <div className="border-b border-secondary-800">
         <div className="container-max flex items-center justify-between gap-4 py-1.5">
           {user ? (
-            <Link
-              to="/profile"
-              className="text-sm text-secondary-400 hover:text-primary-400 transition-colors truncate max-w-[180px]"
-            >
-              {user.userHandle?.trim() || user.displayName || user.email}
-            </Link>
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                to="/profile"
+                className="text-sm text-secondary-400 hover:text-primary-400 transition-colors truncate max-w-[180px]"
+              >
+                {user.userHandle?.trim() || user.displayName || user.email}
+              </Link>
+              {isMember(user) && (
+                <button
+                  onClick={() => {
+                    const viewAsGuest = sessionStorage.getItem('ows_view_as_guest') === 'true';
+                    sessionStorage.setItem('ows_view_as_guest', (!viewAsGuest).toString());
+                    window.location.reload();
+                  }}
+                  className="text-xs text-secondary-500 hover:text-primary-400 transition-colors whitespace-nowrap"
+                >
+                  {sessionStorage.getItem('ows_view_as_guest') === 'true'
+                    ? 'View as member'
+                    : 'View as guest'}
+                </button>
+              )}
+            </div>
           ) : (
             <span />
           )}

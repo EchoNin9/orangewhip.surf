@@ -44,13 +44,14 @@ export async function apiFetch<T = unknown>(
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
 
   const token = await getToken();
+  const viewAsGuest = sessionStorage.getItem('ows_view_as_guest') === 'true';
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  if (token) {
+  if (token && !viewAsGuest) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 

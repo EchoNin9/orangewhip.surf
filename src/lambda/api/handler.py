@@ -64,8 +64,24 @@ def _parse_jwt_claims(event: dict) -> dict:
         return {}
 
 
+def _get_header(event: dict, name: str) -> str | None:
+    """Get header value (case-insensitive; API GW v2 uses lowercase)."""
+    headers = event.get("headers") or {}
+    # API Gateway v2 HTTP API uses lowercase header names
+    key = name.lower()
+    if key in headers:
+        return headers[key]
+    # Fallback for alternate casing
+    for k, v in headers.items():
+        if k.lower() == key:
+            return v
+    return None
+
+
 def get_user_info(event: dict) -> dict | None:
-    """Return user info dict from the JWT, or None if unauthenticated."""
+    """Return user info dict from the JWT, or None if unauthenticated.
+    Supports admin impersonation via X-Impersonate-User and X-Impersonate-Role headers.
+    """
     claims = _parse_jwt_claims(event)
     if not claims:
         auth_header = event.get("headers", {}).get("authorization", "")
@@ -83,7 +99,6 @@ def get_user_info(event: dict) -> dict | None:
     #   - a real list            ["admin", "band"]
     #   - a JSON-encoded string  '["admin","band"]'
     #   - API GW v2 stringified  '[admin, band]'
-    #   - space-separated        'admin band'
     if isinstance(cognito_groups_raw, list):
         groups = cognito_groups_raw
     elif isinstance(cognito_groups_raw, str):
@@ -100,6 +115,18 @@ def get_user_info(event: dict) -> dict | None:
         groups = []
 
     role = get_role(groups)
+
+    # Admin impersonation: only admins can impersonate
+    impersonate_user = _get_header(event, "x-impersonate-user")
+    impersonate_role = _get_header(event, "x-impersonate-role")
+    if impersonate_user and impersonate_role and role == "admin":
+        return {
+            "userId": impersonate_user,
+            "email": "",
+            "groups": [impersonate_role],
+            "role": impersonate_role.lower() if impersonate_role.lower() in ROLE_HIERARCHY else "guest",
+            "customGroups": [],
+        }
 
     # Fetch custom groups from DynamoDB
     custom_groups = []
@@ -119,6 +146,14 @@ def get_user_info(event: dict) -> dict | None:
         "role": role,
         "customGroups": custom_groups,
     }
+
+
+def is_member(event: dict) -> bool:
+    """Return True if the request is from a user in any Cognito group (band, editor, manager, admin)."""
+    user = get_user_info(event)
+    if not user:
+        return False
+    return user["role"] in ("band", "editor", "manager", "admin")
 
 
 def require_role(event: dict, min_role: str) -> tuple[dict | None, dict | None]:
@@ -561,7 +596,10 @@ def handle_venues(event, method, parts):
 def handle_updates(event, method, parts):
     # GET /updates/pinned
     if method == "GET" and len(parts) >= 2 and parts[1] == "pinned":
-        items = _query_entity("UPDATE", pinned=True, visible=True)
+        if is_member(event):
+            items = _query_entity("UPDATE", pinned=True)
+        else:
+            items = _query_entity("UPDATE", pinned=True, visible=True)
         if not items:
             return error("No pinned update", 404)
         _resolve_update_media(items[0])
@@ -571,6 +609,8 @@ def handle_updates(event, method, parts):
         qs = _qs(event)
         # When all=true, return all updates (admin use)
         if qs.get("all") == "true":
+            items = _query_entity("UPDATE")
+        elif is_member(event):
             items = _query_entity("UPDATE")
         else:
             items = _query_entity("UPDATE", visible=True)
@@ -692,11 +732,13 @@ def handle_press(event, method, parts):
             item = _get_item(f"PRESS#{press_id}")
             if not item:
                 return error("Press not found", 404)
-            if not item.get("public") and not get_user_info(event):
+            if not item.get("public") and not is_member(event):
                 return error("Press not found", 404)
             _enrich_press_attachments(item)
             return ok(item)
         if qs.get("all") == "true":
+            items = _query_entity("PRESS")
+        elif is_member(event):
             items = _query_entity("PRESS")
         else:
             items = _query_entity("PRESS", public=True)
@@ -786,10 +828,15 @@ def handle_media(event, method, parts):
             item = _get_item(f"MEDIA#{media_id}")
             if not item:
                 return error("Media not found", 404)
+            if not item.get("public") and not is_member(event):
+                return error("Media not found", 404)
             _enrich_media_item(item)
             return ok(item)
 
-        items = _query_entity("MEDIA", public=True)
+        if is_member(event):
+            items = _query_entity("MEDIA")
+        else:
+            items = _query_entity("MEDIA", public=True)
         media_type = qs.get("type")
         query = qs.get("search", qs.get("q", "")).lower()
         category_ids = qs.get("categoryIds", qs.get("category", ""))

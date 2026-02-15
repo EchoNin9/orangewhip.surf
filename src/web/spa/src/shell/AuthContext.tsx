@@ -73,6 +73,8 @@ export const canEditContent = (user: AuthUser | null): boolean => hasRole(user, 
 export const canAdminister = (user: AuthUser | null): boolean => hasRole(user, 'admin');
 /** Managers can manage users (except admin visibility/assignment); admins have full access. */
 export const canManageUsers = (user: AuthUser | null): boolean => hasRole(user, 'manager');
+/** True if user is in any Cognito group (band, editor, manager, admin). */
+export const isMember = (user: AuthUser | null): boolean => hasRole(user, 'band');
 
 /* ------------------------------------------------------------------ */
 /*  Context                                                           */
