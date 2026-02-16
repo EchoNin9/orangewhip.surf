@@ -232,3 +232,17 @@ resource "aws_route53_record" "production_www" {
     evaluate_target_health = false
   }
 }
+
+# ------------------------------------------------------------------------------
+# MX records (mail forwarding via ClouDNS)
+# ------------------------------------------------------------------------------
+resource "aws_route53_record" "mx" {
+  zone_id = aws_route53_zone.surf.zone_id
+  name    = ""
+  type    = "MX"
+  records = [
+    "10 mailforward1.cloudns.net.",
+    "20 mailforward1.cloudns.net."
+  ]
+  ttl = 300
+}
