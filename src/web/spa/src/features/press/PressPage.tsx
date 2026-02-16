@@ -91,7 +91,7 @@ const socialLinks = [
   { name: "Facebook", href: "https://facebook.com/orangewhipmusic", Icon: FacebookIcon },
   { name: "Bluesky", href: "https://bsky.app/profile/jinks.ninja", Icon: BlueskyIcon },
   { name: "YouTube", href: "https://www.youtube.com/watch?v=cThz9hTD74E&list=PLQDmWUyxw2hQXcrCibYxB8GLsRH9eKnaq", Icon: YouTubeIcon },
-  { name: "SoundCloud", href: "https://soundcloud.com", Icon: SoundCloudIcon },
+  { name: "SoundCloud", href: "https://soundcloud.com/adam-jinks/sets/orange-whip", Icon: SoundCloudIcon },
 ];
 
 /* ------------------------------------------------------------------ */
