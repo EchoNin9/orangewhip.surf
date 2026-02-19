@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Tab } from "@headlessui/react";
 import { MagnifyingGlassIcon, PlayIcon, MusicalNoteIcon } from "@heroicons/react/24/solid";
+import { TrashIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
-import { apiGet, searchCache } from "../../utils/api";
+import { apiGet, apiDelete, searchCache } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
+import { useAuth, hasRole } from "../../shell/AuthContext";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -91,17 +93,52 @@ const cardVariants = {
   }),
 };
 
-function MediaCard({ item, index }: { item: MediaItem; index: number }) {
+function MediaCard({
+  item,
+  index,
+  selectable,
+  selected,
+  onToggleSelect,
+}: {
+  item: MediaItem;
+  index: number;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+}) {
   const hasThumb = !!item.thumbnail;
 
   return (
     <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
       <Link
         to={`/media/${item.id}`}
-        className="card block overflow-hidden group hover:border-primary-500/60 transition-colors"
+        className={`card block overflow-hidden group hover:border-primary-500/60 transition-colors ${
+          selected ? "ring-2 ring-red-500 border-red-500/50" : ""
+        }`}
       >
         {/* Thumbnail */}
         <div className="relative h-40 bg-secondary-800 overflow-hidden">
+          {selectable && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleSelect?.();
+              }}
+              className={`absolute top-2 left-2 z-10 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                selected
+                  ? "bg-red-500 border-red-500 text-white"
+                  : "bg-secondary-900/80 border-secondary-500 hover:border-red-400"
+              }`}
+            >
+              {selected && (
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+          )}
           {hasThumb ? (
             <img
               src={item.thumbnail}
@@ -194,6 +231,8 @@ const TABS: { label: string; type: MediaType }[] = [
 const PAGE_SIZE = 10;
 
 export default function MediaPage() {
+  const { user } = useAuth();
+  const isAdmin = hasRole(user, "admin");
   const [activeTab, setActiveTab] = useState(0);
   const [items, setItems] = useState<MediaItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -204,6 +243,8 @@ export default function MediaPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   // Load categories once
   useEffect(() => {
@@ -282,6 +323,34 @@ export default function MediaPage() {
 
   const hasMore = items.length < total;
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || !confirm(`Delete ${ids.length} media item${ids.length === 1 ? "" : "s"} permanently?`)) return;
+    setDeleting(true);
+    try {
+      for (const id of ids) {
+        await apiDelete(`/media?id=${id}`);
+      }
+      setSelectedIds(new Set());
+      setItems((prev) => prev.filter((i) => !ids.includes(i.id)));
+      setTotal((t) => Math.max(0, t - ids.length));
+      searchCache.clear();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete media");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <main className="container-max section-padding">
       <motion.h1
@@ -293,25 +362,38 @@ export default function MediaPage() {
         Media
       </motion.h1>
 
-      {/* Tabs */}
-      <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
-        <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-xl p-1 mb-8 max-w-sm">
-          {TABS.map((tab) => (
-            <Tab
-              key={tab.type}
-              className={({ selected }) =>
-                `flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors outline-none ${
-                  selected
-                    ? "bg-primary-500 text-white shadow"
-                    : "text-secondary-400 hover:text-white hover:bg-secondary-700/50"
-                }`
-              }
-            >
-              {tab.label}
-            </Tab>
-          ))}
-        </Tab.List>
-      </Tab.Group>
+      {/* Tabs + bulk delete (admin) */}
+      <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+        <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
+          <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-xl p-1 max-w-sm">
+            {TABS.map((tab) => (
+              <Tab
+                key={tab.type}
+                className={({ selected }) =>
+                  `flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors outline-none ${
+                    selected
+                      ? "bg-primary-500 text-white shadow"
+                      : "text-secondary-400 hover:text-white hover:bg-secondary-700/50"
+                  }`
+                }
+              >
+                {tab.label}
+              </Tab>
+            ))}
+          </Tab.List>
+        </Tab.Group>
+        {isAdmin && selectedIds.size > 0 && (
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            disabled={deleting}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <TrashIcon className="w-4 h-4" />
+            Delete {selectedIds.size} media item{selectedIds.size === 1 ? "" : "s"}
+          </button>
+        )}
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -385,7 +467,14 @@ export default function MediaPage() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {items.map((item, i) => (
-              <MediaCard key={item.id} item={item} index={i} />
+              <MediaCard
+                key={item.id}
+                item={item}
+                index={i}
+                selectable={isAdmin}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={() => toggleSelect(item.id)}
+              />
             ))}
           </div>
 
