@@ -9,6 +9,7 @@ import {
   UserGroupIcon,
   UsersIcon,
   KeyIcon,
+  PaintBrushIcon,
 } from "@heroicons/react/24/outline";
 import {
   useAuth,
@@ -87,6 +88,13 @@ const modules: ModuleCard[] = [
     description: "Create and revoke API access keys.",
     icon: KeyIcon,
     to: "/admin/api-keys",
+    visible: (u) => canAdminister(u),
+  },
+  {
+    title: "Branding",
+    description: "Edit hero image, text, and button colors.",
+    icon: PaintBrushIcon,
+    to: "/admin/branding",
     visible: (u) => canAdminister(u),
   },
 ];

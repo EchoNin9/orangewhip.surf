@@ -992,6 +992,13 @@ resource "aws_apigatewayv2_route" "embedUpdatesGet" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Branding: public read
+resource "aws_apigatewayv2_route" "brandingGet" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /branding"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # --- Authenticated routes (JWT required) ---
 
 # Current user info
@@ -1373,6 +1380,31 @@ resource "aws_apigatewayv2_route" "adminApiKeysDelete" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# Branding: admin-only write (hero image, text, colors)
+resource "aws_apigatewayv2_route" "brandingPut" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /branding"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "brandingHeroImageUpload" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /branding/hero-image/upload"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "brandingHeroImageDelete" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "DELETE /branding/hero-image"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # OPTIONS routes for CORS preflight
 resource "aws_apigatewayv2_route" "showsOptions" {
   api_id    = aws_apigatewayv2_api.main.id
@@ -1401,6 +1433,24 @@ resource "aws_apigatewayv2_route" "pressOptions" {
 resource "aws_apigatewayv2_route" "venuesOptions" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "OPTIONS /venues"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "brandingOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /branding"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "brandingHeroImageOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /branding/hero-image"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "brandingHeroImageUploadOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /branding/hero-image/upload"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 

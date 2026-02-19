@@ -413,3 +413,45 @@ class TestProfilePhotoUpload:
         assert "uploadUrl" in body
         assert "s3Key" in body
         assert "profiles/" in body["s3Key"]
+
+
+class TestBranding:
+    def test_branding_get_returns_defaults(self, _patch_boto3):
+        """GET /branding returns default hero config when no branding exists."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["heroTitle"] == "Orange Whip"
+        assert body["heroTagline"] == "Industrial Surf"
+        assert body["heroImageOpacity"] == 25
+
+    def test_branding_put_requires_admin(self, _patch_boto3):
+        """PUT /branding requires admin role."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"heroTitle": "New Title"},
+            auth=True, groups=["editor"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 403
+
+    def test_branding_put_admin_succeeds(self, _patch_boto3):
+        """PUT /branding succeeds for admin users."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"heroTitle": "New Title", "heroTagline": "New Tagline"},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["heroTitle"] == "New Title"
+        assert body["heroTagline"] == "New Tagline"

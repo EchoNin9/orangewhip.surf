@@ -1871,6 +1871,121 @@ def handle_admin_groups(event, method, parts):
 
 
 # ---------------------------------------------------------------------------
+# Route: Branding (hero config)
+# ---------------------------------------------------------------------------
+
+BRANDING_PK = "BRANDING"
+BRANDING_SK = "HERO"
+DEFAULT_HERO = {
+    "heroTitle": "Orange Whip",
+    "heroTagline": "Industrial Surf",
+    "heroButton1Text": "Upcoming Shows",
+    "heroButton1Href": "/shows",
+    "heroButton2Text": "Listen Now",
+    "heroButton2Href": "/media",
+    "heroImageOpacity": 25,
+    "heroButton1Bg": "",
+    "heroButton1TextColor": "",
+    "heroButton2Bg": "",
+    "heroButton2TextColor": "",
+}
+
+
+def _get_branding() -> dict:
+    """Fetch branding config from DynamoDB, merging with defaults."""
+    item = _get_item(BRANDING_PK, BRANDING_SK)
+    if not item:
+        return dict(DEFAULT_HERO)
+    out = dict(DEFAULT_HERO)
+    for k in DEFAULT_HERO:
+        if k in item:
+            out[k] = item[k]
+    return out
+
+
+def handle_branding(event, method, parts):
+    # GET /branding — public, returns hero config with presigned image URL
+    if method == "GET":
+        cfg = _get_branding()
+        s3_key = cfg.get("heroImageS3Key", "")
+        cfg["heroImageUrl"] = _presign_get(s3_key) if s3_key else ""
+        # Don't expose s3Key to public
+        if "heroImageS3Key" in cfg:
+            del cfg["heroImageS3Key"]
+        return ok(cfg)
+
+    # Admin-only routes
+    user, err = require_role(event, "admin")
+    if err:
+        return err
+
+    # POST /branding/hero-image-upload — presigned URL for hero image
+    if method == "POST" and len(parts) >= 3 and parts[1] == "hero-image" and parts[2] == "upload":
+        data = _body(event)
+        filename = data.get("filename", "hero.jpg")
+        ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+        file_uuid = str(uuid.uuid4())
+        s3_key = f"branding/hero/{file_uuid}.{ext}"
+
+        presigned = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": s3_key},
+            ExpiresIn=3600,
+        )
+        return ok({"uploadUrl": presigned, "s3Key": s3_key})
+
+    # DELETE /branding/hero-image — remove hero image
+    if method == "DELETE" and len(parts) >= 3 and parts[1] == "hero-image":
+        item = _get_item(BRANDING_PK, BRANDING_SK)
+        if not item:
+            item = dict(DEFAULT_HERO)
+        s3_key = item.get("heroImageS3Key", "")
+        if s3_key:
+            try:
+                s3.delete_object(Bucket=MEDIA_BUCKET, Key=s3_key)
+            except ClientError:
+                logger.exception("Failed to delete hero image from S3: %s", s3_key)
+        item["heroImageS3Key"] = ""
+        item["PK"] = BRANDING_PK
+        item["SK"] = BRANDING_SK
+        table.put_item(Item=item)
+        return ok({"deleted": True})
+
+    # PUT /branding — update hero config
+    if method == "PUT":
+        data = _body(event)
+        item = _get_item(BRANDING_PK, BRANDING_SK)
+        if not item:
+            item = dict(DEFAULT_HERO)
+        item["PK"] = BRANDING_PK
+        item["SK"] = BRANDING_SK
+
+        for field in [
+            "heroTitle", "heroTagline",
+            "heroButton1Text", "heroButton1Href",
+            "heroButton2Text", "heroButton2Href",
+            "heroImageOpacity", "heroImageS3Key",
+            "heroButton1Bg", "heroButton1TextColor",
+            "heroButton2Bg", "heroButton2TextColor",
+        ]:
+            if field in data:
+                item[field] = data[field]
+
+        # Clamp opacity 0-100
+        opacity = item.get("heroImageOpacity", 25)
+        item["heroImageOpacity"] = max(0, min(100, int(opacity) if opacity is not None else 25))
+
+        table.put_item(Item=item)
+        out = dict(item)
+        out["heroImageUrl"] = _presign_get(item.get("heroImageS3Key", ""))
+        if "heroImageS3Key" in out:
+            del out["heroImageS3Key"]
+        return ok(out)
+
+    return error("Method not allowed", 405)
+
+
+# ---------------------------------------------------------------------------
 # Route: Admin — API keys
 # ---------------------------------------------------------------------------
 
@@ -1954,6 +2069,8 @@ def handler(event, context):
             return handle_categories(event, method, parts)
         if root == "embed":
             return handle_embed(event, method, parts)
+        if root == "branding":
+            return handle_branding(event, method, parts)
 
         # Authenticated routes
         if root == "me":

@@ -29,6 +29,7 @@ const PressAdminPage = lazy(() => import('@/features/admin/PressAdminPage').then
 const MembershipPage = lazy(() => import('@/features/admin/MembershipPage').then(m => ({ default: m.MembershipPage })));
 const UsersPage = lazy(() => import('@/features/admin/UsersPage').then(m => ({ default: m.UsersPage })));
 const ApiKeysPage = lazy(() => import('@/features/admin/ApiKeysPage').then(m => ({ default: m.ApiKeysPage })));
+const BrandingAdminPage = lazy(() => import('@/features/admin/BrandingAdminPage').then(m => ({ default: m.BrandingAdminPage })));
 
 /** Route loading fallback */
 function PageLoader() {
@@ -77,6 +78,7 @@ export function AppLayout() {
             <Route path="/admin/membership" element={<MembershipPage />} />
             <Route path="/admin/users" element={<UsersPage />} />
             <Route path="/admin/api-keys" element={<ApiKeysPage />} />
+            <Route path="/admin/branding" element={<BrandingAdminPage />} />
           </Routes>
         </Suspense>
         </ErrorBoundary>
