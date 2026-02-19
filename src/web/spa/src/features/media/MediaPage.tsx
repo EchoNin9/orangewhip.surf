@@ -366,12 +366,12 @@ export default function MediaPage() {
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <div className="shrink-0">
           <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
-            <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-xl p-1 max-w-sm">
+            <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-xl p-1 min-w-[18rem] max-w-sm">
               {TABS.map((tab) => (
                 <Tab
                   key={tab.type}
                   className={({ selected }) =>
-                    `flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors outline-none ${
+                    `flex-1 min-w-[5.5rem] py-2.5 px-4 text-sm font-medium rounded-lg transition-colors outline-none whitespace-nowrap ${
                       selected
                         ? "bg-primary-500 text-white shadow"
                         : "text-secondary-400 hover:text-white hover:bg-secondary-700/50"
