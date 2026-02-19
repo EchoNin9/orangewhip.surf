@@ -14,7 +14,7 @@ import {
   PhotoIcon,
 } from "@heroicons/react/24/outline";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../utils/api";
-import { useAuth, hasRole, canManageMedia } from "../../shell/AuthContext";
+import { useAuth, hasRole, canManageMedia, canAdminister } from "../../shell/AuthContext";
 import type { MediaFile } from "../media/MediaPage";
 
 /* ------------------------------------------------------------------ */
@@ -1102,9 +1102,30 @@ export default function MediaAdminPage() {
                 leaveTo="opacity-0 scale-95"
               >
                 <Dialog.Panel className="w-full max-w-2xl card p-6 max-h-[90vh] overflow-y-auto">
-                  <Dialog.Title className="text-xl font-display font-bold text-secondary-100 mb-6">
-                    Edit Media
-                  </Dialog.Title>
+                  <div className="flex items-start justify-between gap-4 mb-6">
+                    <Dialog.Title className="text-xl font-display font-bold text-secondary-100">
+                      Edit Media
+                    </Dialog.Title>
+                    {canAdminister(user) && editItem && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!editItem || !confirm("Delete this media item permanently?")) return;
+                          try {
+                            await apiDelete(`/media?id=${editItem.id}`);
+                            closeEditModal();
+                          } catch (err) {
+                            setEditError(err instanceof Error ? err.message : "Failed to delete");
+                          }
+                        }}
+                        disabled={editSaving}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                        Delete
+                      </button>
+                    )}
+                  </div>
 
                   <form onSubmit={handleEditSubmit} className="space-y-5">
                     {/* ── Audio Cover Art section ── */}
