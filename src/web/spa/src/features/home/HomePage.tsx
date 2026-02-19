@@ -45,6 +45,21 @@ interface Show {
   ticketUrl?: string;
 }
 
+interface HeroBranding {
+  heroTitle: string;
+  heroTagline: string;
+  heroButton1Text: string;
+  heroButton1Href: string;
+  heroButton2Text: string;
+  heroButton2Href: string;
+  heroImageUrl?: string;
+  heroImageOpacity?: number;
+  heroButton1Bg?: string;
+  heroButton1TextColor?: string;
+  heroButton2Bg?: string;
+  heroButton2TextColor?: string;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Animation variants                                                */
 /* ------------------------------------------------------------------ */
@@ -82,9 +97,20 @@ function isToday(iso: string): boolean {
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 
+const DEFAULT_HERO: HeroBranding = {
+  heroTitle: "Orange Whip",
+  heroTagline: "Industrial Surf",
+  heroButton1Text: "Upcoming Shows",
+  heroButton1Href: "/shows",
+  heroButton2Text: "Listen Now",
+  heroButton2Href: "/media",
+  heroImageOpacity: 25,
+};
+
 export function HomePage() {
   const { user } = useAuth();
   const canEdit = hasRole(user, 'band');
+  const [hero, setHero] = useState<HeroBranding>(DEFAULT_HERO);
   const [pinnedUpdate, setPinnedUpdate] = useState<Update | null>(null);
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +122,14 @@ export function HomePage() {
 
     async function load() {
       try {
+        /* Fetch branding (hero config) */
+        const branding = await apiGet<HeroBranding>("/branding").catch(
+          () => DEFAULT_HERO,
+        );
+        if (!cancelled) {
+          setHero({ ...DEFAULT_HERO, ...branding });
+        }
+
         /* Fetch pinned update — fall back to most recent visible */
         let update: Update | null = null;
         try {
@@ -146,6 +180,15 @@ export function HomePage() {
       {/* ── Hero ── */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-secondary-900 via-secondary-800 to-primary-900/20" />
+        {hero.heroImageUrl && (
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${hero.heroImageUrl})`,
+              opacity: (hero.heroImageOpacity ?? 25) / 100,
+            }}
+          />
+        )}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary-500/10 via-transparent to-transparent" />
 
         <div className="relative container-max py-24 sm:py-32 lg:py-40 text-center">
@@ -155,7 +198,7 @@ export function HomePage() {
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
             <h1 className="text-6xl sm:text-8xl lg:text-9xl font-display font-bold text-gradient leading-tight tracking-tight pb-2">
-              Orange Whip
+              {hero.heroTitle}
             </h1>
           </motion.div>
 
@@ -165,7 +208,7 @@ export function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >
-            Industrial Surf
+            {hero.heroTagline}
           </motion.p>
 
           <motion.div
@@ -174,11 +217,42 @@ export function HomePage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.6 }}
           >
-            <Link to="/shows" className="btn-primary">
-              Upcoming Shows
+            <Link
+              to={hero.heroButton1Href}
+              className={
+                hero.heroButton1Bg || hero.heroButton1TextColor
+                  ? "inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg shadow-lg transition-all duration-200 ease-in-out"
+                  : "btn-primary"
+              }
+              style={
+                hero.heroButton1Bg || hero.heroButton1TextColor
+                  ? {
+                      backgroundColor: hero.heroButton1Bg || undefined,
+                      color: hero.heroButton1TextColor || "#fff",
+                    }
+                  : undefined
+              }
+            >
+              {hero.heroButton1Text}
             </Link>
-            <Link to="/media" className="btn-secondary">
-              Listen Now
+            <Link
+              to={hero.heroButton2Href}
+              className={
+                hero.heroButton2Bg || hero.heroButton2TextColor
+                  ? "inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg border transition-all duration-200 ease-in-out"
+                  : "btn-secondary"
+              }
+              style={
+                hero.heroButton2Bg || hero.heroButton2TextColor
+                  ? {
+                      backgroundColor: hero.heroButton2Bg || undefined,
+                      color: hero.heroButton2TextColor || "#f1f5f9",
+                      borderColor: hero.heroButton2Bg ? "transparent" : undefined,
+                    }
+                  : undefined
+              }
+            >
+              {hero.heroButton2Text}
             </Link>
           </motion.div>
         </div>
