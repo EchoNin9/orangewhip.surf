@@ -1900,6 +1900,9 @@ def _get_branding() -> dict:
     for k in DEFAULT_HERO:
         if k in item:
             out[k] = item[k]
+    # heroImageS3Key is stored in DB but not in DEFAULT_HERO; copy it for presigning
+    if "heroImageS3Key" in item:
+        out["heroImageS3Key"] = item["heroImageS3Key"]
     return out
 
 

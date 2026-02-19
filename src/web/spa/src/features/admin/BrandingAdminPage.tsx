@@ -138,9 +138,8 @@ export function BrandingAdminPage() {
       });
       if (!putRes.ok) throw new Error("Upload failed");
       await apiPut("/branding", { heroImageS3Key: s3Key });
-      setBranding((prev) => ({ ...prev, heroImageUrl: "" }));
-      setSuccess("Hero image uploaded. Refresh the homepage to see it.");
-      // Refetch to get new presigned URL
+      setSuccess("Hero image uploaded.");
+      // Refetch to get presigned URL and display the image
       const updated = await apiGet<HeroBranding>("/branding");
       setBranding((prev) => ({ ...prev, ...updated }));
     } catch (err) {

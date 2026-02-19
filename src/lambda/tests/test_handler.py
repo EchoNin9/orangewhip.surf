@@ -455,3 +455,22 @@ class TestBranding:
         assert status == 200
         assert body["heroTitle"] == "New Title"
         assert body["heroTagline"] == "New Tagline"
+
+    def test_branding_get_returns_hero_image_url_when_stored(self, _patch_boto3):
+        """GET /branding returns heroImageUrl when heroImageS3Key is in DB."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {
+            "Item": {
+                "PK": "BRANDING",
+                "SK": "HERO",
+                "heroTitle": "Orange Whip",
+                "heroImageS3Key": "branding/hero/abc123.jpg",
+            }
+        }
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert "heroImageUrl" in body
+        assert body["heroImageUrl"]  # presigned URL should be non-empty
+        assert "heroImageS3Key" not in body  # not exposed to public
