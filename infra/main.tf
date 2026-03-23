@@ -424,6 +424,9 @@ resource "aws_s3_bucket_cors_configuration" "media" {
 # ------------------------------------------------------------------------------
 resource "aws_s3_bucket" "redirectInfo" {
   bucket = var.redirectBucketName
+
+  # Ensure deploy policy is updated before bucket create so GHA role has permissions
+  depends_on = [aws_iam_policy.deploy]
 }
 
 resource "aws_s3_bucket_website_configuration" "redirectInfo" {
