@@ -145,7 +145,9 @@ data "aws_iam_policy_document" "deploy" {
       "arn:aws:s3:::${var.websiteProductionBucket}",
       "arn:aws:s3:::${var.websiteProductionBucket}/*",
       "arn:aws:s3:::${var.mediaBucketName}",
-      "arn:aws:s3:::${var.mediaBucketName}/*"
+      "arn:aws:s3:::${var.mediaBucketName}/*",
+      "arn:aws:s3:::${var.redirectBucketName}",
+      "arn:aws:s3:::${var.redirectBucketName}/*"
     ]
   }
 
@@ -414,6 +416,22 @@ resource "aws_s3_bucket_cors_configuration" "media" {
     allowed_methods = ["GET", "PUT", "HEAD"]
     allowed_origins = ["*"]
     expose_headers  = ["ETag"]
+  }
+}
+
+# ------------------------------------------------------------------------------
+# S3 redirect bucket (orangewhip.info -> orangewhip.surf)
+# ------------------------------------------------------------------------------
+resource "aws_s3_bucket" "redirectInfo" {
+  bucket = var.redirectBucketName
+}
+
+resource "aws_s3_bucket_website_configuration" "redirectInfo" {
+  bucket = aws_s3_bucket.redirectInfo.id
+
+  redirect_all_requests_to {
+    host_name = var.domainSurf
+    protocol  = "https"
   }
 }
 
