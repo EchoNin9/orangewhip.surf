@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeftIcon, PencilSquareIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { useAuth, canManageMedia } from "../../shell/AuthContext";
+import { OptimizedImg } from "../../utils/OptimizedImg";
 import type { MediaItem, MediaFile } from "./MediaPage";
 
 /* ------------------------------------------------------------------ */
@@ -305,7 +306,8 @@ export default function MediaDetailPage() {
             <>
               {item.type === "image" && (
                 <div className="rounded-xl overflow-hidden bg-secondary-800">
-                  <img
+                  <OptimizedImg
+                    webpSrc={item.mediumUrl}
                     src={item.url}
                     alt={item.title}
                     className="w-full max-h-[70vh] object-contain mx-auto"
@@ -329,7 +331,8 @@ export default function MediaDetailPage() {
                   {/* Show cover art if available */}
                   {item.thumbnail && (
                     <div className="rounded-xl overflow-hidden bg-secondary-800">
-                      <img
+                      <OptimizedImg
+                        webpSrc={item.mediumUrl || item.thumbnailWebp}
                         src={item.thumbnail}
                         alt={`${item.title} cover art`}
                         className="w-full max-h-[50vh] object-contain mx-auto"

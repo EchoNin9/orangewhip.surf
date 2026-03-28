@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { apiGet, apiDelete, searchCache } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
 import { useAuth, hasRole } from "../../shell/AuthContext";
+import { OptimizedImg } from "../../utils/OptimizedImg";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -28,6 +29,8 @@ export interface MediaItem {
   type: MediaType;
   url: string;
   thumbnail?: string;
+  thumbnailWebp?: string;
+  mediumUrl?: string;
   thumbnailKey?: string;
   format?: string;
   filesize?: number;
@@ -140,9 +143,11 @@ function MediaCard({
             </button>
           )}
           {hasThumb ? (
-            <img
-              src={item.thumbnail}
+            <OptimizedImg
+              webpSrc={item.thumbnailWebp}
+              src={item.thumbnail!}
               alt={item.title}
+              loading="lazy"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : item.type === "video" ? (

@@ -374,6 +374,14 @@ def _enrich_media_item(item: dict) -> dict:
     item["thumbnail"] = thumb
     item["type"] = item.get("mediaType", "image")
 
+    # WebP thumbnail (smaller, preferred by modern browsers)
+    thumb_webp_key = item.get("thumbnailWebpKey", "")
+    item["thumbnailWebp"] = _presign_get(thumb_webp_key) if thumb_webp_key else ""
+
+    # Medium-size WebP (800px, for detail views instead of full original)
+    medium_webp_key = item.get("mediumWebpKey", "")
+    item["mediumUrl"] = _presign_get(medium_webp_key) if medium_webp_key else ""
+
     # Enrich files array with presigned URLs
     files = item.get("files", [])
     if files:
@@ -409,6 +417,7 @@ def _resolve_show_media(show: dict) -> dict:
             enriched = _enrich_media_item(thumb_item)
             # Use the thumbnail URL, or the main URL for images
             show["thumbnail"] = enriched.get("thumbnail") or enriched.get("url", "")
+            show["thumbnailWebp"] = enriched.get("thumbnailWebp", "")
 
     media_ids = show.get("mediaIds", [])
     if media_ids:
@@ -436,6 +445,8 @@ def _resolve_update_media(update: dict) -> dict:
                 "url": m.get("url", ""),
                 "type": m.get("type", "image"),
                 "thumbnailUrl": m.get("thumbnail", ""),
+                "thumbnailWebp": m.get("thumbnailWebp", ""),
+                "mediumUrl": m.get("mediumUrl", ""),
                 "filename": m.get("title", ""),
             }
             for m in media_items
@@ -1102,7 +1113,8 @@ def handle_media(event, method, parts):
 
         for field in [
             "title", "mediaType", "format", "dimensions", "filesize",
-            "s3Key", "thumbnailKey", "categories", "public", "aiSummary",
+            "s3Key", "thumbnailKey", "thumbnailWebpKey", "mediumWebpKey",
+            "categories", "public", "aiSummary",
         ]:
             if field in data:
                 existing[field] = data[field]
@@ -1124,7 +1136,7 @@ def handle_media(event, method, parts):
         existing = _get_item(f"MEDIA#{media_id}")
         if existing:
             # Clean up legacy top-level S3 objects
-            for key_field in ["s3Key", "thumbnailKey"]:
+            for key_field in ["s3Key", "thumbnailKey", "thumbnailWebpKey", "mediumWebpKey"]:
                 s3_key = existing.get(key_field, "")
                 if s3_key:
                     try:

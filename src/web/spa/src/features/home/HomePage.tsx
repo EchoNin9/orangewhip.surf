@@ -10,6 +10,7 @@ import {
 import { apiGet } from "../../utils/api";
 import { useAuth, hasRole } from "../../shell/AuthContext";
 import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
+import { OptimizedImg } from "../../utils/OptimizedImg";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -20,6 +21,8 @@ interface MediaItem {
   url: string;
   type: "image" | "video" | "audio";
   thumbnailUrl?: string;
+  thumbnailWebp?: string;
+  mediumUrl?: string;
   filename?: string;
 }
 
@@ -42,6 +45,7 @@ interface Show {
   };
   description?: string;
   thumbnail?: string;
+  thumbnailWebp?: string;
   media?: { url: string; type: "image" | "video" }[];
   ticketUrl?: string;
 }
@@ -317,9 +321,9 @@ export function HomePage() {
                   >
                     {show.thumbnail && (
                       <div className="h-40 -mx-5 -mt-5 mb-4 rounded-t-xl overflow-hidden bg-secondary-700">
-                        <img
+                        <OptimizedImg
+                          webpSrc={show.thumbnailWebp}
                           src={show.thumbnail}
-                          alt=""
                           loading="lazy"
                           className="w-full h-full object-cover"
                         />
@@ -383,12 +387,12 @@ export function HomePage() {
                 {pinnedUpdate.media?.[0] && (
                   <div className="sm:w-48 sm:h-36 flex-shrink-0 rounded-lg overflow-hidden bg-secondary-700">
                     {pinnedUpdate.media[0].type === "image" ? (
-                      <img
+                      <OptimizedImg
+                        webpSrc={pinnedUpdate.media[0].thumbnailWebp}
                         src={
                           pinnedUpdate.media[0].thumbnailUrl ||
                           pinnedUpdate.media[0].url
                         }
-                        alt=""
                         loading="lazy"
                         className="w-full h-full object-cover"
                       />
@@ -535,9 +539,9 @@ export function HomePage() {
                     <div className="mb-6">
                       <div className="relative rounded-lg overflow-hidden bg-secondary-700 aspect-video">
                         {pinnedUpdate.media[mediaIdx].type === "image" ? (
-                          <img
+                          <OptimizedImg
+                            webpSrc={pinnedUpdate.media[mediaIdx].mediumUrl}
                             src={pinnedUpdate.media[mediaIdx].url}
-                            alt=""
                             className="w-full h-full object-contain"
                           />
                         ) : pinnedUpdate.media[mediaIdx].type === "video" ? (
