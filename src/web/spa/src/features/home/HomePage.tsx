@@ -145,49 +145,19 @@ export function HomePage() {
 
     async function load() {
       try {
-        /* Fire all three API calls in parallel */
-        const [brandingResult, updateResult, showsResult] =
-          await Promise.allSettled([
-            apiGet<HeroBranding>("/branding").catch(() => DEFAULT_HERO),
-            /* Pinned update with fallback chain */
-            apiGet<Update>("/updates/pinned").catch(async () => {
-              try {
-                const all = await apiGet<Update[]>("/updates");
-                return all.length ? all[0] : null;
-              } catch {
-                return null;
-              }
-            }),
-            apiGet<Show[]>("/shows").catch(() => [] as Show[]),
-          ]);
+        const data = await apiGet<{
+          branding: HeroBranding;
+          pinnedUpdate: Update | null;
+          upcomingShows: Show[];
+        }>("/homepage");
 
         if (cancelled) return;
 
-        /* Unpack branding */
-        const branding =
-          brandingResult.status === "fulfilled"
-            ? brandingResult.value
-            : DEFAULT_HERO;
-        setHero({ ...DEFAULT_HERO, ...branding });
-
-        /* Unpack pinned update */
-        const update =
-          updateResult.status === "fulfilled" ? updateResult.value : null;
-        setPinnedUpdate(update);
-
-        /* Unpack & filter shows to upcoming */
-        const showsData =
-          showsResult.status === "fulfilled" ? showsResult.value : [];
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const upcoming = showsData
-          .filter((s) => new Date(s.date) >= now)
-          .sort(
-            (a, b) =>
-              new Date(a.date).getTime() - new Date(b.date).getTime(),
-          )
-          .slice(0, 3);
-        setShows(upcoming);
+        setHero({ ...DEFAULT_HERO, ...data.branding });
+        setPinnedUpdate(data.pinnedUpdate);
+        setShows(data.upcomingShows);
+      } catch {
+        /* API unavailable — keep defaults */
       } finally {
         if (!cancelled) setLoading(false);
       }

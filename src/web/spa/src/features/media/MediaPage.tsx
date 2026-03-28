@@ -297,15 +297,17 @@ export default function MediaPage() {
     setError(null);
 
     try {
-      let path = `/media?type=${type}&limit=${PAGE_SIZE}&page=${page}`;
+      const offset = (page - 1) * PAGE_SIZE;
+      let path = `/media?type=${type}&limit=${PAGE_SIZE}&offset=${offset}`;
       if (debouncedSearch) path += `&search=${encodeURIComponent(debouncedSearch)}`;
       if (category) path += `&category=${encodeURIComponent(category)}`;
 
-      const rawItems = await apiGet<MediaItem[]>(path);
+      const resp = await apiGet<{ items: MediaItem[]; total: number; limit: number; offset: number }>(path);
+      const rawItems = resp.items;
 
       // Cache only filtered results
       if (hasFilters) {
-        const cacheEntry: MediaListCache = { items: rawItems, total: rawItems.length };
+        const cacheEntry: MediaListCache = { items: rawItems, total: resp.total };
         searchCache.set(key, cacheEntry);
       }
 
@@ -314,7 +316,7 @@ export default function MediaPage() {
       } else {
         setItems((prev) => [...prev, ...rawItems]);
       }
-      setTotal(rawItems.length);
+      setTotal(resp.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load media");
     } finally {

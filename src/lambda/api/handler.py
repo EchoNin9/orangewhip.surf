@@ -252,8 +252,15 @@ def _path_parts(event: dict) -> list[str]:
     return [p for p in raw.strip("/").split("/") if p]
 
 
-def _query_entity(entity_type: str, **extra_filters) -> list[dict]:
-    """Query byEntity GSI by entityType, paginating through all results."""
+def _query_entity(entity_type: str, limit: int = 0, offset: int = 0, **extra_filters) -> list[dict]:
+    """Query byEntity GSI by entityType, paginating through all results.
+
+    Args:
+        entity_type: DynamoDB entityType value
+        limit: Max items to return (0 = all)
+        offset: Number of items to skip before returning
+        **extra_filters: In-memory equality filters applied after query
+    """
     try:
         query_params = {
             "IndexName": "byEntity",
@@ -272,10 +279,32 @@ def _query_entity(entity_type: str, **extra_filters) -> list[dict]:
         # Apply extra filters in-memory
         for key, val in extra_filters.items():
             items = [i for i in items if i.get(key) == val]
+        # Apply offset/limit
+        if offset > 0:
+            items = items[offset:]
+        if limit > 0:
+            items = items[:limit]
         return items
     except ClientError:
         logger.exception("GSI1 query failed for %s", entity_type)
         return []
+
+
+def _parse_pagination(event: dict) -> tuple[int, int]:
+    """Extract limit and offset from query string. Returns (limit, offset)."""
+    qs = _qs(event)
+    try:
+        limit = int(qs.get("limit", "0"))
+    except (ValueError, TypeError):
+        limit = 0
+    try:
+        offset = int(qs.get("offset", "0"))
+    except (ValueError, TypeError):
+        offset = 0
+    # Clamp to sane values
+    limit = max(0, min(limit, 200))
+    offset = max(0, offset)
+    return limit, offset
 
 
 def _get_item(pk: str, sk: str = "META") -> dict | None:
@@ -659,6 +688,7 @@ def handle_updates(event, method, parts):
 
     if method == "GET":
         qs = _qs(event)
+        limit, offset = _parse_pagination(event)
         # When all=true, return all updates (admin use)
         if qs.get("all") == "true":
             items = _query_entity("UPDATE")
@@ -666,8 +696,15 @@ def handle_updates(event, method, parts):
             items = _query_entity("UPDATE")
         else:
             items = _query_entity("UPDATE", visible=True)
+        total = len(items)
+        if offset > 0:
+            items = items[offset:]
+        if limit > 0:
+            items = items[:limit]
         for item in items:
             _resolve_update_media(item)
+        if limit > 0 or offset > 0:
+            return ok({"items": items, "total": total, "limit": limit, "offset": offset}, cache=120)
         return ok(items, cache=120)
 
     if method == "POST":
@@ -788,14 +825,22 @@ def handle_press(event, method, parts):
                 return error("Press not found", 404)
             _enrich_press_attachments(item)
             return ok(item, cache=120)
+        limit, offset = _parse_pagination(event)
         if qs.get("all") == "true":
             items = _query_entity("PRESS")
         elif is_member(event):
             items = _query_entity("PRESS")
         else:
             items = _query_entity("PRESS", public=True)
+        total = len(items)
+        if offset > 0:
+            items = items[offset:]
+        if limit > 0:
+            items = items[:limit]
         for item in items:
             _enrich_press_attachments(item)
+        if limit > 0 or offset > 0:
+            return ok({"items": items, "total": total, "limit": limit, "offset": offset}, cache=120)
         return ok(items, cache=120)
 
     if method == "POST":
@@ -885,6 +930,7 @@ def handle_media(event, method, parts):
             _enrich_media_item(item)
             return ok(item, cache=120)
 
+        limit, offset = _parse_pagination(event)
         if is_member(event):
             items = _query_entity("MEDIA")
         else:
@@ -907,7 +953,14 @@ def handle_media(event, method, parts):
                 m for m in items
                 if cat_set.intersection(set(m.get("categories", [])))
             ]
+        total = len(items)
+        if offset > 0:
+            items = items[offset:]
+        if limit > 0:
+            items = items[:limit]
         _enrich_media_items(items)
+        if limit > 0 or offset > 0:
+            return ok({"items": items, "total": total, "limit": limit, "offset": offset}, cache=120)
         return ok(items, cache=120)
 
     # POST /media/upload — presigned URL
@@ -2051,6 +2104,57 @@ def handle_admin_api_keys(event, method, parts):
 # Main router
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Route: Homepage (batch endpoint)
+# ---------------------------------------------------------------------------
+
+def handle_homepage(event, method, parts):
+    """GET /homepage — single batch response for the homepage.
+
+    Returns branding, pinned update, and upcoming shows in one call
+    instead of three separate API requests.
+    """
+    if method != "GET":
+        return error("Method not allowed", 405)
+
+    # Branding
+    cfg = _get_branding()
+    s3_key = cfg.get("heroImageS3Key", "")
+    cfg["heroImageUrl"] = _presign_get(s3_key) if s3_key else ""
+    if "heroImageS3Key" in cfg:
+        del cfg["heroImageS3Key"]
+
+    # Pinned / latest update
+    pinned_update = None
+    pinned_items = _query_entity("UPDATE", pinned=True, visible=True)
+    if pinned_items:
+        _resolve_update_media(pinned_items[0])
+        pinned_update = pinned_items[0]
+    else:
+        # Fall back to most recent visible update
+        all_updates = _query_entity("UPDATE", limit=1, visible=True)
+        if all_updates:
+            _resolve_update_media(all_updates[0])
+            pinned_update = all_updates[0]
+
+    # Upcoming shows (next 3)
+    all_shows = _query_entity("SHOW")
+    _resolve_venues(all_shows)
+    now = _now_iso()[:10]
+    upcoming = sorted(
+        [s for s in all_shows if s.get("date", "") >= now],
+        key=lambda s: s.get("date", ""),
+    )[:3]
+    for show in upcoming:
+        _resolve_show_media(show)
+
+    return ok({
+        "branding": cfg,
+        "pinnedUpdate": pinned_update,
+        "upcomingShows": upcoming,
+    }, cache=120)
+
+
 def handler(event, context):
     """Lambda entry point — routes HTTP API Gateway v2 events."""
     logger.info("Event: %s", json.dumps(event, default=str))
@@ -2086,6 +2190,8 @@ def handler(event, context):
             return handle_embed(event, method, parts)
         if root == "branding":
             return handle_branding(event, method, parts)
+        if root == "homepage":
+            return handle_homepage(event, method, parts)
 
         # Authenticated routes
         if root == "me":
