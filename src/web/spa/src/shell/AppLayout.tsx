@@ -4,16 +4,16 @@ import { Header } from './Header';
 import { Footer } from './Footer';
 import { ErrorBoundary } from './ErrorBoundary';
 
-/* ── Eager-loaded feature pages (core navigation) ── */
+/* ── Eager-loaded: homepage only ── */
 import { HomePage } from '@/features/home/HomePage';
-import { UpdatesPage } from '@/features/updates/UpdatesPage';
-import { PressPage } from '@/features/press/PressPage';
-import { PressDetailPage } from '@/features/press/PressDetailPage';
-import { AuthPage } from '@/features/auth/AuthPage';
-import { ProfilePage } from '@/features/profile/ProfilePage';
-import { PublicProfilePage } from '@/features/profile/PublicProfilePage';
 
 /* ── Lazy-loaded feature pages ── */
+const UpdatesPage = lazy(() => import('@/features/updates/UpdatesPage').then(m => ({ default: m.UpdatesPage })));
+const PressPage = lazy(() => import('@/features/press/PressPage').then(m => ({ default: m.PressPage })));
+const PressDetailPage = lazy(() => import('@/features/press/PressDetailPage').then(m => ({ default: m.PressDetailPage })));
+const AuthPage = lazy(() => import('@/features/auth/AuthPage').then(m => ({ default: m.AuthPage })));
+const ProfilePage = lazy(() => import('@/features/profile/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const PublicProfilePage = lazy(() => import('@/features/profile/PublicProfilePage').then(m => ({ default: m.PublicProfilePage })));
 const ShowsPage = lazy(() => import('@/features/shows/ShowsPage'));
 const ShowDetailPage = lazy(() => import('@/features/shows/ShowDetailPage'));
 const MediaPage = lazy(() => import('@/features/media/MediaPage'));

@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { useAuth, hasRole } from "../../shell/AuthContext";
+import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -61,20 +62,6 @@ interface HeroBranding {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Animation variants                                                */
-/* ------------------------------------------------------------------ */
-
-const stagger = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.15 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-};
-
-/* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -91,6 +78,38 @@ function isToday(iso: string): boolean {
   const d = new Date(iso);
   const now = new Date();
   return d.toDateString() === now.toDateString();
+}
+
+/* ------------------------------------------------------------------ */
+/*  Skeleton components                                               */
+/* ------------------------------------------------------------------ */
+
+function SkeletonShowCard() {
+  return (
+    <div className="card p-5">
+      <div className="h-40 -mx-5 -mt-5 mb-4 rounded-t-xl bg-secondary-700/50 animate-pulse" />
+      <div className="h-3 w-32 bg-secondary-700/50 rounded animate-pulse mb-3" />
+      <div className="h-5 w-48 bg-secondary-700/50 rounded animate-pulse mb-2" />
+      <div className="h-3 w-40 bg-secondary-700/50 rounded animate-pulse" />
+    </div>
+  );
+}
+
+function SkeletonNewsCard() {
+  return (
+    <div className="card p-6 sm:p-8">
+      <div className="flex flex-col sm:flex-row gap-6">
+        <div className="sm:w-48 sm:h-36 flex-shrink-0 rounded-lg bg-secondary-700/50 animate-pulse" />
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="h-3 w-16 bg-secondary-700/50 rounded animate-pulse" />
+          <div className="h-5 w-56 bg-secondary-700/50 rounded animate-pulse" />
+          <div className="h-3 w-full bg-secondary-700/50 rounded animate-pulse" />
+          <div className="h-3 w-3/4 bg-secondary-700/50 rounded animate-pulse" />
+          <div className="h-3 w-20 bg-secondary-700/50 rounded animate-pulse mt-2" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -122,46 +141,49 @@ export function HomePage() {
 
     async function load() {
       try {
-        /* Fetch branding (hero config) */
-        const branding = await apiGet<HeroBranding>("/branding").catch(
-          () => DEFAULT_HERO,
-        );
-        if (!cancelled) {
-          setHero({ ...DEFAULT_HERO, ...branding });
-        }
+        /* Fire all three API calls in parallel */
+        const [brandingResult, updateResult, showsResult] =
+          await Promise.allSettled([
+            apiGet<HeroBranding>("/branding").catch(() => DEFAULT_HERO),
+            /* Pinned update with fallback chain */
+            apiGet<Update>("/updates/pinned").catch(async () => {
+              try {
+                const all = await apiGet<Update[]>("/updates");
+                return all.length ? all[0] : null;
+              } catch {
+                return null;
+              }
+            }),
+            apiGet<Show[]>("/shows").catch(() => [] as Show[]),
+          ]);
 
-        /* Fetch pinned update — fall back to most recent visible */
-        let update: Update | null = null;
-        try {
-          update = await apiGet<Update>("/updates/pinned");
-        } catch {
-          try {
-            const all = await apiGet<Update[]>("/updates");
-            if (all.length) update = all[0];
-          } catch {
-            /* no updates available */
-          }
-        }
+        if (cancelled) return;
 
-        /* Fetch shows */
-        const showsData = await apiGet<Show[]>("/shows").catch(
-          () => [] as Show[],
-        );
+        /* Unpack branding */
+        const branding =
+          brandingResult.status === "fulfilled"
+            ? brandingResult.value
+            : DEFAULT_HERO;
+        setHero({ ...DEFAULT_HERO, ...branding });
 
-        if (!cancelled) {
-          setPinnedUpdate(update);
+        /* Unpack pinned update */
+        const update =
+          updateResult.status === "fulfilled" ? updateResult.value : null;
+        setPinnedUpdate(update);
 
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          const upcoming = showsData
-            .filter((s) => new Date(s.date) >= now)
-            .sort(
-              (a, b) =>
-                new Date(a.date).getTime() - new Date(b.date).getTime(),
-            )
-            .slice(0, 3);
-          setShows(upcoming);
-        }
+        /* Unpack & filter shows to upcoming */
+        const showsData =
+          showsResult.status === "fulfilled" ? showsResult.value : [];
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const upcoming = showsData
+          .filter((s) => new Date(s.date) >= now)
+          .sort(
+            (a, b) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime(),
+          )
+          .slice(0, 3);
+        setShows(upcoming);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -258,80 +280,14 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── Pinned / Latest Update ── */}
-      {!loading && pinnedUpdate && (
+      {/* ── Upcoming Shows (before Latest News) ── */}
+      {!loading && shows.length > 0 && (
         <section className="container-max section-padding">
           <motion.div
             variants={stagger}
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true }}
-          >
-            <motion.h2
-              variants={fadeUp}
-              className="text-3xl font-display font-bold text-secondary-100 mb-8"
-            >
-              Latest News
-            </motion.h2>
-
-            <motion.div
-              variants={fadeUp}
-              className="card p-6 sm:p-8 cursor-pointer hover:border-primary-500/50 transition-colors"
-              onClick={() => {
-                setModalOpen(true);
-                setMediaIdx(0);
-              }}
-            >
-              <div className="flex flex-col sm:flex-row gap-6">
-                {pinnedUpdate.media?.[0] && (
-                  <div className="sm:w-48 sm:h-36 flex-shrink-0 rounded-lg overflow-hidden bg-secondary-700">
-                    {pinnedUpdate.media[0].type === "image" ? (
-                      <img
-                        src={
-                          pinnedUpdate.media[0].thumbnailUrl ||
-                          pinnedUpdate.media[0].url
-                        }
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-secondary-400">
-                        <PlayTriangle />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  {pinnedUpdate.pinned && (
-                    <span className="inline-block text-xs font-semibold uppercase tracking-wider text-primary-400 mb-2">
-                      Pinned
-                    </span>
-                  )}
-                  <h3 className="text-xl font-display font-bold text-secondary-100">
-                    {pinnedUpdate.title}
-                  </h3>
-                  <p className="mt-2 text-secondary-400 line-clamp-3">
-                    {pinnedUpdate.content}
-                  </p>
-                  <p className="mt-3 text-xs text-secondary-500">
-                    {formatDate(pinnedUpdate.createdAt)}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        </section>
-      )}
-
-      {/* ── Upcoming Shows ── */}
-      {!loading && shows.length > 0 && (
-        <section className="container-max section-padding border-t border-secondary-800">
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true }}
+            viewport={viewportOnce}
           >
             <motion.div
               variants={fadeUp}
@@ -364,6 +320,7 @@ export function HomePage() {
                         <img
                           src={show.thumbnail}
                           alt=""
+                          loading="lazy"
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -394,6 +351,73 @@ export function HomePage() {
                 </motion.div>
               ))}
             </div>
+          </motion.div>
+        </section>
+      )}
+
+      {/* ── Pinned / Latest Update ── */}
+      {!loading && pinnedUpdate && (
+        <section className="container-max section-padding border-t border-secondary-800">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={viewportOnce}
+          >
+            <motion.h2
+              variants={fadeUp}
+              className="text-3xl font-display font-bold text-secondary-100 mb-8"
+            >
+              Latest News
+            </motion.h2>
+
+            <motion.div
+              variants={fadeUp}
+              className="card p-6 sm:p-8 cursor-pointer hover:border-primary-500/50 transition-colors"
+              onClick={() => {
+                setModalOpen(true);
+                setMediaIdx(0);
+              }}
+            >
+              <div className="flex flex-col sm:flex-row gap-6">
+                {pinnedUpdate.media?.[0] && (
+                  <div className="sm:w-48 sm:h-36 flex-shrink-0 rounded-lg overflow-hidden bg-secondary-700">
+                    {pinnedUpdate.media[0].type === "image" ? (
+                      <img
+                        src={
+                          pinnedUpdate.media[0].thumbnailUrl ||
+                          pinnedUpdate.media[0].url
+                        }
+                        alt=""
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-secondary-400">
+                        <PlayTriangle />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  {pinnedUpdate.pinned && (
+                    <span className="inline-block text-xs font-semibold uppercase tracking-wider text-primary-400 mb-2">
+                      Pinned
+                    </span>
+                  )}
+                  <h3 className="text-xl font-display font-bold text-secondary-100">
+                    {pinnedUpdate.title}
+                  </h3>
+                  <p className="mt-2 text-secondary-400 line-clamp-3">
+                    {pinnedUpdate.content}
+                  </p>
+                  <p className="mt-3 text-xs text-secondary-500">
+                    {formatDate(pinnedUpdate.createdAt)}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         </section>
       )}
@@ -443,10 +467,23 @@ export function HomePage() {
         </section>
       )}
 
-      {/* ── Loading spinner ── */}
+      {/* ── Skeleton loading ── */}
       {loading && (
-        <div className="container-max section-padding text-center">
-          <div className="inline-block w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+        <div className="container-max section-padding space-y-12">
+          {/* Skeleton: Upcoming Shows */}
+          <div>
+            <div className="h-7 w-48 bg-secondary-700/50 rounded animate-pulse mb-8" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <SkeletonShowCard />
+              <SkeletonShowCard />
+              <SkeletonShowCard />
+            </div>
+          </div>
+          {/* Skeleton: Latest News */}
+          <div className="border-t border-secondary-800 pt-12">
+            <div className="h-7 w-36 bg-secondary-700/50 rounded animate-pulse mb-8" />
+            <SkeletonNewsCard />
+          </div>
         </div>
       )}
 
