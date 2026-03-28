@@ -25,6 +25,9 @@ table = dynamodb.Table(TABLE_NAME)
 s3 = boto3.client("s3")
 
 THUMB_SIZE = (300, 300)
+MEDIUM_SIZE = (800, 800)
+WEBP_QUALITY = 80
+JPEG_QUALITY = 85
 
 
 # ---------------------------------------------------------------------------
@@ -41,15 +44,23 @@ def _extract_media_id_from_key(s3_key: str) -> str:
     return ""
 
 
-def _update_thumbnail_key(media_id: str, thumb_key: str):
-    """Update the DynamoDB record with the thumbnail S3 key."""
+def _update_thumbnail_key(media_id: str, thumb_key: str, extra_keys: dict | None = None):
+    """Update the DynamoDB record with the thumbnail S3 key and optional extras."""
     try:
+        update_expr = "SET thumbnailKey = :tk"
+        expr_values: dict = {":tk": thumb_key}
+
+        if extra_keys:
+            for field, value in extra_keys.items():
+                update_expr += f", {field} = :{field}"
+                expr_values[f":{field}"] = value
+
         table.update_item(
             Key={"PK": f"MEDIA#{media_id}", "SK": "META"},
-            UpdateExpression="SET thumbnailKey = :tk",
-            ExpressionAttributeValues={":tk": thumb_key},
+            UpdateExpression=update_expr,
+            ExpressionAttributeValues=expr_values,
         )
-        logger.info("Updated thumbnail for media %s -> %s", media_id, thumb_key)
+        logger.info("Updated thumbnail for media %s -> %s (extras: %s)", media_id, thumb_key, extra_keys)
     except ClientError:
         logger.exception("Failed to update thumbnail for %s", media_id)
 
@@ -59,7 +70,7 @@ def _update_thumbnail_key(media_id: str, thumb_key: str):
 # ---------------------------------------------------------------------------
 
 def _generate_image_thumbnail(bucket: str, s3_key: str, media_id: str):
-    """Download image from S3, create 300x300 thumbnail, upload back."""
+    """Download image from S3, create optimized thumbnails and medium variants."""
     try:
         from PIL import Image
     except ImportError:
@@ -75,25 +86,47 @@ def _generate_image_thumbnail(bucket: str, s3_key: str, media_id: str):
 
     try:
         img = Image.open(io.BytesIO(image_data))
-        img.thumbnail(THUMB_SIZE, Image.LANCZOS)
 
         # Convert to RGB if necessary (e.g. RGBA PNGs)
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
+        rgb_img = img.convert("RGB") if img.mode in ("RGBA", "P") else img.copy()
 
+        extra_keys = {}
+
+        # --- Thumbnail (300x300) ---
+        thumb_img = rgb_img.copy()
+        thumb_img.thumbnail(THUMB_SIZE, Image.LANCZOS)
+
+        # JPEG thumbnail (backwards compat)
         buffer = io.BytesIO()
-        img.save(buffer, format="JPEG", quality=85)
+        thumb_img.save(buffer, format="JPEG", quality=JPEG_QUALITY)
         buffer.seek(0)
-
         thumb_key = f"thumbnails/{media_id}/thumb.jpg"
-        s3.put_object(
-            Bucket=bucket,
-            Key=thumb_key,
-            Body=buffer.getvalue(),
-            ContentType="image/jpeg",
-        )
-        _update_thumbnail_key(media_id, thumb_key)
-        logger.info("Generated image thumbnail for %s", media_id)
+        s3.put_object(Bucket=bucket, Key=thumb_key, Body=buffer.getvalue(), ContentType="image/jpeg")
+
+        # WebP thumbnail (smaller file size)
+        buffer = io.BytesIO()
+        thumb_img.save(buffer, format="WEBP", quality=WEBP_QUALITY)
+        buffer.seek(0)
+        thumb_webp_key = f"thumbnails/{media_id}/thumb.webp"
+        s3.put_object(Bucket=bucket, Key=thumb_webp_key, Body=buffer.getvalue(), ContentType="image/webp")
+        extra_keys["thumbnailWebpKey"] = thumb_webp_key
+
+        # --- Medium (800px max dimension) ---
+        # Only generate if original is larger than medium size
+        if rgb_img.width > MEDIUM_SIZE[0] or rgb_img.height > MEDIUM_SIZE[1]:
+            medium_img = rgb_img.copy()
+            medium_img.thumbnail(MEDIUM_SIZE, Image.LANCZOS)
+
+            buffer = io.BytesIO()
+            medium_img.save(buffer, format="WEBP", quality=WEBP_QUALITY)
+            buffer.seek(0)
+            medium_key = f"thumbnails/{media_id}/medium.webp"
+            s3.put_object(Bucket=bucket, Key=medium_key, Body=buffer.getvalue(), ContentType="image/webp")
+            extra_keys["mediumWebpKey"] = medium_key
+
+        _update_thumbnail_key(media_id, thumb_key, extra_keys if extra_keys else None)
+        logger.info("Generated image thumbnails for %s (webp=%s, medium=%s)",
+                     media_id, "thumbnailWebpKey" in extra_keys, "mediumWebpKey" in extra_keys)
 
     except Exception:
         logger.exception("Failed to process image thumbnail for %s", media_id)

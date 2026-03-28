@@ -3,14 +3,24 @@ import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
+import { OptimizedImg } from "../../utils/OptimizedImg";
 import type { Show } from "./ShowsPage";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
+interface ShowMediaItem {
+  id: string;
+  url: string;
+  type: "image" | "video";
+  thumbnail?: string;
+  thumbnailWebp?: string;
+  mediumUrl?: string;
+}
+
 interface ShowDetail extends Show {
-  media?: { id: string; url: string; type: "image" | "video"; thumbnail?: string }[];
+  media?: ShowMediaItem[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -23,7 +33,7 @@ const slideVariants = {
   exit: (dir: number) => ({ x: dir > 0 ? -300 : 300, opacity: 0 }),
 };
 
-function MediaCarousel({ media }: { media: { url: string; type: "image" | "video" }[] }) {
+function MediaCarousel({ media }: { media: ShowMediaItem[] }) {
   const [[current, direction], setCurrent] = useState<[number, number]>([0, 0]);
 
   const paginate = useCallback(
@@ -60,7 +70,8 @@ function MediaCarousel({ media }: { media: { url: string; type: "image" | "video
                 className="w-full h-full object-contain bg-black"
               />
             ) : (
-              <img
+              <OptimizedImg
+                webpSrc={item.mediumUrl}
                 src={item.url}
                 alt={`Media ${current + 1}`}
                 className="w-full h-full object-contain"

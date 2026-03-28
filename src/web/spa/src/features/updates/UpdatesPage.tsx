@@ -4,6 +4,7 @@ import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
+import { OptimizedImg } from "../../utils/OptimizedImg";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -14,6 +15,8 @@ interface MediaItem {
   url: string;
   type: "image" | "video" | "audio";
   thumbnailUrl?: string;
+  thumbnailWebp?: string;
+  mediumUrl?: string;
   filename?: string;
 }
 
@@ -146,9 +149,10 @@ export function UpdatesPage() {
                   {u.media?.[0] && (
                     <div className="sm:w-40 sm:h-28 flex-shrink-0 rounded-lg overflow-hidden bg-secondary-700">
                       {u.media[0].type === "image" ? (
-                        <img
+                        <OptimizedImg
+                          webpSrc={u.media[0].thumbnailWebp}
                           src={u.media[0].thumbnailUrl || u.media[0].url}
-                          alt=""
+                          loading="lazy"
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -242,9 +246,9 @@ export function UpdatesPage() {
                         <div className="mb-6">
                           <div className="relative rounded-lg overflow-hidden bg-secondary-700 aspect-video">
                             {selected.media[mediaIdx].type === "image" ? (
-                              <img
+                              <OptimizedImg
+                                webpSrc={selected.media[mediaIdx].mediumUrl}
                                 src={selected.media[mediaIdx].url}
-                                alt=""
                                 className="w-full h-full object-contain"
                               />
                             ) : selected.media[mediaIdx].type === "video" ? (

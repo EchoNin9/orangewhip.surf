@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { apiGet } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
+import { OptimizedImg } from "../../utils/OptimizedImg";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -20,6 +21,7 @@ export interface Show {
   };
   description?: string;
   thumbnail?: string;
+  thumbnailWebp?: string;
   thumbnailMediaId?: string;
   mediaIds?: string[];
   media?: { id: string; url: string; type: "image" | "video"; thumbnail?: string }[];
@@ -106,9 +108,11 @@ function ShowCard({ show, index }: { show: Show; index: number }) {
         {/* Thumbnail */}
         <div className="relative h-48 bg-secondary-800 overflow-hidden">
           {show.thumbnail ? (
-            <img
+            <OptimizedImg
+              webpSrc={show.thumbnailWebp}
               src={show.thumbnail}
               alt={show.title}
+              loading="lazy"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (

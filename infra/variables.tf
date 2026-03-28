@@ -89,3 +89,15 @@ variable "stagingSubdomain" {
   type        = string
   default     = "stage"
 }
+
+variable "domainInfo" {
+  description = "Redirect domain (301 to orangewhip.surf)"
+  type        = string
+  default     = "orangewhip.info"
+}
+
+variable "redirectBucketName" {
+  description = "S3 bucket for orangewhip.info redirect"
+  type        = string
+  default     = "ows-redirect-info"
+}

@@ -5,6 +5,10 @@ resource "aws_route53_zone" "surf" {
   name = var.domainSurf
 }
 
+resource "aws_route53_zone" "info" {
+  name = var.domainInfo
+}
+
 # ------------------------------------------------------------------------------
 # ACM certificate – single cert for orangewhip.surf + *.orangewhip.surf
 # CloudFront requires us-east-1
@@ -56,6 +60,44 @@ resource "aws_acm_certificate_validation" "main" {
   provider                = aws.us_east_1
   certificate_arn         = aws_acm_certificate.main.arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+# ------------------------------------------------------------------------------
+# ACM certificate for orangewhip.info redirect (CloudFront requires us-east-1)
+# ------------------------------------------------------------------------------
+resource "aws_acm_certificate" "info" {
+  provider          = aws.us_east_1
+  domain_name       = var.domainInfo
+  validation_method = "DNS"
+
+  subject_alternative_names = ["www.${var.domainInfo}"]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "info_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.info.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = aws_route53_zone.info.zone_id
+}
+
+resource "aws_acm_certificate_validation" "info" {
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.info.arn
+  validation_record_fqdns = [for r in aws_route53_record.info_cert_validation : r.fqdn]
 }
 
 # ------------------------------------------------------------------------------
@@ -192,6 +234,60 @@ resource "aws_cloudfront_distribution" "production" {
 }
 
 # ------------------------------------------------------------------------------
+# CloudFront redirect distribution (orangewhip.info -> orangewhip.surf)
+# ------------------------------------------------------------------------------
+resource "aws_cloudfront_distribution" "redirectInfo" {
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "orangewhip.info redirect to orangewhip.surf"
+  price_class     = "PriceClass_100"
+
+  aliases = [var.domainInfo, "www.${var.domainInfo}"]
+
+  origin {
+    domain_name = aws_s3_bucket_website_configuration.redirectInfo.website_endpoint
+    origin_id   = "S3-${aws_s3_bucket.redirectInfo.id}"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "S3-${aws_s3_bucket.redirectInfo.id}"
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    acm_certificate_arn      = aws_acm_certificate_validation.info.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+}
+
+# ------------------------------------------------------------------------------
 # Route 53 records -> CloudFront
 # ------------------------------------------------------------------------------
 # Staging: stage.orangewhip.surf
@@ -229,6 +325,32 @@ resource "aws_route53_record" "production_www" {
   alias {
     name                   = aws_cloudfront_distribution.production.domain_name
     zone_id                = aws_cloudfront_distribution.production.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# Redirect: orangewhip.info
+resource "aws_route53_record" "info_apex" {
+  zone_id = aws_route53_zone.info.zone_id
+  name    = var.domainInfo
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.redirectInfo.domain_name
+    zone_id                = aws_cloudfront_distribution.redirectInfo.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# Redirect: www.orangewhip.info
+resource "aws_route53_record" "info_www" {
+  zone_id = aws_route53_zone.info.zone_id
+  name    = "www.${var.domainInfo}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.redirectInfo.domain_name
+    zone_id                = aws_cloudfront_distribution.redirectInfo.hosted_zone_id
     evaluate_target_health = false
   }
 }

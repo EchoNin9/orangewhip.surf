@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { apiGet, apiDelete, searchCache } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
 import { useAuth, hasRole } from "../../shell/AuthContext";
+import { OptimizedImg } from "../../utils/OptimizedImg";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -28,6 +29,8 @@ export interface MediaItem {
   type: MediaType;
   url: string;
   thumbnail?: string;
+  thumbnailWebp?: string;
+  mediumUrl?: string;
   thumbnailKey?: string;
   format?: string;
   filesize?: number;
@@ -140,9 +143,11 @@ function MediaCard({
             </button>
           )}
           {hasThumb ? (
-            <img
-              src={item.thumbnail}
+            <OptimizedImg
+              webpSrc={item.thumbnailWebp}
+              src={item.thumbnail!}
               alt={item.title}
+              loading="lazy"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : item.type === "video" ? (
@@ -292,15 +297,17 @@ export default function MediaPage() {
     setError(null);
 
     try {
-      let path = `/media?type=${type}&limit=${PAGE_SIZE}&page=${page}`;
+      const offset = (page - 1) * PAGE_SIZE;
+      let path = `/media?type=${type}&limit=${PAGE_SIZE}&offset=${offset}`;
       if (debouncedSearch) path += `&search=${encodeURIComponent(debouncedSearch)}`;
       if (category) path += `&category=${encodeURIComponent(category)}`;
 
-      const rawItems = await apiGet<MediaItem[]>(path);
+      const resp = await apiGet<{ items: MediaItem[]; total: number; limit: number; offset: number }>(path);
+      const rawItems = resp.items;
 
       // Cache only filtered results
       if (hasFilters) {
-        const cacheEntry: MediaListCache = { items: rawItems, total: rawItems.length };
+        const cacheEntry: MediaListCache = { items: rawItems, total: resp.total };
         searchCache.set(key, cacheEntry);
       }
 
@@ -309,7 +316,7 @@ export default function MediaPage() {
       } else {
         setItems((prev) => [...prev, ...rawItems]);
       }
-      setTotal(rawItems.length);
+      setTotal(resp.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load media");
     } finally {

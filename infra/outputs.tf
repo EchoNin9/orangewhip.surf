@@ -53,6 +53,11 @@ output "route53NameserversSurf" {
   value       = aws_route53_zone.surf.name_servers
 }
 
+output "route53NameserversInfo" {
+  description = "Route 53 nameservers for orangewhip.info – update these at your domain registrar."
+  value       = aws_route53_zone.info.name_servers
+}
+
 output "dynamoTableName" {
   description = "DynamoDB main table name (single table)."
   value       = aws_dynamodb_table.main.name
