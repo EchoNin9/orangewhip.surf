@@ -145,6 +145,7 @@ export function HomePage() {
 
     async function load() {
       try {
+        /* Try batch endpoint first (single request) */
         const data = await apiGet<{
           branding: HeroBranding;
           pinnedUpdate: Update | null;
@@ -157,7 +158,47 @@ export function HomePage() {
         setPinnedUpdate(data.pinnedUpdate);
         setShows(data.upcomingShows);
       } catch {
-        /* API unavailable — keep defaults */
+        /* Fallback: parallel calls if /homepage not available */
+        if (cancelled) return;
+
+        const [brandingResult, updateResult, showsResult] =
+          await Promise.allSettled([
+            apiGet<HeroBranding>("/branding").catch(() => DEFAULT_HERO),
+            apiGet<Update>("/updates/pinned").catch(async () => {
+              try {
+                const all = await apiGet<Update[]>("/updates");
+                return all.length ? all[0] : null;
+              } catch {
+                return null;
+              }
+            }),
+            apiGet<Show[]>("/shows").catch(() => [] as Show[]),
+          ]);
+
+        if (cancelled) return;
+
+        const branding =
+          brandingResult.status === "fulfilled"
+            ? brandingResult.value
+            : DEFAULT_HERO;
+        setHero({ ...DEFAULT_HERO, ...branding });
+
+        const update =
+          updateResult.status === "fulfilled" ? updateResult.value : null;
+        setPinnedUpdate(update);
+
+        const showsData =
+          showsResult.status === "fulfilled" ? showsResult.value : [];
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const upcoming = showsData
+          .filter((s) => new Date(s.date) >= now)
+          .sort(
+            (a, b) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime(),
+          )
+          .slice(0, 3);
+        setShows(upcoming);
       } finally {
         if (!cancelled) setLoading(false);
       }
