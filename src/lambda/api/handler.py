@@ -510,7 +510,7 @@ def handle_shows(event, method, parts):
                 return error("Show not found", 404)
             _resolve_venues([item])
             _resolve_show_media(item)
-            return ok(item)
+            return ok(item, cache=120)
 
         items = _query_entity("SHOW")
         _resolve_venues(items)
@@ -526,7 +526,7 @@ def handle_shows(event, method, parts):
             key=lambda s: s.get("date", ""),
             reverse=True,
         )
-        return ok(upcoming + past)
+        return ok(upcoming + past, cache=120)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -595,7 +595,7 @@ def handle_shows(event, method, parts):
 def handle_venues(event, method, parts):
     if method == "GET":
         items = _query_entity("VENUE")
-        return ok(items)
+        return ok(items, cache=300)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -655,7 +655,7 @@ def handle_updates(event, method, parts):
         if not items:
             return error("No pinned update", 404)
         _resolve_update_media(items[0])
-        return ok(items[0])
+        return ok(items[0], cache=120)
 
     if method == "GET":
         qs = _qs(event)
@@ -668,7 +668,7 @@ def handle_updates(event, method, parts):
             items = _query_entity("UPDATE", visible=True)
         for item in items:
             _resolve_update_media(item)
-        return ok(items)
+        return ok(items, cache=120)
 
     if method == "POST":
         user, err = require_role(event, "band")
@@ -787,7 +787,7 @@ def handle_press(event, method, parts):
             if not item.get("public") and not is_member(event):
                 return error("Press not found", 404)
             _enrich_press_attachments(item)
-            return ok(item)
+            return ok(item, cache=120)
         if qs.get("all") == "true":
             items = _query_entity("PRESS")
         elif is_member(event):
@@ -796,7 +796,7 @@ def handle_press(event, method, parts):
             items = _query_entity("PRESS", public=True)
         for item in items:
             _enrich_press_attachments(item)
-        return ok(items)
+        return ok(items, cache=120)
 
     if method == "POST":
         user, err = require_role(event, "editor")
@@ -883,7 +883,7 @@ def handle_media(event, method, parts):
             if not item.get("public") and not is_member(event):
                 return error("Media not found", 404)
             _enrich_media_item(item)
-            return ok(item)
+            return ok(item, cache=120)
 
         if is_member(event):
             items = _query_entity("MEDIA")
@@ -908,7 +908,7 @@ def handle_media(event, method, parts):
                 if cat_set.intersection(set(m.get("categories", [])))
             ]
         _enrich_media_items(items)
-        return ok(items)
+        return ok(items, cache=120)
 
     # POST /media/upload — presigned URL
     if method == "POST" and len(parts) >= 2 and parts[1] == "upload":
@@ -1164,7 +1164,7 @@ def handle_media(event, method, parts):
 def handle_categories(event, method, parts):
     if method == "GET":
         items = _query_entity("CATEGORY")
-        return ok(items)
+        return ok(items, cache=300)
 
     if method == "POST":
         user, err = require_role(event, "manager")
@@ -1927,7 +1927,7 @@ def handle_branding(event, method, parts):
         # Don't expose s3Key to public
         if "heroImageS3Key" in cfg:
             del cfg["heroImageS3Key"]
-        return ok(cfg)
+        return ok(cfg, cache=300)
 
     # Admin-only routes
     user, err = require_role(event, "admin")
