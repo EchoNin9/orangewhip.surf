@@ -101,7 +101,7 @@ function ShowCard({ show, index }: { show: Show; index: number }) {
     >
       <Link
         to={`/shows/${show.id}`}
-        className={`card block overflow-hidden group hover:border-primary-500/60 transition-colors ${
+        className={`card block overflow-hidden group transition-all duration-300 hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5 ${
           today ? "border-2 border-primary-500 ring-2 ring-primary-500/30" : ""
         }`}
       >
