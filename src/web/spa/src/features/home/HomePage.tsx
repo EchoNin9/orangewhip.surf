@@ -219,10 +219,9 @@ export function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-br from-secondary-900 via-secondary-800 to-primary-900/20" />
         {hero.heroImageUrl && (
           <div
-            className="absolute inset-0 bg-center bg-no-repeat bg-fixed"
+            className="absolute inset-0 bg-center bg-no-repeat bg-cover bg-scroll md:bg-fixed md:bg-[length:100%_auto]"
             style={{
               backgroundImage: `url(${hero.heroImageUrl})`,
-              backgroundSize: "100% auto",
               opacity: (hero.heroImageOpacity ?? 25) / 100,
             }}
           />
