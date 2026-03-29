@@ -1,0 +1,92 @@
+# orangewhip.surf — Task Log
+
+Tracks completed and pending UI/backend improvement tasks.
+
+---
+
+## Completed
+
+### Session: 2026-03-28
+
+#### 1. Homepage UX — Reorder, Performance, Skeletons ✅
+**Commit:** `00e5c2f` — `ui: reorder homepage sections, improve performance and loading UX`
+
+- Moved Upcoming Shows section above Latest News on homepage
+- Replaced 3 sequential `await` API calls with `Promise.allSettled` (parallel) — ~200–600ms faster
+- Replaced spinner with skeleton loading cards matching real content layout
+- Converted all routes except `HomePage` to `React.lazy()` — reduces initial JS bundle
+- Moved Google Fonts from CSS `@import` (render-blocking) to HTML `<link rel="preconnect">` + `<link rel="stylesheet">`
+- Added `loading="lazy"` to below-fold images
+- Extracted shared animation presets into `src/utils/motion.ts` (`stagger`, `fadeUp`, `viewportOnce`, `EASE_OUT`)
+
+---
+
+#### 2. WebP Image Optimization ✅
+**Commit:** `e6b7f21` — `feat: add WebP image optimization with medium-size variants`
+
+- **Thumb Lambda** (`src/lambda/thumb/handler.py`): generates WebP thumbnail (300px) and WebP medium (800px) in addition to existing JPEG thumbnail; stores keys `thumbnailWebpKey` / `mediumWebpKey` in DynamoDB
+- **API Lambda** (`src/lambda/api/handler.py`): presigns `thumbnailWebp` and `mediumUrl` URLs and returns them in media/show/update responses
+- **Frontend**: new `OptimizedImg` component (`src/utils/OptimizedImg.tsx`) renders `<picture>` with WebP `<source>` + JPEG fallback; applied to shows, media, updates, and homepage
+
+---
+
+#### 3. Cache-Control Headers ✅
+**Commit:** `ccd51b0` — `feat: add Cache-Control headers to API GET responses`
+
+- Extended `response.py` `ok()` with a `cache` parameter
+- All public GET endpoints set `Cache-Control: public, max-age=N, stale-while-revalidate=N`
+- Private/write endpoints set `Cache-Control: no-store`
+- Homepage batch endpoint cached for 120s
+
+---
+
+#### 4. Homepage Batch Endpoint + Pagination ✅
+**Commits:** `19f4706` + `9726a25`
+
+- New `/homepage` API endpoint returns branding, pinned update, and 3 upcoming shows in a single request (3 DynamoDB queries instead of 3 round-trips)
+- Backwards-compatible pagination on `/media`, `/updates`, `/press`: returns raw array when no `limit` param; returns `{items, total, limit, offset}` envelope when `limit` provided
+- Frontend `HomePage` tries `/homepage` first; falls back to 3 parallel calls if endpoint unavailable
+
+---
+
+#### 5. Deploy Backend (Lambda) ✅
+**Commit:** `9726a25` — all prior commits already on `origin/develop`
+
+- Confirmed all 5 commits deployed successfully to staging via GitHub Actions (`Deploy Staging` workflow)
+- `/homepage` endpoint, WebP generation, caching headers, and pagination all live on staging
+
+---
+
+#### 6. UI Polish — Page Transitions, Grain, Hover Effects ✅
+**Commit:** `9472d41` — `ui: add page transitions, grain texture, enhanced card hovers and gradient dividers`
+
+- **Page transitions**: new `PageTransition` component wraps routes; `AnimatePresence mode="wait"` in `AppLayout` for smooth fade+slide between pages
+- **Grain texture**: SVG `fractalNoise` overlay at 3% opacity on hero section for atmospheric depth
+- **Radial gradient overlays**: dual warm-orange radial gradients on hero for depth
+- **Glassmorphism secondary button**: hero secondary CTA uses `bg-white/5 backdrop-blur-sm` with hover lift
+- **Card hover effects**: lift (`-translate-y-0.5`) + shadow (`shadow-primary-500/5`) + border glow on all cards (homepage shows, news card, empty-state nav cards, ShowsPage cards)
+- **Image zoom on hover**: show thumbnails scale up `scale-105` on hover
+- **Animated arrow links**: "View All Shows →" arrow translates right on hover
+- **Gradient dividers**: replaced solid `border-t border-secondary-800` with `from-transparent via-secondary-700 to-transparent` gradient lines on homepage and footer
+- **Footer**: gradient separators, cleaner inner-border treatment
+- **motion.ts**: added `scaleIn`, `fadeUpStaggered` variants and exported `GRAIN_SVG` constant for reuse across pages
+
+---
+
+## Pending / Backlog
+
+### Re-process Existing Media for WebP
+Existing media items only have JPEG thumbnails. A one-time backfill script is needed to re-invoke thumbnail generation for all existing `MEDIA#` records in DynamoDB so they get `thumbnailWebpKey` / `mediumWebpKey` entries.
+
+### CloudFront for Media Bucket
+Images are served via time-limited S3 presigned URLs — no CDN caching. Adding CloudFront in front of the media bucket would provide:
+- Persistent, cacheable URLs (no expiry)
+- Edge caching for faster global image delivery
+- Ability to use signed cookies/policies for private content
+
+### More UI Polish (Additional)
+Patterns available from funkedupshift codebase not yet applied:
+- Masonry grid layout for MediaPage (CSS `columns-*` with `break-inside-avoid`)
+- `whileInView` staggered animations on MediaPage and UpdatesPage grids
+- Stat counter animation (`useCountUp` hook with requestAnimationFrame)
+- Accordion expand/collapse with smooth height animation in mobile nav
