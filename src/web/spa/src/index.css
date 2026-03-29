@@ -58,7 +58,13 @@
 
   /* Card component */
   .card {
-    @apply bg-secondary-800/50 backdrop-blur-sm border border-secondary-700/50 rounded-xl;
+    @apply bg-secondary-800/50 backdrop-blur-sm border border-secondary-700/50 rounded-xl
+           transition-all duration-300;
+  }
+
+  /* Gradient horizontal divider */
+  .divider-gradient {
+    @apply h-px bg-gradient-to-r from-transparent via-secondary-700 to-transparent;
   }
 
   /* Input field */

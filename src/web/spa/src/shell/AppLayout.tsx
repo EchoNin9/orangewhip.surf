@@ -1,8 +1,10 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { ErrorBoundary } from './ErrorBoundary';
+import { PageTransition } from '@/utils/PageTransition';
 
 /* ── Eager-loaded: homepage only ── */
 import { HomePage } from '@/features/home/HomePage';
@@ -41,6 +43,8 @@ function PageLoader() {
 }
 
 export function AppLayout() {
+  const location = useLocation();
+
   return (
     <div className="min-h-screen flex flex-col bg-secondary-900">
       <Header />
@@ -48,38 +52,42 @@ export function AppLayout() {
       <div className="flex-1">
         <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
-          <Routes>
-            {/* Public pages */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/updates" element={<UpdatesPage />} />
-            <Route path="/press" element={<PressPage />} />
-            <Route path="/press/:id" element={<PressDetailPage />} />
-            <Route path="/login" element={<AuthPage />} />
+          <AnimatePresence mode="wait">
+            <PageTransition key={location.pathname}>
+              <Routes location={location}>
+                {/* Public pages */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/updates" element={<UpdatesPage />} />
+                <Route path="/press" element={<PressPage />} />
+                <Route path="/press/:id" element={<PressDetailPage />} />
+                <Route path="/login" element={<AuthPage />} />
 
-            {/* Public shows */}
-            <Route path="/shows" element={<ShowsPage />} />
-            <Route path="/shows/:id" element={<ShowDetailPage />} />
+                {/* Public shows */}
+                <Route path="/shows" element={<ShowsPage />} />
+                <Route path="/shows/:id" element={<ShowDetailPage />} />
 
-            {/* Public media */}
-            <Route path="/media" element={<MediaPage />} />
-            <Route path="/media/:id" element={<MediaDetailPage />} />
+                {/* Public media */}
+                <Route path="/media" element={<MediaPage />} />
+                <Route path="/media/:id" element={<MediaDetailPage />} />
 
-            {/* Authenticated */}
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/profile/:identifier" element={<PublicProfilePage />} />
+                {/* Authenticated */}
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/profile/:identifier" element={<PublicProfilePage />} />
 
-            {/* Admin */}
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/shows" element={<ShowsAdminPage />} />
-            <Route path="/admin/venues" element={<VenuesAdminPage />} />
-            <Route path="/admin/media" element={<MediaAdminPage />} />
-            <Route path="/admin/updates" element={<UpdatesAdminPage />} />
-            <Route path="/admin/press" element={<PressAdminPage />} />
-            <Route path="/admin/membership" element={<MembershipPage />} />
-            <Route path="/admin/users" element={<UsersPage />} />
-            <Route path="/admin/api-keys" element={<ApiKeysPage />} />
-            <Route path="/admin/branding" element={<BrandingAdminPage />} />
-          </Routes>
+                {/* Admin */}
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/shows" element={<ShowsAdminPage />} />
+                <Route path="/admin/venues" element={<VenuesAdminPage />} />
+                <Route path="/admin/media" element={<MediaAdminPage />} />
+                <Route path="/admin/updates" element={<UpdatesAdminPage />} />
+                <Route path="/admin/press" element={<PressAdminPage />} />
+                <Route path="/admin/membership" element={<MembershipPage />} />
+                <Route path="/admin/users" element={<UsersPage />} />
+                <Route path="/admin/api-keys" element={<ApiKeysPage />} />
+                <Route path="/admin/branding" element={<BrandingAdminPage />} />
+              </Routes>
+            </PageTransition>
+          </AnimatePresence>
         </Suspense>
         </ErrorBoundary>
       </div>

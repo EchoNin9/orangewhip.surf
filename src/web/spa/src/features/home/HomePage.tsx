@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { useAuth, hasRole } from "../../shell/AuthContext";
-import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
+import { stagger, fadeUp, viewportOnce, GRAIN_SVG } from "../../utils/motion";
 import { OptimizedImg } from "../../utils/OptimizedImg";
 
 /* ------------------------------------------------------------------ */
@@ -226,9 +226,15 @@ export function HomePage() {
             }}
           />
         )}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary-500/10 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_20%_80%,rgba(249,115,22,0.08),transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_80%_20%,rgba(249,115,22,0.05),transparent)]" />
+        {/* Grain texture */}
+        <div
+          className="pointer-events-none absolute inset-0 z-10 opacity-[0.03]"
+          style={{ backgroundImage: GRAIN_SVG }}
+        />
 
-        <div className="relative container-max py-24 sm:py-32 lg:py-40 text-center">
+        <div className="relative z-20 container-max py-24 sm:py-32 lg:py-40 text-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -277,7 +283,7 @@ export function HomePage() {
               className={
                 hero.heroButton2Bg || hero.heroButton2TextColor
                   ? "inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg border transition-all duration-200 ease-in-out"
-                  : "btn-secondary"
+                  : "inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg border border-secondary-600 bg-white/5 backdrop-blur-sm text-secondary-100 transition-all duration-200 hover:bg-white/10 hover:border-secondary-400 hover:-translate-y-0.5"
               }
               style={
                 hero.heroButton2Bg || hero.heroButton2TextColor
@@ -313,9 +319,10 @@ export function HomePage() {
               </h2>
               <Link
                 to="/shows"
-                className="text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors"
+                className="group inline-flex items-center gap-1.5 text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors"
               >
-                View All Shows &rarr;
+                View All Shows
+                <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">&rarr;</span>
               </Link>
             </motion.div>
 
@@ -324,7 +331,7 @@ export function HomePage() {
                 <motion.div key={show.id} variants={fadeUp}>
                   <Link
                     to={`/shows/${show.id}`}
-                    className={`card block p-5 hover:border-primary-500/50 transition-colors ${
+                    className={`card block p-5 group transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5 ${
                       isToday(show.date)
                         ? "ring-2 ring-primary-500 border-primary-500/50"
                         : ""
@@ -336,7 +343,7 @@ export function HomePage() {
                           webpSrc={show.thumbnailWebp}
                           src={show.thumbnail}
                           loading="lazy"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                       </div>
                     )}
@@ -372,7 +379,8 @@ export function HomePage() {
 
       {/* ── Pinned / Latest Update ── */}
       {!loading && pinnedUpdate && (
-        <section className="container-max section-padding border-t border-secondary-800">
+        <section className="container-max section-padding">
+          <div className="h-px bg-gradient-to-r from-transparent via-secondary-700 to-transparent -mt-12 sm:-mt-16 lg:-mt-20 mb-12 sm:mb-16 lg:mb-20" />
           <motion.div
             variants={stagger}
             initial="hidden"
@@ -388,7 +396,7 @@ export function HomePage() {
 
             <motion.div
               variants={fadeUp}
-              className="card p-6 sm:p-8 cursor-pointer hover:border-primary-500/50 transition-colors"
+              className="card p-6 sm:p-8 cursor-pointer transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5"
               onClick={() => {
                 setModalOpen(true);
                 setMediaIdx(0);
@@ -455,7 +463,7 @@ export function HomePage() {
                 <Link
                   key={item.label}
                   to={item.to}
-                  className="card p-6 text-center hover:border-primary-500/50 transition-colors group"
+                  className="card p-6 text-center transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-1 group"
                 >
                   <div className="mx-auto w-14 h-14 rounded-xl bg-primary-500/10 flex items-center justify-center mb-4 group-hover:bg-primary-500/20 transition-colors">
                     <svg className="w-7 h-7 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -495,7 +503,8 @@ export function HomePage() {
             </div>
           </div>
           {/* Skeleton: Latest News */}
-          <div className="border-t border-secondary-800 pt-12">
+          <div>
+            <div className="h-px bg-gradient-to-r from-transparent via-secondary-700 to-transparent mb-12" />
             <div className="h-7 w-36 bg-secondary-700/50 rounded animate-pulse mb-8" />
             <SkeletonNewsCard />
           </div>
