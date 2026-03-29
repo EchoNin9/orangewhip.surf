@@ -73,10 +73,18 @@ Tracks completed and pending UI/backend improvement tasks.
 
 ---
 
-## Pending / Backlog
+#### 7. Re-process Existing Media for WebP Thumbnails ✅
+**Script:** `scripts/backfill-webp-thumbs.sh`
 
-### Re-process Existing Media for WebP
-Existing media items only have JPEG thumbnails. A one-time backfill script is needed to re-invoke thumbnail generation for all existing `MEDIA#` records in DynamoDB so they get `thumbnailWebpKey` / `mediumWebpKey` entries.
+- Created backfill script that scans DynamoDB for `MEDIA#` items missing `thumbnailWebpKey`
+- Filters to image-type media only (audio/video skipped)
+- Invokes `ows-thumb` Lambda async (`InvocationType=Event`) for each image with direct invocation payload
+- Supports dry-run mode (default) and `--execute` flag
+- Results: 13 images processed, all now have `thumbnailWebpKey` + `mediumWebpKey` (1 small image under 800px got thumb only, no medium — expected)
+
+---
+
+## Pending / Backlog
 
 ### CloudFront for Media Bucket
 Images are served via time-limited S3 presigned URLs — no CDN caching. Adding CloudFront in front of the media bucket would provide:
