@@ -108,6 +108,17 @@ All 6 of 7 existing videos had no thumbnail. One had a JPEG from before.
 
 ---
 
+#### 9. UI Polish — Masonry Grid, whileInView, Accordion Mobile Nav ✅
+**Commit:** `815bdcf` — `ui: masonry image grid, whileInView animations, accordion mobile nav`
+
+- **Masonry grid**: MediaPage Images tab uses CSS `columns-1 sm:columns-2 lg:columns-3 xl:columns-4` with `break-inside-avoid` for natural varying-height card layout; audio/video tabs keep standard grid
+- **whileInView animations**: MediaPage cards animate via shared `fadeUpStaggered` + `viewportOnce` on scroll (not all on mount); UpdatesPage switches from `animate` to `whileInView` with shared `stagger`/`fadeUp` from `utils/motion.ts`
+- **Card hover effects**: lift + shadow + border glow added to MediaPage cards, matching rest of site
+- **Accordion mobile nav**: `AnimatePresence` + `motion.div` with `height: 0 → auto` / `opacity: 0 → 1` over 200ms instead of instant show/hide
+- **Code cleanup**: removed local stagger/fadeUp duplicates from UpdatesPage; now uses shared presets throughout
+
+---
+
 ## Pending / Backlog
 
 ### CloudFront for Media Bucket
@@ -115,10 +126,3 @@ Images are served via time-limited S3 presigned URLs — no CDN caching. Adding 
 - Persistent, cacheable URLs (no expiry)
 - Edge caching for faster global image delivery
 - Ability to use signed cookies/policies for private content
-
-### More UI Polish (Additional)
-Patterns available from funkedupshift codebase not yet applied:
-- Masonry grid layout for MediaPage (CSS `columns-*` with `break-inside-avoid`)
-- `whileInView` staggered animations on MediaPage and UpdatesPage grids
-- Stat counter animation (`useCountUp` hook with requestAnimationFrame)
-- Accordion expand/collapse with smooth height animation in mobile nav
