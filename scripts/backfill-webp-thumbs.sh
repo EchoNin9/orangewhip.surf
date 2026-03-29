@@ -72,9 +72,9 @@ while true; do
     s3_key=$(echo "$item" | jq -r '.s3Key.S')
     media_type=$(echo "$item" | jq -r '.mediaType.S // "unknown"')
 
-    # Only reprocess images — videos use MediaConvert (separate flow), audio has no thumbnails
-    if [[ "$media_type" != "image" ]]; then
-      echo "  SKIP  $media_id  type=$media_type  (only images need WebP backfill)"
+    # Reprocess images and videos — audio has no thumbnails
+    if [[ "$media_type" != "image" && "$media_type" != "video" ]]; then
+      echo "  SKIP  $media_id  type=$media_type  (only images/videos need thumbnail backfill)"
       skipped=$((skipped + 1))
       continue
     fi
