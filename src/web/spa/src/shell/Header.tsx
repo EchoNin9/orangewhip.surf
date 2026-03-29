@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Bars3Icon, XMarkIcon, UserCircleIcon } from "@heroicons/react/24/outline";
 import { useAuth, canEditContent, canManageMedia, isMember } from "./AuthContext";
 import { useImpersonation } from "./ImpersonationContext";
@@ -183,42 +184,50 @@ export function Header() {
         </button>
       </nav>
 
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div className="md:hidden border-t border-secondary-800 bg-secondary-900/95 backdrop-blur-sm">
-          <div className="container-max py-4 space-y-2">
-            {[
-              { to: "/shows", label: "Shows" },
-              { to: "/updates", label: "Updates" },
-              { to: "/press", label: "Press" },
-              { to: "/media", label: "Media" },
-              ...(showAdminLink ? [{ to: "/admin", label: "Admin" }] : []),
-              ...(user ? [{ to: "/profile", label: "Profile" }] : [{ to: "/login", label: "Sign In" }]),
-            ].map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md transition-colors ${
-                    isActive ? "bg-secondary-800 text-primary-400" : "text-secondary-300 hover:bg-secondary-800 hover:text-white"
-                  }`
-                }
-                onClick={() => setMobileOpen(false)}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-            {user && (
-              <button
-                onClick={() => { signOut(); setMobileOpen(false); }}
-                className="block w-full text-left px-3 py-2 rounded-md text-red-400 hover:bg-secondary-800 transition-colors"
-              >
-                Sign Out
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Mobile menu — smooth accordion */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="md:hidden overflow-hidden border-t border-secondary-800 bg-secondary-900/95 backdrop-blur-sm"
+          >
+            <div className="container-max py-4 space-y-2">
+              {[
+                { to: "/shows", label: "Shows" },
+                { to: "/updates", label: "Updates" },
+                { to: "/press", label: "Press" },
+                { to: "/media", label: "Media" },
+                ...(showAdminLink ? [{ to: "/admin", label: "Admin" }] : []),
+                ...(user ? [{ to: "/profile", label: "Profile" }] : [{ to: "/login", label: "Sign In" }]),
+              ].map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `block px-3 py-2 rounded-md transition-colors ${
+                      isActive ? "bg-secondary-800 text-primary-400" : "text-secondary-300 hover:bg-secondary-800 hover:text-white"
+                    }`
+                  }
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+              {user && (
+                <button
+                  onClick={() => { signOut(); setMobileOpen(false); }}
+                  className="block w-full text-left px-3 py-2 rounded-md text-red-400 hover:bg-secondary-800 transition-colors"
+                >
+                  Sign Out
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

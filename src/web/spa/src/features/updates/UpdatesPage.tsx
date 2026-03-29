@@ -5,6 +5,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
 import { OptimizedImg } from "../../utils/OptimizedImg";
+import { stagger as sharedStagger, fadeUp as sharedFadeUp, viewportOnce } from "../../utils/motion";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -46,20 +47,6 @@ function truncate(text: string, maxLen = 160): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen).trimEnd() + "...";
 }
-
-/* ------------------------------------------------------------------ */
-/*  Animation                                                         */
-/* ------------------------------------------------------------------ */
-
-const stagger = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-};
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
@@ -132,16 +119,17 @@ export function UpdatesPage() {
           />
         ) : (
           <motion.div
-            variants={stagger}
+            variants={sharedStagger}
             initial="hidden"
-            animate="show"
+            whileInView="show"
+            viewport={viewportOnce}
             className="space-y-6"
           >
             {updates.map((u) => (
               <motion.div
                 key={u.id}
-                variants={fadeUp}
-                className="card p-5 sm:p-6 cursor-pointer hover:border-primary-500/50 transition-colors"
+                variants={sharedFadeUp}
+                className="card p-5 sm:p-6 cursor-pointer transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5"
                 onClick={() => openUpdate(u)}
               >
                 <div className="flex flex-col sm:flex-row gap-5">
