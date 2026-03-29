@@ -4,6 +4,9 @@ name: Deploy Staging
 on:
   push:
     branches: [develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 permissions:
   id-token: write
