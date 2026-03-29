@@ -133,103 +133,109 @@ def _generate_image_thumbnail(bucket: str, s3_key: str, media_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Video thumbnail (via MediaConvert)
+# Video thumbnail (via ffmpeg)
 # ---------------------------------------------------------------------------
 
-def _submit_video_thumbnail_job(bucket: str, s3_key: str, media_id: str):
-    """Submit a MediaConvert job to extract a thumbnail frame from a video."""
-    if not MEDIACONVERT_ROLE_ARN:
-        logger.warning("MEDIACONVERT_ROLE_ARN not set — skipping video thumbnail")
+FFMPEG_BIN = "/opt/bin/ffmpeg"
+
+
+def _generate_video_thumbnail(bucket: str, s3_key: str, media_id: str):
+    """Download video from S3, extract a frame with ffmpeg, create thumbnails with Pillow."""
+    import subprocess
+    import tempfile
+
+    try:
+        from PIL import Image
+    except ImportError:
+        logger.error("Pillow not available — cannot generate video thumbnail")
+        return
+
+    # Download video to temp file
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_video:
+            tmp_video_path = tmp_video.name
+            s3.download_fileobj(bucket, s3_key, tmp_video)
+    except ClientError:
+        logger.exception("Failed to download video %s from %s", s3_key, bucket)
         return
 
     try:
-        mc_client = boto3.client("mediaconvert")
-
-        # Get the MediaConvert endpoint
-        endpoints = mc_client.describe_endpoints(MaxResults=1)
-        endpoint_url = endpoints["Endpoints"][0]["Url"]
-        mc = boto3.client("mediaconvert", endpoint_url=endpoint_url)
-
-        input_s3 = f"s3://{bucket}/{s3_key}"
-        output_s3 = f"s3://{bucket}/thumbnails/{media_id}/"
-
-        job_settings = {
-            "Inputs": [
-                {
-                    "FileInput": input_s3,
-                    "VideoSelector": {},
-                    "TimecodeSource": "ZEROBASED",
-                }
+        # Extract a single frame at 1 second (or first frame if video < 1s)
+        tmp_frame_path = tmp_video_path + ".jpg"
+        result = subprocess.run(
+            [
+                FFMPEG_BIN,
+                "-i", tmp_video_path,
+                "-ss", "1",          # seek to 1 second
+                "-frames:v", "1",    # extract 1 frame
+                "-q:v", "2",         # JPEG quality (2 = high)
+                "-y",                # overwrite
+                tmp_frame_path,
             ],
-            "OutputGroups": [
-                {
-                    "Name": "Thumbnail",
-                    "OutputGroupSettings": {
-                        "Type": "FILE_GROUP_SETTINGS",
-                        "FileGroupSettings": {
-                            "Destination": output_s3,
-                        },
-                    },
-                    "Outputs": [
-                        {
-                            "ContainerSettings": {"Container": "RAW"},
-                            "VideoDescription": {
-                                "Width": THUMB_SIZE[0],
-                                "Height": THUMB_SIZE[1],
-                                "CodecSettings": {
-                                    "Codec": "FRAME_CAPTURE",
-                                    "FrameCaptureSettings": {
-                                        "FramerateNumerator": 1,
-                                        "FramerateDenominator": 1,
-                                        "MaxCaptures": 1,
-                                        "Quality": 80,
-                                    },
-                                },
-                            },
-                        }
-                    ],
-                }
-            ],
-        }
-
-        mc.create_job(
-            Role=MEDIACONVERT_ROLE_ARN,
-            Settings=job_settings,
-            UserMetadata={"mediaId": media_id},
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
-        logger.info("Submitted MediaConvert job for video %s", media_id)
 
+        if result.returncode != 0:
+            # Retry at 0 seconds (video might be very short)
+            result = subprocess.run(
+                [
+                    FFMPEG_BIN,
+                    "-i", tmp_video_path,
+                    "-ss", "0",
+                    "-frames:v", "1",
+                    "-q:v", "2",
+                    "-y",
+                    tmp_frame_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+
+        if result.returncode != 0:
+            logger.error("ffmpeg failed for %s: %s", media_id, result.stderr[-500:] if result.stderr else "no output")
+            return
+
+        # Open extracted frame with Pillow and generate thumbnails
+        img = Image.open(tmp_frame_path)
+        rgb_img = img.convert("RGB") if img.mode in ("RGBA", "P") else img.copy()
+
+        extra_keys = {}
+
+        # JPEG thumbnail (300px)
+        thumb_img = rgb_img.copy()
+        thumb_img.thumbnail(THUMB_SIZE, Image.LANCZOS)
+
+        buffer = io.BytesIO()
+        thumb_img.save(buffer, format="JPEG", quality=JPEG_QUALITY)
+        buffer.seek(0)
+        thumb_key = f"thumbnails/{media_id}/thumb.jpg"
+        s3.put_object(Bucket=bucket, Key=thumb_key, Body=buffer.getvalue(), ContentType="image/jpeg")
+
+        # WebP thumbnail (300px)
+        buffer = io.BytesIO()
+        thumb_img.save(buffer, format="WEBP", quality=WEBP_QUALITY)
+        buffer.seek(0)
+        thumb_webp_key = f"thumbnails/{media_id}/thumb.webp"
+        s3.put_object(Bucket=bucket, Key=thumb_webp_key, Body=buffer.getvalue(), ContentType="image/webp")
+        extra_keys["thumbnailWebpKey"] = thumb_webp_key
+
+        _update_thumbnail_key(media_id, thumb_key, extra_keys if extra_keys else None)
+        logger.info("Generated video thumbnails for %s (ffmpeg frame extraction)", media_id)
+
+    except subprocess.TimeoutExpired:
+        logger.error("ffmpeg timed out for %s", media_id)
     except Exception:
-        logger.exception("Failed to submit MediaConvert job for %s", media_id)
-
-
-def _handle_mediaconvert_completion(event_detail: dict):
-    """Handle EventBridge MediaConvert COMPLETE event."""
-    status = event_detail.get("status", "")
-    if status != "COMPLETE":
-        logger.warning("MediaConvert job status: %s — skipping", status)
-        return
-
-    user_metadata = event_detail.get("userMetadata", {})
-    media_id = user_metadata.get("mediaId", "")
-    if not media_id:
-        logger.warning("No mediaId in MediaConvert user metadata")
-        return
-
-    # Find the output thumbnail in the output group
-    output_groups = event_detail.get("outputGroupDetails", [])
-    for group in output_groups:
-        for output_detail in group.get("outputDetails", []):
-            output_paths = output_detail.get("outputFilePaths", [])
-            for path in output_paths:
-                # path looks like s3://bucket/thumbnails/mediaId/file.jpg
-                if path.startswith(f"s3://{MEDIA_BUCKET}/"):
-                    thumb_key = path.replace(f"s3://{MEDIA_BUCKET}/", "")
-                    _update_thumbnail_key(media_id, thumb_key)
-                    logger.info("MediaConvert thumbnail complete for %s: %s", media_id, thumb_key)
-                    return
-
-    logger.warning("Could not find output path for media %s", media_id)
+        logger.exception("Failed to generate video thumbnail for %s", media_id)
+    finally:
+        # Clean up temp files
+        for p in [tmp_video_path, tmp_video_path + ".jpg"]:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +270,7 @@ def _handle_direct_invocation(event: dict):
     if media_type == "image":
         _generate_image_thumbnail(bucket, s3_key, media_id)
     elif media_type == "video":
-        _submit_video_thumbnail_job(bucket, s3_key, media_id)
+        _generate_video_thumbnail(bucket, s3_key, media_id)
     elif media_type == "audio":
         _generate_audio_thumbnail(media_id)
     else:
@@ -296,7 +302,7 @@ def _handle_s3_event(record: dict):
     if s3_key.startswith("media/image") or s3_key.startswith("media/images"):
         _generate_image_thumbnail(bucket, s3_key, media_id)
     elif s3_key.startswith("media/video") or s3_key.startswith("media/videos"):
-        _submit_video_thumbnail_job(bucket, s3_key, media_id)
+        _generate_video_thumbnail(bucket, s3_key, media_id)
     elif s3_key.startswith("media/audio"):
         _generate_audio_thumbnail(media_id)
     else:
@@ -323,10 +329,9 @@ def handler(event, context):
         _handle_direct_invocation(event)
         return {"status": "ok"}
 
-    # EventBridge MediaConvert event
+    # EventBridge MediaConvert event (legacy — kept for in-flight jobs)
     if event.get("source") == "aws.mediaconvert":
-        detail = event.get("detail", {})
-        _handle_mediaconvert_completion(detail)
+        logger.info("Ignoring MediaConvert event — video thumbnails now use ffmpeg")
         return {"status": "ok"}
 
     # S3 event

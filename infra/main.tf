@@ -649,6 +649,16 @@ resource "aws_lambda_layer_version" "pillow" {
   compatible_runtimes = ["python3.12"]
 }
 
+# FFmpeg layer for video thumbnail extraction
+# The layer zip is built by CI (GitHub Actions) before Terraform runs.
+# Contains a statically-linked ffmpeg binary at bin/ffmpeg.
+resource "aws_lambda_layer_version" "ffmpeg" {
+  filename            = "${path.module}/build/ffmpeg_layer.zip"
+  source_code_hash    = filebase64sha256("${path.module}/build/ffmpeg_layer.zip")
+  layer_name          = "ows-ffmpeg-layer"
+  compatible_runtimes = ["python3.12"]
+}
+
 resource "aws_iam_role" "lambdaApi" {
   name = "ows-api-lambda-role"
 
@@ -833,7 +843,7 @@ resource "aws_lambda_function" "thumb" {
   runtime          = "python3.12"
   timeout          = 120
   memory_size      = 512
-  layers           = [aws_lambda_layer_version.pillow.arn]
+  layers           = [aws_lambda_layer_version.pillow.arn, aws_lambda_layer_version.ffmpeg.arn]
 
   environment {
     variables = {

@@ -8,6 +8,7 @@ import { apiGet, apiDelete, searchCache } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
 import { useAuth, hasRole } from "../../shell/AuthContext";
 import { OptimizedImg } from "../../utils/OptimizedImg";
+import { fadeUpStaggered, viewportOnce } from "../../utils/motion";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -87,13 +88,9 @@ function SkeletonCard() {
 /*  Media card                                                         */
 /* ------------------------------------------------------------------ */
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.04, duration: 0.35 },
-  }),
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
 };
 
 function MediaCard({
@@ -112,10 +109,16 @@ function MediaCard({
   const hasThumb = !!item.thumbnail;
 
   return (
-    <motion.div custom={index} variants={cardVariants} initial="hidden" animate="visible">
+    <motion.div
+      custom={index}
+      variants={fadeUpStaggered}
+      initial="hidden"
+      whileInView="show"
+      viewport={viewportOnce}
+    >
       <Link
         to={`/media/${item.id}`}
-        className={`card block overflow-hidden group hover:border-primary-500/60 transition-colors ${
+        className={`card block overflow-hidden group transition-all duration-300 hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5 ${
           selected ? "ring-2 ring-red-500 border-red-500/50" : ""
         }`}
       >
@@ -471,21 +474,43 @@ export default function MediaPage() {
         />
       )}
 
-      {/* Grid */}
+      {/* Grid — masonry for images, standard grid for audio/video */}
       {items.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {items.map((item, i) => (
-              <MediaCard
-                key={item.id}
-                item={item}
-                index={i}
-                selectable={isAdmin}
-                selected={selectedIds.has(item.id)}
-                onToggleSelect={() => toggleSelect(item.id)}
-              />
-            ))}
-          </div>
+          {TABS[activeTab].type === "image" ? (
+            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5">
+              {items.map((item, i) => (
+                <div key={item.id} className="break-inside-avoid mb-5">
+                  <MediaCard
+                    item={item}
+                    index={i}
+                    selectable={isAdmin}
+                    selected={selectedIds.has(item.id)}
+                    onToggleSelect={() => toggleSelect(item.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="show"
+              viewport={viewportOnce}
+            >
+              {items.map((item, i) => (
+                <MediaCard
+                  key={item.id}
+                  item={item}
+                  index={i}
+                  selectable={isAdmin}
+                  selected={selectedIds.has(item.id)}
+                  onToggleSelect={() => toggleSelect(item.id)}
+                />
+              ))}
+            </motion.div>
+          )}
 
           {/* Load more */}
           {hasMore && (

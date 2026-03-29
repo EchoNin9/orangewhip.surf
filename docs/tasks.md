@@ -73,20 +73,56 @@ Tracks completed and pending UI/backend improvement tasks.
 
 ---
 
-## Pending / Backlog
+#### 7. Re-process Existing Images for WebP Thumbnails ✅
+**Script:** `scripts/backfill-webp-thumbs.sh`
 
-### Re-process Existing Media for WebP
-Existing media items only have JPEG thumbnails. A one-time backfill script is needed to re-invoke thumbnail generation for all existing `MEDIA#` records in DynamoDB so they get `thumbnailWebpKey` / `mediumWebpKey` entries.
+- Created backfill script that scans DynamoDB for `MEDIA#` items missing `thumbnailWebpKey`
+- Invokes `ows-thumb` Lambda async (`InvocationType=Event`) for each item with direct invocation payload
+- Supports dry-run mode (default) and `--execute` flag
+- Results: 13 images processed, all now have `thumbnailWebpKey` + `mediumWebpKey` (1 small image under 800px got thumb only, no medium — expected)
+
+---
+
+### Session: 2026-03-29
+
+#### 8. Fix Video Thumbnail Generation (ffmpeg) ✅
+**Commit:** `188f773` — `fix: replace MediaConvert with ffmpeg for video thumbnails`
+
+**Root cause diagnosed:** MediaConvert was rejecting every video thumbnail job with:
+> `BadRequestException: The only outputs in your job are Frame capture to JPEG. You must include at least one output that has full video.`
+
+All 6 of 7 existing videos had no thumbnail. One had a JPEG from before.
+
+**Fix:**
+- Replaced MediaConvert with a statically-linked ffmpeg Lambda layer
+- CI builds the layer by downloading ffmpeg amd64 static binary from johnvansickle.com and zipping as `infra/build/ffmpeg_layer.zip`
+- New `_generate_video_thumbnail()` in `thumb/handler.py`:
+  - Downloads video to `/tmp` via `s3.download_fileobj`
+  - Runs `ffmpeg -ss 1 -frames:v 1` to extract a single frame (retries at `ss 0` for very short clips)
+  - Uses Pillow to generate JPEG thumb (300px) + WebP thumb (300px)
+  - Writes both keys to DynamoDB — fully synchronous, no EventBridge callback needed
+- Attached ffmpeg layer to `ows-thumb` Lambda alongside existing Pillow layer in Terraform
+- Kept EventBridge rule as no-op for any in-flight MediaConvert events
+- Updated `backfill-webp-thumbs.sh` to also process video-type items (not just images)
+- Backfilled all 7 existing videos — all now have JPEG + WebP thumbnails confirmed in DynamoDB
+
+---
+
+#### 9. UI Polish — Masonry Grid, whileInView, Accordion Mobile Nav ✅
+**Commit:** `815bdcf` — `ui: masonry image grid, whileInView animations, accordion mobile nav`
+
+- **Masonry grid**: MediaPage Images tab uses CSS `columns-1 sm:columns-2 lg:columns-3 xl:columns-4` with `break-inside-avoid` for natural varying-height card layout; audio/video tabs keep standard grid
+- **whileInView animations**: MediaPage cards animate via shared `fadeUpStaggered` + `viewportOnce` on scroll (not all on mount); UpdatesPage switches from `animate` to `whileInView` with shared `stagger`/`fadeUp` from `utils/motion.ts`
+- **Card hover effects**: lift + shadow + border glow added to MediaPage cards, matching rest of site
+- **Accordion mobile nav**: `AnimatePresence` + `motion.div` with `height: 0 → auto` / `opacity: 0 → 1` over 200ms instead of instant show/hide
+- **Code cleanup**: removed local stagger/fadeUp duplicates from UpdatesPage; now uses shared presets throughout
+
+---
+
+## Pending / Backlog
 
 ### CloudFront for Media Bucket
 Images are served via time-limited S3 presigned URLs — no CDN caching. Adding CloudFront in front of the media bucket would provide:
 - Persistent, cacheable URLs (no expiry)
 - Edge caching for faster global image delivery
 - Ability to use signed cookies/policies for private content
-
-### More UI Polish (Additional)
-Patterns available from funkedupshift codebase not yet applied:
-- Masonry grid layout for MediaPage (CSS `columns-*` with `break-inside-avoid`)
-- `whileInView` staggered animations on MediaPage and UpdatesPage grids
-- Stat counter animation (`useCountUp` hook with requestAnimationFrame)
-- Accordion expand/collapse with smooth height animation in mobile nav
