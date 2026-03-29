@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bars3Icon, XMarkIcon, UserCircleIcon } from "@heroicons/react/24/outline";
 import { useAuth, canEditContent, canManageMedia, isMember } from "./AuthContext";
@@ -67,6 +67,9 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
+  const location = useLocation();
+  const isHome = location.pathname === "/";
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
@@ -78,7 +81,11 @@ export function Header() {
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-secondary-900/95 backdrop-blur-sm shadow-lg" : "bg-secondary-900"
+        scrolled
+          ? "bg-secondary-900/95 backdrop-blur-sm shadow-lg"
+          : isHome
+            ? "bg-transparent"
+            : "bg-secondary-900"
       }`}
     >
       {/* Impersonation banner */}
@@ -97,7 +104,7 @@ export function Header() {
         </div>
       )}
       {/* Social bar */}
-      <div className="border-b border-secondary-800">
+      <div className={`border-b ${scrolled || !isHome ? "border-secondary-800" : "border-white/10"}`}>
         <div className="container-max flex items-center justify-between gap-4 py-1.5">
           {user ? (
             <div className="flex items-center gap-3 min-w-0">

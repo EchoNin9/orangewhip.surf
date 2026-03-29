@@ -215,11 +215,11 @@ export function HomePage() {
   return (
     <>
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden min-h-screen -mt-[88px]">
         <div className="absolute inset-0 bg-gradient-to-br from-secondary-900 via-secondary-800 to-primary-900/20" />
         {hero.heroImageUrl && (
           <div
-            className="absolute inset-0 bg-cover bg-center"
+            className="absolute inset-0 bg-contain bg-center bg-no-repeat bg-fixed"
             style={{
               backgroundImage: `url(${hero.heroImageUrl})`,
               opacity: (hero.heroImageOpacity ?? 25) / 100,
@@ -234,7 +234,7 @@ export function HomePage() {
           style={{ backgroundImage: GRAIN_SVG }}
         />
 
-        <div className="relative z-20 container-max py-24 sm:py-32 lg:py-40 text-center">
+        <div className="relative z-20 container-max flex flex-col items-center justify-center min-h-screen text-center">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -301,6 +301,7 @@ export function HomePage() {
         </div>
       </section>
 
+      <div className="relative z-10 bg-secondary-900">
       {/* ── Upcoming Shows (before Latest News) ── */}
       {!loading && shows.length > 0 && (
         <section className="container-max section-padding">
@@ -611,6 +612,7 @@ export function HomePage() {
           </div>
         </Dialog>
       </Transition>
+      </div>
     </>
   );
 }
