@@ -3,6 +3,7 @@ OWS API Lambda Handler
 Main router for all orangewhip.surf API routes.
 """
 
+import base64
 import json
 import logging
 import os
@@ -2277,11 +2278,180 @@ def handle_checkout(event, method, parts):  # noqa: ARG001
     return ok({"url": session.url})
 
 
+def _stripe_webhook_raw_body(event: dict) -> bytes:
+    """Return the raw request body as bytes (required for Stripe signature verify)."""
+    raw = event.get("body") or ""
+    if event.get("isBase64Encoded"):
+        try:
+            return base64.b64decode(raw)
+        except Exception:
+            logger.exception("Failed to base64-decode webhook body")
+            return b""
+    if isinstance(raw, bytes):
+        return raw
+    return raw.encode("utf-8")
+
+
 def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
-    """POST /stripe-webhook — Stripe -> Gelato fulfillment. Implemented in Chunk 4."""
+    """POST /stripe-webhook — verify Stripe signature, submit to Gelato,
+    write the ORDER# row to DynamoDB.
+
+    Always returns 200 after a successful signature verify (even on Gelato
+    failure) — Stripe should not retry the whole webhook on downstream errors;
+    the DynamoDB row carries the failure state.
+
+    Idempotency: keyed by the Stripe session id. If an order row already exists
+    with status='submitted' and a gelato_order_id, this is a no-op so Stripe
+    redeliveries don't create duplicate Gelato orders.
+    """
     if method != "POST":
         return error("Method not allowed", 405)
-    return error("Not implemented", 501)
+
+    # Lazy import — keeps the module import light and tests can stub the module.
+    import stripe  # noqa: PLC0415
+
+    raw_body = _stripe_webhook_raw_body(event)
+    signature_header = _get_header(event, "Stripe-Signature") or ""
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    try:
+        stripe_event = stripe.Webhook.construct_event(
+            raw_body, signature_header, webhook_secret
+        )
+    except Exception:
+        logger.exception("Stripe webhook signature verification failed")
+        return error("Invalid signature", 400)
+
+    event_type = (
+        stripe_event.get("type") if isinstance(stripe_event, dict) else getattr(stripe_event, "type", None)
+    )
+    if event_type != "checkout.session.completed":
+        logger.info("Ignoring Stripe event type %s", event_type)
+        return ok({"ignored": True})
+
+    # Pull the session object out of the event (supports both dict + Stripe object).
+    data = (
+        stripe_event.get("data", {}) if isinstance(stripe_event, dict)
+        else getattr(stripe_event, "data", {})
+    ) or {}
+    session = data.get("object") if isinstance(data, dict) else getattr(data, "object", None)
+    if session is None:
+        logger.error("Stripe webhook missing data.object")
+        return ok({"received": True})
+
+    def _get(obj, key, default=None):
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
+    session_id = _get(session, "id") or ""
+    if not session_id:
+        logger.error("Stripe webhook missing session id")
+        return ok({"received": True})
+
+    pk_sk = f"ORDER#{session_id}"
+
+    # Idempotency: bail if a successful row already exists.
+    try:
+        existing = _get_item(pk_sk, pk_sk)
+    except Exception:
+        logger.exception("Failed to look up existing order row %s", pk_sk)
+        existing = None
+    if existing and existing.get("status") == "submitted" and existing.get("gelato_order_id"):
+        logger.info("Stripe webhook redelivery for %s — already submitted", session_id)
+        return ok({"already_processed": True})
+
+    # Parse cart from session metadata.
+    metadata = _get(session, "metadata", {}) or {}
+    cart_raw = _get(metadata, "cart", "") if isinstance(metadata, dict) else getattr(metadata, "cart", "")
+    try:
+        cart_items = json.loads(cart_raw) if cart_raw else []
+    except (json.JSONDecodeError, TypeError):
+        logger.exception("Failed to parse cart metadata for %s", session_id)
+        cart_items = []
+
+    # Buyer details.
+    customer_details = _get(session, "customer_details", {}) or {}
+    email = _get(customer_details, "email", "") or ""
+
+    shipping_details = _get(session, "shipping_details", {}) or {}
+    shipping_address = _get(shipping_details, "address", {}) or {}
+    shipping_name = _get(shipping_details, "name", "") or ""
+
+    shipping = {
+        "name": shipping_name,
+        "address_line1": _get(shipping_address, "line1", "") or "",
+        "address_line2": _get(shipping_address, "line2", "") or "",
+        "city": _get(shipping_address, "city", "") or "",
+        "postal_code": _get(shipping_address, "postal_code", "") or "",
+        "state": _get(shipping_address, "state", "") or "",
+        "country": _get(shipping_address, "country", "") or "",
+    }
+
+    # Map cart items -> Gelato line items.
+    gelato_line_items = []
+    for item in cart_items:
+        variant_uid = item.get("gelato_variant_uid") or item.get("variant_id")
+        qty = item.get("qty") or item.get("quantity") or 1
+        if not variant_uid:
+            continue
+        gelato_line_items.append({
+            "gelato_variant_uid": variant_uid,
+            "qty": int(qty),
+        })
+
+    total_cents = _get(session, "amount_total", 0) or 0
+    currency = _get(session, "currency", "") or ""
+
+    # Submit to Gelato.
+    from api import gelato_client  # noqa: PLC0415
+
+    gelato_order_id = None
+    status_value = "submitted"
+    status_error = None
+    try:
+        result = gelato_client.create_order(
+            reference_id=session_id,
+            customer_email=email,
+            shipping=shipping,
+            line_items=gelato_line_items,
+        )
+        gelato_order_id = result.get("gelato_order_id")
+        logger.info(
+            "Gelato order created for session=%s gelato_order_id=%s",
+            session_id, gelato_order_id,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Gelato order creation FAILED for session=%s — writing failed row",
+            session_id,
+        )
+        status_value = "failed"
+        status_error = str(exc)
+
+    # Persist the order row regardless of Gelato outcome.
+    order_row = {
+        "PK": pk_sk,
+        "SK": pk_sk,
+        "entityType": "ORDER",
+        "stripe_session_id": session_id,
+        "gelato_order_id": gelato_order_id,
+        "status": status_value,
+        "status_error": status_error,
+        "email": email,
+        "total_cents": int(total_cents) if total_cents is not None else 0,
+        "currency": currency,
+        "created_at": _now_iso(),
+        "line_items": cart_items,
+        "shipping": shipping,
+    }
+    try:
+        table.put_item(Item=order_row)
+    except Exception:
+        logger.exception("Failed to write ORDER# row for %s", session_id)
+        # Still return 200 — Stripe shouldn't retry, this needs human attention.
+
+    return ok({"received": True})
 
 
 def handle_orders(event, method, parts):  # noqa: ARG001
