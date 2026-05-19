@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bars3Icon, XMarkIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon, UserCircleIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
 import { useAuth, canEditContent, canManageMedia, isMember } from "./AuthContext";
 import { useImpersonation } from "./ImpersonationContext";
+import { useCart } from "@/features/store/useCart";
+import { CartDrawer } from "@/features/store/CartDrawer";
 
 /* ── SVG social icons (inline so we don't need extra deps) ── */
 function SpotifyIcon({ className }: { className?: string }) {
@@ -64,8 +66,10 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function Header() {
   const { user, signOut } = useAuth();
   const { isImpersonating, stopImpersonation } = useImpersonation();
+  const { itemCount } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const location = useLocation();
   const isHome = location.pathname === "/";
@@ -166,6 +170,22 @@ export function Header() {
           <NavLink to="/updates" className={navLinkClass}>Updates</NavLink>
           <NavLink to="/press" className={navLinkClass}>Press</NavLink>
           <NavLink to="/media" className={navLinkClass}>Media</NavLink>
+          <NavLink to="/store" className={navLinkClass}>Store</NavLink>
+
+          {/* Cart button */}
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="relative p-1.5 text-secondary-300 hover:text-primary-400 transition-colors"
+            aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
+          >
+            <ShoppingBagIcon className="w-5 h-5" />
+            {itemCount > 0 && (
+              <span className="absolute -top-0.5 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                {itemCount > 99 ? "99+" : itemCount}
+              </span>
+            )}
+          </button>
 
           {user ? (
             <div className="flex items-center gap-4 ml-4 pl-4 border-l border-secondary-700">
@@ -184,13 +204,28 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile hamburger */}
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="md:hidden p-2 text-secondary-300 hover:text-white"
-        >
-          {mobileOpen ? <XMarkIcon className="w-6 h-6" /> : <Bars3Icon className="w-6 h-6" />}
-        </button>
+        {/* Mobile right-side controls */}
+        <div className="md:hidden flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="relative p-2 text-secondary-300 hover:text-white"
+            aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
+          >
+            <ShoppingBagIcon className="w-6 h-6" />
+            {itemCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                {itemCount > 99 ? "99+" : itemCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="p-2 text-secondary-300 hover:text-white"
+          >
+            {mobileOpen ? <XMarkIcon className="w-6 h-6" /> : <Bars3Icon className="w-6 h-6" />}
+          </button>
+        </div>
       </nav>
 
       {/* Mobile menu — smooth accordion */}
@@ -209,6 +244,7 @@ export function Header() {
                 { to: "/updates", label: "Updates" },
                 { to: "/press", label: "Press" },
                 { to: "/media", label: "Media" },
+                { to: "/store", label: "Store" },
                 ...(showAdminLink ? [{ to: "/admin", label: "Admin" }] : []),
                 ...(user ? [{ to: "/profile", label: "Profile" }] : [{ to: "/login", label: "Sign In" }]),
               ].map((item) => (
@@ -237,6 +273,8 @@ export function Header() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
     </header>
   );
 }
