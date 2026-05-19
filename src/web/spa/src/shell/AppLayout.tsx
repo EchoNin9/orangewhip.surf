@@ -21,6 +21,13 @@ const ShowDetailPage = lazy(() => import('@/features/shows/ShowDetailPage'));
 const MediaPage = lazy(() => import('@/features/media/MediaPage'));
 const MediaDetailPage = lazy(() => import('@/features/media/MediaDetailPage'));
 
+/* ── Store ── */
+const StorePage = lazy(() => import('@/features/store/StorePage'));
+const ProductPage = lazy(() => import('@/features/store/ProductPage'));
+const CheckoutSuccessPage = lazy(() => import('@/features/store/CheckoutSuccessPage'));
+const CheckoutCancelPage = lazy(() => import('@/features/store/CheckoutCancelPage'));
+const AdminOrdersPage = lazy(() => import('@/features/store/AdminOrdersPage'));
+
 /* ── Lazy-loaded admin pages ── */
 const AdminDashboard = lazy(() => import('@/features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const ShowsAdminPage = lazy(() => import('@/features/admin/ShowsAdminPage'));
@@ -70,6 +77,12 @@ export function AppLayout() {
                 <Route path="/media" element={<MediaPage />} />
                 <Route path="/media/:id" element={<MediaDetailPage />} />
 
+                {/* Store */}
+                <Route path="/store" element={<StorePage />} />
+                <Route path="/store/success" element={<CheckoutSuccessPage />} />
+                <Route path="/store/cancel" element={<CheckoutCancelPage />} />
+                <Route path="/store/:slug" element={<ProductPage />} />
+
                 {/* Authenticated */}
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/profile/:identifier" element={<PublicProfilePage />} />
@@ -85,6 +98,7 @@ export function AppLayout() {
                 <Route path="/admin/users" element={<UsersPage />} />
                 <Route path="/admin/api-keys" element={<ApiKeysPage />} />
                 <Route path="/admin/branding" element={<BrandingAdminPage />} />
+                <Route path="/admin/store/orders" element={<AdminOrdersPage />} />
               </Routes>
             </PageTransition>
           </AnimatePresence>
