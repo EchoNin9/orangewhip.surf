@@ -2159,11 +2159,122 @@ def handle_homepage(event, method, parts):
 # Route: Store (Chunk 1 stubs — filled in by Chunks 3 & 4)
 # ---------------------------------------------------------------------------
 
+STRIPE_CHECKOUT_ALLOWED_COUNTRIES = [
+    "US", "CA", "GB", "AU", "NZ", "DE", "FR", "NL", "SE", "NO",
+    "DK", "FI", "IE", "IT", "ES", "BE", "AT", "PT", "CH", "JP",
+]
+
+
+def _checkout_origin(event: dict) -> str:
+    """Return the origin to use for Stripe success/cancel URLs.
+
+    Derived from the request's ``Origin`` header so that the same Lambda can
+    serve preview deploys and prod. Falls back to the production site if the
+    header is missing or empty.
+    """
+    origin = _get_header(event, "origin") or ""
+    origin = origin.strip().rstrip("/")
+    if not origin:
+        return "https://orangewhip.surf"
+    return origin
+
+
 def handle_checkout(event, method, parts):  # noqa: ARG001
-    """POST /checkout — Stripe Checkout Session. Implemented in Chunk 3."""
+    """POST /checkout — create a Stripe Checkout Session.
+
+    SECURITY: client-supplied prices are ignored. All line item prices come
+    from the server-side ``store_catalog`` mirror; the client only sends
+    ``product_id``, ``variant_id``, and ``qty``.
+    """
     if method != "POST":
         return error("Method not allowed", 405)
-    return error("Not implemented", 501)
+
+    body = _body(event)
+    items = body.get("items")
+    if not isinstance(items, list) or not items:
+        return error("Cart is empty", 400)
+
+    # Lazy import so handler module loads even if `stripe` isn't installed in
+    # local/test envs that don't exercise this route.
+    import stripe
+    from api import store_catalog
+
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+    if not stripe_key:
+        logger.error("handle_checkout: STRIPE_SECRET_KEY is not configured")
+        return error("Checkout is not configured", 500)
+    stripe.api_key = stripe_key
+
+    server_line_items: list[dict] = []
+    stripe_line_items: list[dict] = []
+    currency: str | None = None
+
+    for raw in items:
+        if not isinstance(raw, dict):
+            return error("Invalid cart item", 400)
+        product_id = raw.get("product_id")
+        variant_id = raw.get("variant_id")
+        qty_raw = raw.get("qty")
+        if not isinstance(product_id, str) or not isinstance(variant_id, str):
+            return error("Invalid cart item", 400)
+        # qty must be a positive int. Reject floats, bools (bools are ints in
+        # Python so explicitly disallow), and non-positive values.
+        if isinstance(qty_raw, bool) or not isinstance(qty_raw, int) or qty_raw < 1:
+            return error("Invalid quantity", 400)
+
+        canonical = store_catalog.get_canonical_price(product_id, variant_id)
+        if canonical is None:
+            logger.warning(
+                "handle_checkout: unknown SKU product_id=%s variant_id=%s",
+                product_id, variant_id,
+            )
+            return error("Unknown product or variant", 400)
+
+        if currency is None:
+            currency = canonical["currency"]
+        elif canonical["currency"] != currency:
+            # Stripe Checkout requires a single currency per session.
+            return error("Cart contains mixed currencies", 400)
+
+        server_line_items.append({
+            "product_id": product_id,
+            "variant_id": variant_id,
+            "qty": qty_raw,
+            "unit_price_cents": canonical["price_cents"],
+            "title": canonical["title"],
+        })
+        stripe_line_items.append({
+            "price_data": {
+                "currency": canonical["currency"],
+                "unit_amount": canonical["price_cents"],
+                "product_data": {"name": canonical["title"]},
+            },
+            "quantity": qty_raw,
+        })
+
+    origin = _checkout_origin(event)
+
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=stripe_line_items,
+            shipping_address_collection={
+                "allowed_countries": STRIPE_CHECKOUT_ALLOWED_COUNTRIES,
+            },
+            automatic_tax={"enabled": False},
+            success_url=f"{origin}/store/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{origin}/store/cancel",
+            metadata={"cart": json.dumps(server_line_items)},
+        )
+    except stripe.error.StripeError as exc:
+        logger.exception("handle_checkout: Stripe error")
+        return error(f"Stripe error: {exc}", 502)
+
+    logger.info(
+        "handle_checkout: created session id=%s items=%d",
+        getattr(session, "id", "?"), len(server_line_items),
+    )
+    return ok({"url": session.url})
 
 
 def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
@@ -2174,10 +2285,21 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
 
 
 def handle_orders(event, method, parts):  # noqa: ARG001
-    """GET /orders — admin order list. Implemented in Chunk 3."""
+    """GET /orders — admin-gated list of online store orders.
+
+    Reads ``ORDER`` entities from the single table (written by the Stripe
+    webhook in Chunk 4) and returns them newest-first by ``created_at``.
+    """
     if method != "GET":
         return error("Method not allowed", 405)
-    return error("Not implemented", 501)
+
+    _user, err = require_role(event, "admin")
+    if err:
+        return err
+
+    items = _query_entity("ORDER")
+    items.sort(key=lambda i: i.get("created_at", ""), reverse=True)
+    return ok(items)
 
 
 def handler(event, context):
