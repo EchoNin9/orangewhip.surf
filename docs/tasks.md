@@ -126,3 +126,33 @@ Images are served via time-limited S3 presigned URLs — no CDN caching. Adding 
 - Persistent, cacheable URLs (no expiry)
 - Edge caching for faster global image delivery
 - Ability to use signed cookies/policies for private content
+
+### SEO Optimization (Priority 1)
+- [ ] Priority rank: `#1`
+- [ ] Add per-route metadata system (title, meta description, canonical URL)
+- [ ] Add Open Graph + Twitter tags for homepage, shows, updates, press, media detail pages
+- [ ] Add JSON-LD structured data (`MusicGroup`, `MusicEvent`, `Article`, media where relevant)
+- [ ] Generate `sitemap.xml` and `robots.txt` during SPA build/deploy
+- [ ] Verify indexability and render output with Google Rich Results / URL Inspection workflow
+- [ ] Add fallback/default metadata in shell for routes missing explicit config
+- [ ] Document SEO conventions for future band-clone rollouts
+
+### One-Click EPK (Priority 2)
+- [ ] Priority rank: `#2`
+- [ ] Define EPK content schema (bio, members, genre tags, key links, contact, assets)
+- [ ] Add admin-configurable EPK fields and media picks (press photos, logo variants, featured tracks/videos)
+- [ ] Build public `/epk` route with print/download-friendly layout
+- [ ] Add “Download PDF” flow (server-rendered or client print-to-PDF strategy)
+- [ ] Add one-click actions: “Copy share link”, “Download zip assets”, “Open web EPK”
+- [ ] Include analytics events for EPK opens/downloads/shares
+- [ ] Add permissions/rate-limits if private assets are included
+
+### Poster-Style Show Cards (Priority 3)
+- [ ] Priority rank: `#3`
+- [ ] Define poster card spec (aspect ratio, typography scale, hierarchy for date/venue/CTA)
+- [ ] Create reusable `PosterShowCard` component in `src/web/spa/src/features/shows/`
+- [ ] Apply component to homepage upcoming shows and `ShowsPage` list/grid
+- [ ] Add responsive variants (mobile compact, desktop full poster treatment)
+- [ ] Reuse existing motion presets from `src/web/spa/src/utils/motion.ts`
+- [ ] Validate contrast/readability against dark + image-heavy backgrounds
+- [ ] Add QA pass for hover/focus states and keyboard navigation
