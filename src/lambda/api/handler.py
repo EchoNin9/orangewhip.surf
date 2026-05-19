@@ -2155,6 +2155,31 @@ def handle_homepage(event, method, parts):
     }, cache=120)
 
 
+# ---------------------------------------------------------------------------
+# Route: Store (Chunk 1 stubs — filled in by Chunks 3 & 4)
+# ---------------------------------------------------------------------------
+
+def handle_checkout(event, method, parts):  # noqa: ARG001
+    """POST /checkout — Stripe Checkout Session. Implemented in Chunk 3."""
+    if method != "POST":
+        return error("Method not allowed", 405)
+    return error("Not implemented", 501)
+
+
+def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
+    """POST /stripe-webhook — Stripe -> Gelato fulfillment. Implemented in Chunk 4."""
+    if method != "POST":
+        return error("Method not allowed", 405)
+    return error("Not implemented", 501)
+
+
+def handle_orders(event, method, parts):  # noqa: ARG001
+    """GET /orders — admin order list. Implemented in Chunk 3."""
+    if method != "GET":
+        return error("Method not allowed", 405)
+    return error("Not implemented", 501)
+
+
 def handler(event, context):
     """Lambda entry point — routes HTTP API Gateway v2 events."""
     logger.info("Event: %s", json.dumps(event, default=str))
@@ -2192,6 +2217,14 @@ def handler(event, context):
             return handle_branding(event, method, parts)
         if root == "homepage":
             return handle_homepage(event, method, parts)
+
+        # Store routes (Chunk 1 stubs)
+        if root == "checkout":
+            return handle_checkout(event, method, parts)
+        if root == "stripe-webhook":
+            return handle_stripe_webhook(event, method, parts)
+        if root == "orders":
+            return handle_orders(event, method, parts)
 
         # Authenticated routes
         if root == "me":

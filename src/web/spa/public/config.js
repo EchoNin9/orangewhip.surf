@@ -24,3 +24,11 @@ window.MEDIA_BUCKET_URL = '';
 
 // Environment flag
 window.APP_ENV = 'development';
+
+// ----------------------------------------------------------------------
+// Online store (Stripe Checkout)
+// ----------------------------------------------------------------------
+// Publishable key is safe to ship to the browser. The secret key and
+// webhook secret live only on the Lambda (set via Terraform variables).
+// Empty here for local dev; the deploy workflow rewrites this file.
+window.STRIPE_PUBLISHABLE_KEY = '';

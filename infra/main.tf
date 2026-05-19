@@ -746,10 +746,13 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      TABLE_NAME           = aws_dynamodb_table.main.name
-      MEDIA_BUCKET         = aws_s3_bucket.media.id
-      COGNITO_USER_POOL_ID = aws_cognito_user_pool.main.id
-      THUMB_FUNCTION_NAME  = aws_lambda_function.thumb.function_name
+      TABLE_NAME            = aws_dynamodb_table.main.name
+      MEDIA_BUCKET          = aws_s3_bucket.media.id
+      COGNITO_USER_POOL_ID  = aws_cognito_user_pool.main.id
+      THUMB_FUNCTION_NAME   = aws_lambda_function.thumb.function_name
+      STRIPE_SECRET_KEY     = var.stripeSecretKey
+      STRIPE_WEBHOOK_SECRET = var.stripeWebhookSecret
+      GELATO_API_KEY        = var.gelatoApiKey
     }
   }
 }
@@ -1483,6 +1486,31 @@ resource "aws_apigatewayv2_route" "brandingHeroImageUploadOptions" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "OPTIONS /branding/hero-image/upload"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# --- Online store (Stripe + Gelato) ---
+# /checkout: anonymous (shoppers don't log in).
+# /stripe-webhook: anonymous; signature verified inside the Lambda.
+# /orders: JWT-authed; admin role enforced inside the handler (matches
+# the existing admin route convention).
+resource "aws_apigatewayv2_route" "checkoutPost" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /checkout"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "stripeWebhookPost" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /stripe-webhook"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "ordersGet" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /orders"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
 resource "aws_apigatewayv2_stage" "default" {
