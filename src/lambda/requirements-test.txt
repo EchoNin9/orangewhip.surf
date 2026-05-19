@@ -1,2 +1,3 @@
 pytest>=7.0
 boto3>=1.34
+stripe~=15.1
