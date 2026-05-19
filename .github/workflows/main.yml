@@ -7,6 +7,11 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+      - '.cursorrules'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
 
 permissions:
   id-token: write
