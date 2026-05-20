@@ -96,6 +96,9 @@ def create_order(
         headers={
             "Content-Type": "application/json",
             "X-API-KEY": api_key,
+            # Gelato sits behind Cloudflare, which 403s the default Python-urllib UA
+            # with error code 1010. Always send an explicit, identifiable User-Agent.
+            "User-Agent": "orangewhip-store/1.0 (+https://orangewhip.surf)",
         },
     )
 
