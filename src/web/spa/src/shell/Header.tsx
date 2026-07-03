@@ -63,6 +63,18 @@ const socialLinks = [
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `transition-colors duration-200 ${isActive ? "text-primary-400 font-semibold" : "text-secondary-300 hover:text-white"}`;
 
+/* OW redesign homepage nav (OW-4): section anchors, no Tickets button (intentionally removed).
+   #media/#merch/#about sections land with OW-8/9/10/11. */
+const homeAnchors = [
+  { href: "#shows", label: "Shows" },
+  { href: "#media", label: "Media" },
+  { href: "#merch", label: "Merch" },
+  { href: "#about", label: "About" },
+];
+
+const homeAnchorClass =
+  "font-grotesk font-semibold text-sm uppercase tracking-[0.06em] text-ow-text hover:text-ow-accent transition-colors duration-200";
+
 export function Header() {
   const { user, signOut } = useAuth();
   const { isImpersonating, stopImpersonation } = useImpersonation();
@@ -85,12 +97,10 @@ export function Header() {
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? isHome
-            ? "bg-secondary-900/60 backdrop-blur-sm"
-            : "bg-secondary-900/95 backdrop-blur-sm shadow-lg"
-          : isHome
-            ? "bg-transparent"
+        isHome
+          ? "backdrop-blur-[14px] bg-[oklch(0.16_0.018_45/0.72)] border-b border-ow-hairline"
+          : scrolled
+            ? "bg-secondary-900/95 backdrop-blur-sm shadow-lg"
             : "bg-secondary-900"
       }`}
     >
@@ -158,19 +168,31 @@ export function Header() {
 
       {/* Main nav */}
       <nav className="container-max flex items-center justify-between py-3">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.png" alt="Orange Whip" className="w-8 h-8 object-contain" />
-          <span className="text-xl font-display font-bold text-gradient">Orange Whip</span>
+        {/* Logo — Cooper Hewitt 600 italic brand wordmark (OW-2/OW-4) */}
+        <Link
+          to="/"
+          className="font-cooper italic font-semibold text-[28px] leading-none text-ow-accent [text-shadow:0_2px_0_var(--ow-bg)]"
+        >
+          Orange Whip
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-          <NavLink to="/shows" className={navLinkClass}>Shows</NavLink>
-          <NavLink to="/updates" className={navLinkClass}>Updates</NavLink>
-          <NavLink to="/press" className={navLinkClass}>Press</NavLink>
-          <NavLink to="/media" className={navLinkClass}>Media</NavLink>
-          <NavLink to="/store" className={navLinkClass}>Store</NavLink>
+        <div className={`hidden items-center text-sm font-medium ${isHome ? "ow:flex gap-[30px]" : "md:flex gap-6"}`}>
+          {isHome ? (
+            homeAnchors.map((a) => (
+              <a key={a.href} href={a.href} className={homeAnchorClass}>
+                {a.label}
+              </a>
+            ))
+          ) : (
+            <>
+              <NavLink to="/shows" className={navLinkClass}>Shows</NavLink>
+              <NavLink to="/updates" className={navLinkClass}>Updates</NavLink>
+              <NavLink to="/press" className={navLinkClass}>Press</NavLink>
+              <NavLink to="/media" className={navLinkClass}>Media</NavLink>
+              <NavLink to="/store" className={navLinkClass}>Store</NavLink>
+            </>
+          )}
 
           {/* Cart button */}
           <button
@@ -205,7 +227,7 @@ export function Header() {
         </div>
 
         {/* Mobile right-side controls */}
-        <div className="md:hidden flex items-center gap-1">
+        <div className={`flex items-center gap-1 ${isHome ? "ow:hidden" : "md:hidden"}`}>
           <button
             type="button"
             onClick={() => setCartOpen(true)}
@@ -221,7 +243,11 @@ export function Header() {
           </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 text-secondary-300 hover:text-white"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            className={`p-2 text-secondary-300 hover:text-white ${
+              isHome ? "border border-ow-hairline-strong rounded-[10px] text-ow-text" : ""
+            }`}
           >
             {mobileOpen ? <XMarkIcon className="w-6 h-6" /> : <Bars3Icon className="w-6 h-6" />}
           </button>
@@ -236,18 +262,37 @@ export function Header() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="md:hidden overflow-hidden border-t border-secondary-800 bg-secondary-900/95 backdrop-blur-sm"
+            className={`overflow-hidden border-t border-secondary-800 bg-secondary-900/95 backdrop-blur-sm ${
+              isHome ? "ow:hidden" : "md:hidden"
+            }`}
           >
             <div className="container-max py-4 space-y-2">
-              {[
-                { to: "/shows", label: "Shows" },
-                { to: "/updates", label: "Updates" },
-                { to: "/press", label: "Press" },
-                { to: "/media", label: "Media" },
-                { to: "/store", label: "Store" },
-                ...(showAdminLink ? [{ to: "/admin", label: "Admin" }] : []),
-                ...(user ? [{ to: "/profile", label: "Profile" }] : [{ to: "/login", label: "Sign In" }]),
-              ].map((item) => (
+              {isHome &&
+                homeAnchors.map((a) => (
+                  <a
+                    key={a.href}
+                    href={a.href}
+                    className={`block py-3 ${homeAnchorClass}`}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {a.label}
+                  </a>
+                ))}
+              {(isHome
+                ? [
+                    ...(showAdminLink ? [{ to: "/admin", label: "Admin" }] : []),
+                    ...(user ? [{ to: "/profile", label: "Profile" }] : [{ to: "/login", label: "Sign In" }]),
+                  ]
+                : [
+                    { to: "/shows", label: "Shows" },
+                    { to: "/updates", label: "Updates" },
+                    { to: "/press", label: "Press" },
+                    { to: "/media", label: "Media" },
+                    { to: "/store", label: "Store" },
+                    ...(showAdminLink ? [{ to: "/admin", label: "Admin" }] : []),
+                    ...(user ? [{ to: "/profile", label: "Profile" }] : [{ to: "/login", label: "Sign In" }]),
+                  ]
+              ).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

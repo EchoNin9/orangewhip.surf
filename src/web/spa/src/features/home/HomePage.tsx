@@ -11,6 +11,7 @@ import { apiGet } from "../../utils/api";
 import { useAuth, hasRole } from "../../shell/AuthContext";
 import { stagger, fadeUp, viewportOnce, GRAIN_SVG } from "../../utils/motion";
 import { OptimizedImg } from "../../utils/OptimizedImg";
+import { PageChrome } from "./PageChrome";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -213,10 +214,11 @@ export function HomePage() {
   /* ── Render ── */
 
   return (
-    <>
+    <div className="relative bg-ow-bg" data-ow-palette="sunset">
+      <PageChrome />
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden min-h-screen -mt-[88px]">
-        <div className="absolute inset-0 bg-gradient-to-br from-secondary-900 via-secondary-800 to-primary-900/20" />
+      <section className="relative z-10 overflow-hidden min-h-screen -mt-[88px]">
+        {/* ponytail: old opaque slate gradient removed so OW-3 chrome shows; hero rebuilt in OW-5 */}
         {hero.heroImageUrl && (
           <div
             className="absolute inset-0 bg-center bg-no-repeat bg-cover bg-scroll md:bg-fixed md:bg-[length:100%_auto]"
@@ -301,10 +303,10 @@ export function HomePage() {
         </div>
       </section>
 
-      <div className="relative z-10 bg-secondary-900">
+      <div className="relative z-10">
       {/* ── Upcoming Shows (before Latest News) ── */}
       {!loading && shows.length > 0 && (
-        <section className="container-max section-padding">
+        <section id="shows" className="container-max section-padding">
           <motion.div
             variants={stagger}
             initial="hidden"
@@ -613,7 +615,7 @@ export function HomePage() {
         </Dialog>
       </Transition>
       </div>
-    </>
+    </div>
   );
 }
 
