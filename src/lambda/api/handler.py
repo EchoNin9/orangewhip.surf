@@ -2374,9 +2374,24 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
     customer_details = _get(session, "customer_details", {}) or {}
     email = _get(customer_details, "email", "") or ""
 
-    shipping_details = _get(session, "shipping_details", {}) or {}
+    # Recent Stripe API versions put shipping under
+    # session.collected_information.shipping_details; older versions used
+    # session.shipping_details directly. Customer details is the final
+    # fallback (Stripe still populates address+name there).
+    collected = _get(session, "collected_information", {}) or {}
+    shipping_details = (
+        _get(collected, "shipping_details", None)
+        or _get(session, "shipping_details", None)
+        or {}
+    )
     shipping_address = _get(shipping_details, "address", {}) or {}
     shipping_name = _get(shipping_details, "name", "") or ""
+
+    if not shipping_address:
+        # Last-resort fallback to customer_details (always populated).
+        shipping_address = _get(customer_details, "address", {}) or {}
+    if not shipping_name:
+        shipping_name = _get(customer_details, "name", "") or ""
 
     shipping = {
         "name": shipping_name,
@@ -2430,10 +2445,15 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
         status_error = str(exc)
 
     # Persist the order row regardless of Gelato outcome.
+    # `entitySk` is required for the `byEntity` GSI (HASH=entityType, RANGE=entitySk):
+    # rows missing it never appear in admin's GET /orders. Use the created_at
+    # ISO timestamp so the GSI itself is sorted newest-first when paginated.
+    created_at = _now_iso()
     order_row = {
         "PK": pk_sk,
         "SK": pk_sk,
         "entityType": "ORDER",
+        "entitySk": created_at,
         "stripe_session_id": session_id,
         "gelato_order_id": gelato_order_id,
         "status": status_value,
@@ -2441,7 +2461,7 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
         "email": email,
         "total_cents": int(total_cents) if total_cents is not None else 0,
         "currency": currency,
-        "created_at": _now_iso(),
+        "created_at": created_at,
         "line_items": cart_items,
         "shipping": shipping,
     }
