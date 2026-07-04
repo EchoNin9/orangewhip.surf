@@ -128,6 +128,18 @@
   .ow-blob-1 { animation: ow-blob-drift-1 22s ease-in-out infinite; }
   .ow-blob-2 { animation: ow-blob-drift-2 26s ease-in-out infinite; }
   .ow-blob-3 { animation: ow-blob-drift-3 18s ease-in-out infinite; }
+
+  /* Hero spinning sun (OW-5) */
+  @keyframes ow-spin {
+    to { transform: rotate(360deg); }
+  }
+  .ow-sun { animation: ow-spin 60s linear infinite; }
+
+  /* Marquee strip (OW-6) — track holds two identical halves, shift one half */
+  @keyframes ow-marquee {
+    to { transform: translateX(-50%); }
+  }
+  .ow-marquee { animation: ow-marquee 26s linear infinite; }
 }
 
 @layer utilities {
