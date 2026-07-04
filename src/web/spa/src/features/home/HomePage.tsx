@@ -586,12 +586,11 @@ export function HomePage() {
 
   return (
     <div className="relative bg-ow-bg" data-ow-palette={hero.palette ?? "sunset"}>
-      <PageChrome showGrain={hero.showGrain !== false} />
-      {/* ── Hero (OW-5) ── */}
-      <section className="relative z-10 overflow-hidden -mt-[88px]">
+      {/* ── Hero (OW-5) — pinned; the rest of the page scrolls over it (OW-19) ── */}
+      <section className="sticky top-0 z-0 -mt-[88px] h-[100svh] overflow-hidden">
         {/* Full-bleed photo layer — hidden entirely when no image is set */}
         {hero.heroImageUrl && (
-          <div className="absolute inset-x-0 top-0 z-[1] h-[min(105vh,940px)] overflow-hidden">
+          <div className="absolute inset-0 z-[1] overflow-hidden">
             <img src={hero.heroImageUrl} alt="" className="h-full w-full object-cover" />
             {/* Legibility gradient — keep regardless of chosen image */}
             <div
@@ -604,7 +603,7 @@ export function HomePage() {
           </div>
         )}
 
-        <div className="relative z-10 mx-auto flex max-w-[1240px] flex-col items-center px-7 pb-10 pt-[calc(88px+70px)] text-center">
+        <div className="relative z-10 mx-auto flex h-full max-w-[1240px] flex-col items-center justify-center px-7 pt-[88px] text-center">
           {/* Spinning sun behind the wordmark (outer div centers, inner rotates) */}
           <div className="absolute left-1/2 top-[38%] -z-[1] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 opacity-[0.16] blur-2xl">
             <div
@@ -694,6 +693,12 @@ export function HomePage() {
           )}
         </div>
       </section>
+
+      {/* Everything below scrolls over the pinned hero (OW-19) — opaque bg required.
+          overflow-hidden stops the marquee's top margin collapsing through and
+          opening a see-through gap. */}
+      <div className="relative z-10 overflow-hidden bg-ow-bg">
+      <PageChrome showGrain={hero.showGrain !== false} />
 
       {/* ── Marquee (OW-6, admin-editable OW-16) ── */}
       <Marquee items={hero.marqueeItems ?? MARQUEE_ITEMS} />
@@ -928,6 +933,7 @@ export function HomePage() {
           </div>
         </Dialog>
       </Transition>
+      </div>
       </div>
     </div>
   );
