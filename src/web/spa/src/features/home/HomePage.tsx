@@ -5,8 +5,11 @@ import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { useAuth, hasRole } from "../../shell/AuthContext";
+import { socialLinks } from "../../shell/Header";
 import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
 import { OptimizedImg } from "../../utils/OptimizedImg";
+import { CATALOG } from "../store/catalog";
+import { formatPrice } from "../store/useCart";
 import { PageChrome } from "./PageChrome";
 
 /* ------------------------------------------------------------------ */
@@ -115,6 +118,214 @@ function Marquee() {
         ))}
       </div>
     </div>
+  );
+}
+
+/* ── Media section (OW-8 Listen, OW-9 Watch + Photos) ── */
+
+/** Eyebrow label + hairline rule that fills the remaining width (shared by 5a/5b/5c). */
+function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-6 flex items-center gap-4">
+      <span className="shrink-0 font-grotesk text-[13px] font-bold uppercase tracking-[0.16em] text-ow-accent-3">
+        {children}
+      </span>
+      <span className="h-px flex-1 bg-ow-hairline" />
+    </div>
+  );
+}
+
+function social(name: string): string {
+  return socialLinks.find((s) => s.name === name)?.href ?? "#";
+}
+
+// ponytail: no album entity in the API — spec sample tracklist as static data until one exists
+const TRACKS = [
+  { n: "01", title: "Sundowner", time: "3:24" },
+  { n: "02", title: "Riptide Radio", time: "2:58" },
+  { n: "03", title: "Saltwater Sunday", time: "4:11" },
+  { n: "04", title: "Neon Undertow", time: "3:46" },
+  { n: "05", title: "Last Good Wave", time: "5:02" },
+];
+
+const STREAM_BTN =
+  "flex-1 min-w-0 rounded-[11px] px-2 py-[11px] text-center font-grotesk text-xs font-bold uppercase";
+
+interface HomeMediaItem {
+  id: string;
+  title: string;
+  thumbnail?: string;
+  thumbnailWebp?: string;
+  addedAt?: string;
+}
+
+function MediaSection() {
+  const [videos, setVideos] = useState<HomeMediaItem[]>([]);
+  const [photos, setPhotos] = useState<HomeMediaItem[]>([]);
+
+  /* GET /media is public; the API already filters private items for guests
+     and returns newest first. */
+  useEffect(() => {
+    apiGet<{ items: HomeMediaItem[] }>("/media?type=video&limit=3")
+      .then((r) => setVideos(r.items))
+      .catch(() => {});
+    apiGet<{ items: HomeMediaItem[] }>("/media?type=image&limit=6")
+      .then((r) => setPhotos(r.items))
+      .catch(() => {});
+  }, []);
+
+  return (
+    <section id="media" className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
+      <h2 className="mb-10 font-anton text-[clamp(40px,7vw,84px)] uppercase leading-[0.92] text-ow-text">
+        Media
+      </h2>
+
+      {/* ── 5a. Listen ── */}
+      <Eyebrow>Listen</Eyebrow>
+      <div className="grid gap-8 md:grid-cols-[minmax(0,300px)_1fr]">
+        <div>
+          {/* ponytail: hatch placeholder until real album art exists */}
+          <div className="ow-hatch aspect-square rounded-2xl border border-ow-hairline" />
+          <div className="mt-4 font-cooper text-[22px] font-semibold italic text-ow-accent">
+            Crème De La Mer
+          </div>
+          <div className="text-sm text-ow-dim">2026 · Self-released</div>
+          <div className="mt-4 flex gap-2">
+            <a href={social("Spotify")} target="_blank" rel="noreferrer" className={`${STREAM_BTN} bg-ow-accent text-ow-on-accent`}>
+              Spotify
+            </a>
+            <a href={social("YouTube")} target="_blank" rel="noreferrer" className={`${STREAM_BTN} border border-ow-hairline bg-[oklch(0.95_0.015_80/0.08)] text-ow-text`}>
+              Youtube
+            </a>
+            <a href={social("SoundCloud")} target="_blank" rel="noreferrer" className={`${STREAM_BTN} border border-ow-hairline bg-[oklch(0.95_0.015_80/0.08)] text-ow-text`}>
+              Soundcloud
+            </a>
+          </div>
+        </div>
+        <ul>
+          {TRACKS.map((t) => (
+            <li key={t.n} className="flex items-center gap-4 border-b border-ow-hairline px-2 py-3.5 transition-colors hover:bg-ow-surface">
+              <span className="font-anton text-[15px] text-ow-accent-3">{t.n}</span>
+              <span className="text-ow-accent">▶</span>
+              <span className="min-w-0 flex-1 truncate text-base font-semibold text-ow-text">{t.title}</span>
+              <span className="text-sm tabular-nums text-ow-dim">{t.time}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* ── 5b. Watch ── */}
+      {videos.length > 0 && (
+        <div className="mt-14">
+          <Eyebrow>Watch</Eyebrow>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
+            {videos.map((v) => (
+              <Link key={v.id} to={`/media/${v.id}`} className="group block">
+                <div className="ow-hatch relative aspect-video overflow-hidden rounded-[14px] border border-ow-hairline transition-colors group-hover:border-ow-accent">
+                  {v.thumbnail && (
+                    <OptimizedImg
+                      webpSrc={v.thumbnailWebp}
+                      src={v.thumbnail}
+                      alt={v.title}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-0 grid place-items-center">
+                    <span className="grid h-[54px] w-[54px] place-items-center rounded-full border-[1.5px] border-white/70 bg-black/45 pl-1 text-ow-text backdrop-blur">
+                      ▶
+                    </span>
+                  </div>
+                  {/* ponytail: no duration field on media items yet — chip lands when the API grows one */}
+                </div>
+                <div className="mt-2.5 truncate text-base font-bold text-ow-text">{v.title}</div>
+                {v.addedAt && <div className="text-[13px] text-ow-dim">{formatDate(v.addedAt)}</div>}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 5c. Photos ── */}
+      {photos.length > 0 && (
+        <div className="mt-14">
+          <Eyebrow>Photos</Eyebrow>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3.5">
+            {photos.map((p) => (
+              <Link
+                key={p.id}
+                to={`/media/${p.id}`}
+                className="ow-hatch aspect-square overflow-hidden rounded-xl border border-ow-hairline transition-all hover:scale-[1.02] hover:border-ow-accent"
+              >
+                {p.thumbnail && (
+                  <OptimizedImg
+                    webpSrc={p.thumbnailWebp}
+                    src={p.thumbnail}
+                    alt={p.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Link to="/media" className="mt-10 inline-block text-sm font-bold uppercase text-ow-accent">
+        See all media →
+      </Link>
+    </section>
+  );
+}
+
+/* ── Merch section (OW-10) ── */
+
+function MerchSection() {
+  // ponytail: the store's product listing IS the static CATALOG (server mirrors it for checkout)
+  const products = CATALOG.slice(0, 4);
+  if (products.length === 0) return null;
+
+  return (
+    <section id="merch" className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
+      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+        <h2 className="font-anton text-[clamp(40px,7vw,84px)] uppercase leading-[0.92] text-ow-text">
+          Merch
+        </h2>
+        <Link to="/store" className="text-sm font-bold uppercase text-ow-accent">
+          Visit full store →
+        </Link>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-[22px]">
+        {products.map((p) => (
+          <Link key={p.id} to={`/store/${p.slug}`} className="group block">
+            <div className="ow-hatch relative aspect-square overflow-hidden rounded-2xl border border-ow-hairline transition-all duration-200 group-hover:-translate-y-1 group-hover:border-ow-accent">
+              {p.hero_image && (
+                // ponytail: catalog images are placeholder paths today — hide on 404, hatch shows through
+                <img
+                  src={p.hero_image}
+                  alt={p.title}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              )}
+              {p.tag && (
+                <span className="absolute left-3 top-3 rounded-full bg-ow-accent-3 px-2.5 py-1 text-[11px] font-bold uppercase text-ow-on-accent">
+                  {p.tag}
+                </span>
+              )}
+            </div>
+            <div className="mt-3 flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-base font-bold text-ow-text">{p.title}</span>
+              <span className="font-anton text-lg text-ow-accent">
+                {formatPrice(p.price_cents, p.currency)}
+              </span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -410,6 +621,12 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* ── Media (OW-8, OW-9) ── */}
+      <MediaSection />
+
+      {/* ── Merch (OW-10) ── */}
+      <MerchSection />
 
       {/* ── Pinned / Latest Update ── */}
       {!loading && pinnedUpdate && (
