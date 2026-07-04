@@ -26,6 +26,8 @@ export interface Product {
   gelato_product_uid: string;
   /** S3 key (or path) for the hero/lifestyle shot in our own bucket. */
   hero_image: string;
+  /** Optional homepage tag pill, e.g. "New" / "Vinyl" / "Limited" (display only). */
+  tag?: string;
   /** Optional Gelato mockup URLs used as detail-view alternates. */
   mockup_images?: string[];
 }
@@ -42,6 +44,7 @@ export const CATALOG: Product[] = [
     currency: 'usd',
     gelato_product_uid: 'PLACEHOLDER_TSHIRT_UID',
     hero_image: 'store/tee-classic/hero.jpg',
+    tag: 'New',
     variants: [
       { id: 's',  label: 'S',  gelato_variant_uid: 'PLACEHOLDER_TSHIRT_S' },
       { id: 'm',  label: 'M',  gelato_variant_uid: 'PLACEHOLDER_TSHIRT_M' },

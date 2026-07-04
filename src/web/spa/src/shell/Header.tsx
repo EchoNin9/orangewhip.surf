@@ -51,7 +51,7 @@ function SoundCloudIcon({ className }: { className?: string }) {
   );
 }
 
-const socialLinks = [
+export const socialLinks = [
   { name: "Spotify", href: "https://open.spotify.com/playlist/3Np0DOO7qnA1jWjmBV2Kjc", Icon: SpotifyIcon },
   { name: "Instagram", href: "https://instagram.com/orangewhip.surf", Icon: InstagramIcon },
   { name: "Facebook", href: "https://facebook.com/orangewhipmusic", Icon: FacebookIcon },

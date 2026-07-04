@@ -143,6 +143,18 @@
 }
 
 @layer utilities {
+  /* Diagonal hatch placeholder tile (OW-8/9/10) */
+  .ow-hatch {
+    background-color: var(--ow-surface);
+    background-image: repeating-linear-gradient(
+      45deg,
+      var(--ow-hairline) 0,
+      var(--ow-hairline) 1px,
+      transparent 1px,
+      transparent 9px
+    );
+  }
+
   /* Scrollbar styling */
   .scrollbar-thin {
     scrollbar-width: thin;
