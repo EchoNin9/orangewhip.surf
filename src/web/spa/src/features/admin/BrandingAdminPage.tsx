@@ -27,6 +27,7 @@ interface HeroBranding {
   heroButton2TextColor?: string;
   palette?: string;
   showGrain?: boolean;
+  marqueeItems?: string[];
 }
 
 const DEFAULT_HERO: HeroBranding = {
@@ -39,6 +40,7 @@ const DEFAULT_HERO: HeroBranding = {
   heroImageOpacity: 25,
   palette: "sunset",
   showGrain: true,
+  marqueeItems: ['New single "Sundowner" out now', "Summer tour on sale", "Merch restocked"],
 };
 
 /* ------------------------------------------------------------------ */
@@ -116,6 +118,7 @@ export function BrandingAdminPage() {
         heroButton2TextColor: branding.heroButton2TextColor ?? "",
         palette: branding.palette ?? "sunset",
         showGrain: branding.showGrain ?? true,
+        marqueeItems: (branding.marqueeItems ?? []).map((s) => s.trim()).filter(Boolean),
       });
       setSuccess("Branding saved.");
     } catch (err) {
@@ -315,6 +318,23 @@ export function BrandingAdminPage() {
           </label>
         </div>
 
+        {/* Marquee banner (OW-16) */}
+        <div className="card p-6">
+          <h2 className="text-lg font-display font-bold text-secondary-100 mb-1">
+            Marquee Banner
+          </h2>
+          <p className="text-sm text-secondary-400 mb-4">
+            One message per line. Leave empty to hide the strip.
+          </p>
+          <textarea
+            value={(branding.marqueeItems ?? []).join("\n")}
+            onChange={(e) => update({ marqueeItems: e.target.value.split("\n") })}
+            rows={4}
+            className="input-field font-mono text-sm"
+            placeholder={'New single "Sundowner" out now'}
+          />
+        </div>
+
         {/* Hero Text */}
         <div className="card p-6 space-y-4">
           <h2 className="text-lg font-display font-bold text-secondary-100 mb-4">
@@ -459,6 +479,217 @@ export function BrandingAdminPage() {
           </Link>
         </div>
       </form>
+
+      {/* Featured album (OW-15) — separate save from branding */}
+      <AlbumEditor />
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Featured album editor (OW-15)                                      */
+/* ------------------------------------------------------------------ */
+
+interface AlbumTrack {
+  title: string;
+  duration: string;
+  mediaId: string;
+}
+
+interface AlbumData {
+  title: string;
+  yearLabel: string;
+  coverMediaId: string;
+  tracks: AlbumTrack[];
+}
+
+interface MediaOption {
+  id: string;
+  title: string;
+  type: string;
+}
+
+function AlbumEditor() {
+  const [album, setAlbum] = useState<AlbumData>({
+    title: "",
+    yearLabel: "",
+    coverMediaId: "",
+    tracks: [],
+  });
+  const [mediaOpts, setMediaOpts] = useState<MediaOption[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<AlbumData>("/album")
+      .then((a) =>
+        setAlbum({
+          title: a.title ?? "",
+          yearLabel: a.yearLabel ?? "",
+          coverMediaId: a.coverMediaId ?? "",
+          tracks: (a.tracks ?? []).map((t) => ({
+            title: t.title ?? "",
+            duration: t.duration ?? "",
+            mediaId: t.mediaId ?? "",
+          })),
+        }),
+      )
+      .catch(() => {});
+    // ponytail: media <select> instead of a picker modal — same media library, far less code
+    apiGet<{ items: MediaOption[] }>("/media?limit=100")
+      .then((r) => setMediaOpts(r.items))
+      .catch(() => {});
+  }, []);
+
+  const up = (patch: Partial<AlbumData>) => {
+    setAlbum((prev) => ({ ...prev, ...patch }));
+    setMsg(null);
+    setErr(null);
+  };
+
+  const setTrack = (i: number, patch: Partial<AlbumTrack>) =>
+    up({ tracks: album.tracks.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
+
+  const moveTrack = (i: number, d: number) => {
+    const t = [...album.tracks];
+    const j = i + d;
+    if (j < 0 || j >= t.length) return;
+    [t[i], t[j]] = [t[j], t[i]];
+    up({ tracks: t });
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setErr(null);
+    try {
+      await apiPut("/album", album);
+      setMsg("Album saved.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save album");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card p-6 space-y-4 max-w-2xl mt-8">
+      <h2 className="text-lg font-display font-bold text-secondary-100">
+        Featured Album
+      </h2>
+      <p className="text-sm text-secondary-400">
+        Shown in the homepage Media › Listen section. Tracks linked to a media
+        item become clickable.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-secondary-300 mb-1">Title</label>
+          <input
+            type="text"
+            value={album.title}
+            onChange={(e) => up({ title: e.target.value })}
+            className="input-field"
+            placeholder="Crème De La Mer"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-secondary-300 mb-1">
+            Year / label line
+          </label>
+          <input
+            type="text"
+            value={album.yearLabel}
+            onChange={(e) => up({ yearLabel: e.target.value })}
+            className="input-field"
+            placeholder="2026 · Self-released"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-300 mb-1">Cover art</label>
+        <select
+          value={album.coverMediaId}
+          onChange={(e) => up({ coverMediaId: e.target.value })}
+          className="input-field"
+        >
+          <option value="">None (hatch placeholder)</option>
+          {mediaOpts
+            .filter((m) => m.type === "image")
+            .map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title}
+              </option>
+            ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-300 mb-2">Tracks</label>
+        <div className="space-y-2">
+          {album.tracks.map((t, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="w-6 text-right text-xs text-secondary-500 font-mono">
+                {i + 1}
+              </span>
+              <input
+                type="text"
+                value={t.title}
+                onChange={(e) => setTrack(i, { title: e.target.value })}
+                className="input-field flex-1 min-w-[140px]"
+                placeholder="Track title"
+              />
+              <input
+                type="text"
+                value={t.duration}
+                onChange={(e) => setTrack(i, { duration: e.target.value })}
+                className="input-field w-20"
+                placeholder="3:24"
+              />
+              <select
+                value={t.mediaId}
+                onChange={(e) => setTrack(i, { mediaId: e.target.value })}
+                className="input-field w-44"
+              >
+                <option value="">No media link</option>
+                {mediaOpts.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={() => moveTrack(i, -1)} disabled={i === 0}
+                className="px-2 py-1 text-secondary-400 hover:text-white disabled:opacity-30">↑</button>
+              <button type="button" onClick={() => moveTrack(i, 1)} disabled={i === album.tracks.length - 1}
+                className="px-2 py-1 text-secondary-400 hover:text-white disabled:opacity-30">↓</button>
+              <button
+                type="button"
+                onClick={() => up({ tracks: album.tracks.filter((_, j) => j !== i) })}
+                className="px-2 py-1 text-secondary-400 hover:text-red-400"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            up({ tracks: [...album.tracks, { title: "", duration: "", mediaId: "" }] })
+          }
+          className="btn-secondary text-sm mt-3"
+        >
+          Add Track
+        </button>
+      </div>
+
+      {err && <p className="text-sm text-red-400">{err}</p>}
+      {msg && <p className="text-sm text-green-400">{msg}</p>}
+
+      <button type="button" onClick={save} disabled={saving} className="btn-primary">
+        {saving ? "Saving..." : "Save Album"}
+      </button>
+    </div>
   );
 }
