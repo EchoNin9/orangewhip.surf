@@ -7,6 +7,7 @@ import base64
 import json
 import logging
 import os
+import re
 import uuid
 import time
 import urllib.request
@@ -1945,16 +1946,20 @@ BRANDING_SK = "HERO"
 DEFAULT_HERO = {
     "heroTitle": "Orange Whip",
     "heroTagline": "Industrial Surf",
-    "heroButton1Text": "Upcoming Shows",
-    "heroButton1Href": "/shows",
-    "heroButton2Text": "Listen Now",
-    "heroButton2Href": "/media",
+    "heroButton1Text": "Listen Now",
+    "heroButton1Href": "#media",
+    "heroButton2Text": "Shop Merch",
+    "heroButton2Href": "#merch",
     "heroImageOpacity": 25,
     "heroButton1Bg": "",
     "heroButton1TextColor": "",
     "heroButton2Bg": "",
     "heroButton2TextColor": "",
+    "palette": "sunset",
+    "showGrain": True,
 }
+
+VALID_PALETTES = ("sunset", "acid-surf", "magenta-haze")
 
 
 def _get_branding() -> dict:
@@ -2036,6 +2041,7 @@ def handle_branding(event, method, parts):
             "heroImageOpacity", "heroImageS3Key",
             "heroButton1Bg", "heroButton1TextColor",
             "heroButton2Bg", "heroButton2TextColor",
+            "palette", "showGrain",
         ]:
             if field in data:
                 item[field] = data[field]
@@ -2043,6 +2049,11 @@ def handle_branding(event, method, parts):
         # Clamp opacity 0-100
         opacity = item.get("heroImageOpacity", 25)
         item["heroImageOpacity"] = max(0, min(100, int(opacity) if opacity is not None else 25))
+
+        # Validate palette / grain (OW-13)
+        if item.get("palette") not in VALID_PALETTES:
+            item["palette"] = "sunset"
+        item["showGrain"] = bool(item.get("showGrain", True))
 
         table.put_item(Item=item)
         out = dict(item)
@@ -2052,6 +2063,39 @@ def handle_branding(event, method, parts):
         return ok(out)
 
     return error("Method not allowed", 405)
+
+
+# ---------------------------------------------------------------------------
+# Route: Mailing list subscribe (OW-12)
+# ---------------------------------------------------------------------------
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def handle_subscribe(event, method, parts):  # noqa: ARG001
+    """POST /subscribe — public mailing-list signup.
+
+    Server-side email validation is the trust boundary; the client's
+    type="email" is a convenience only.
+    """
+    if method != "POST":
+        return error("Method not allowed", 405)
+
+    data = _body(event)
+    email = str(data.get("email", "")).strip().lower()
+    if len(email) > 254 or not EMAIL_RE.match(email):
+        return error("Invalid email", 400)
+
+    # ponytail: put_item is idempotent per email — resubscribing just refreshes the row
+    table.put_item(Item={
+        "PK": f"SUBSCRIBER#{email}",
+        "SK": "META",
+        "email": email,
+        "createdAt": _now_iso(),
+        "entityType": "SUBSCRIBER",
+        "entitySk": f"{_now_iso()}#{email}",
+    })
+    return ok({"subscribed": True}, 201)
 
 
 # ---------------------------------------------------------------------------
@@ -2529,6 +2573,8 @@ def handler(event, context):
             return handle_branding(event, method, parts)
         if root == "homepage":
             return handle_homepage(event, method, parts)
+        if root == "subscribe":
+            return handle_subscribe(event, method, parts)
 
         # Store routes (Chunk 1 stubs)
         if root == "checkout":

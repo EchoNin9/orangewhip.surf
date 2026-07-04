@@ -474,3 +474,66 @@ class TestBranding:
         assert "heroImageUrl" in body
         assert body["heroImageUrl"]  # presigned URL should be non-empty
         assert "heroImageS3Key" not in body  # not exposed to public
+
+    def test_branding_put_palette_and_grain(self, _patch_boto3):
+        """PUT /branding persists palette and showGrain (OW-13)."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"palette": "acid-surf", "showGrain": False},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["palette"] == "acid-surf"
+        assert body["showGrain"] is False
+
+    def test_branding_put_invalid_palette_falls_back(self, _patch_boto3):
+        """PUT /branding coerces an unknown palette to sunset."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"palette": "hotdog-stand"},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["palette"] == "sunset"
+
+
+class TestSubscribe:
+    def test_subscribe_valid_email_persists(self, _patch_boto3):
+        """POST /subscribe stores SUBSCRIBER#<email> (OW-12)."""
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+
+        event = _make_event("POST", "/subscribe", body={"email": " Fan@Example.COM "})
+        status, body = _parse_response(handler(event, None))
+        assert status == 201
+        assert body["subscribed"] is True
+
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        assert item["PK"] == "SUBSCRIBER#fan@example.com"
+        assert item["email"] == "fan@example.com"
+        assert item["entityType"] == "SUBSCRIBER"
+
+    @pytest.mark.parametrize("bad", ["", "not-an-email", "a@b", "a @b.com", "x" * 300 + "@b.com"])
+    def test_subscribe_invalid_email_400(self, _patch_boto3, bad):
+        """Invalid emails are rejected server-side and never persisted."""
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+
+        event = _make_event("POST", "/subscribe", body={"email": bad})
+        status, _body = _parse_response(handler(event, None))
+        assert status == 400
+        mock_table.put_item.assert_not_called()
+
+    def test_subscribe_get_not_allowed(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event("GET", "/subscribe")
+        status, _body = _parse_response(handler(event, None))
+        assert status == 405
