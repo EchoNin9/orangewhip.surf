@@ -64,6 +64,7 @@ interface HeroBranding {
   heroButton2TextColor?: string;
   palette?: string;
   showGrain?: boolean;
+  marqueeItems?: string[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,11 +97,12 @@ function CtaLink({ href, className, children }: { href: string; className: strin
   );
 }
 
-/* ── Marquee strip (OW-6) — CSS-only infinite loop, two identical halves ── */
+/* ── Marquee strip (OW-6; items admin-editable via branding settings, OW-16) ── */
 const MARQUEE_ITEMS = ['New single "Sundowner" out now', "Summer tour on sale", "Merch restocked"];
 
-function Marquee() {
-  const half = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
+function Marquee({ items }: { items: string[] }) {
+  if (items.length === 0) return null;
+  const half = [...items, ...items, ...items];
   return (
     <div className="relative z-10 my-[50px] overflow-hidden border-y border-ow-hairline bg-ow-accent py-3.5">
       <div className="ow-marquee flex w-max">
@@ -140,14 +142,27 @@ function social(name: string): string {
   return socialLinks.find((s) => s.name === name)?.href ?? "#";
 }
 
-// ponytail: no album entity in the API — spec sample tracklist as static data until one exists
-const TRACKS = [
-  { n: "01", title: "Sundowner", time: "3:24" },
-  { n: "02", title: "Riptide Radio", time: "2:58" },
-  { n: "03", title: "Saltwater Sunday", time: "4:11" },
-  { n: "04", title: "Neon Undertow", time: "3:46" },
-  { n: "05", title: "Last Good Wave", time: "5:02" },
+/* Spec sample tracklist — fallback until an album is saved in admin (OW-15) */
+const FALLBACK_TRACKS: AlbumTrack[] = [
+  { title: "Sundowner", duration: "3:24" },
+  { title: "Riptide Radio", duration: "2:58" },
+  { title: "Saltwater Sunday", duration: "4:11" },
+  { title: "Neon Undertow", duration: "3:46" },
+  { title: "Last Good Wave", duration: "5:02" },
 ];
+
+interface AlbumTrack {
+  title: string;
+  duration: string;
+  mediaId?: string;
+}
+
+interface Album {
+  title: string;
+  yearLabel: string;
+  coverUrl: string;
+  tracks: AlbumTrack[];
+}
 
 const STREAM_BTN =
   "flex-1 min-w-0 rounded-[11px] px-2 py-[11px] text-center font-grotesk text-xs font-bold uppercase";
@@ -163,6 +178,7 @@ interface HomeMediaItem {
 function MediaSection() {
   const [videos, setVideos] = useState<HomeMediaItem[]>([]);
   const [photos, setPhotos] = useState<HomeMediaItem[]>([]);
+  const [album, setAlbum] = useState<Album | null>(null);
 
   /* GET /media is public; the API already filters private items for guests
      and returns newest first. */
@@ -173,7 +189,18 @@ function MediaSection() {
     apiGet<{ items: HomeMediaItem[] }>("/media?type=image&limit=6")
       .then((r) => setPhotos(r.items))
       .catch(() => {});
+    apiGet<Album>("/album")
+      .then(setAlbum)
+      .catch(() => {});
   }, []);
+
+  const albumTitle = album?.title || "Crème De La Mer";
+  const yearLabel = album?.yearLabel || "2026 · Self-released";
+  const coverUrl = album?.coverUrl || "";
+  const tracks = album?.tracks?.length ? album.tracks : FALLBACK_TRACKS;
+
+  const TRACK_ROW =
+    "flex items-center gap-4 border-b border-ow-hairline px-2 py-3.5 transition-colors hover:bg-ow-surface";
 
   return (
     <section id="media" className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
@@ -181,16 +208,19 @@ function MediaSection() {
         Media
       </h2>
 
-      {/* ── 5a. Listen ── */}
+      {/* ── 5a. Listen (album data admin-editable, OW-15) ── */}
       <Eyebrow>Listen</Eyebrow>
       <div className="grid gap-8 md:grid-cols-[minmax(0,300px)_1fr]">
         <div>
-          {/* ponytail: hatch placeholder until real album art exists */}
-          <div className="ow-hatch aspect-square rounded-2xl border border-ow-hairline" />
-          <div className="mt-4 font-cooper text-[22px] font-semibold italic text-ow-accent">
-            Crème De La Mer
+          <div className="ow-hatch aspect-square overflow-hidden rounded-2xl border border-ow-hairline">
+            {coverUrl && (
+              <img src={coverUrl} alt={`${albumTitle} album art`} className="h-full w-full object-cover" />
+            )}
           </div>
-          <div className="text-sm text-ow-dim">2026 · Self-released</div>
+          <div className="mt-4 font-cooper text-[22px] font-semibold italic text-ow-accent">
+            {albumTitle}
+          </div>
+          <div className="text-sm text-ow-dim">{yearLabel}</div>
           <div className="mt-4 flex gap-2">
             <a href={social("Spotify")} target="_blank" rel="noreferrer" className={`${STREAM_BTN} bg-ow-accent text-ow-on-accent`}>
               Spotify
@@ -204,14 +234,27 @@ function MediaSection() {
           </div>
         </div>
         <ul>
-          {TRACKS.map((t) => (
-            <li key={t.n} className="flex items-center gap-4 border-b border-ow-hairline px-2 py-3.5 transition-colors hover:bg-ow-surface">
-              <span className="font-anton text-[15px] text-ow-accent-3">{t.n}</span>
-              <span className="text-ow-accent">▶</span>
-              <span className="min-w-0 flex-1 truncate text-base font-semibold text-ow-text">{t.title}</span>
-              <span className="text-sm tabular-nums text-ow-dim">{t.time}</span>
-            </li>
-          ))}
+          {tracks.map((t, i) => {
+            const row = (
+              <>
+                <span className="font-anton text-[15px] text-ow-accent-3">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="text-ow-accent">▶</span>
+                <span className="min-w-0 flex-1 truncate text-base font-semibold text-ow-text">{t.title}</span>
+                <span className="text-sm tabular-nums text-ow-dim">{t.duration}</span>
+              </>
+            );
+            return (
+              <li key={i}>
+                {t.mediaId ? (
+                  <Link to={`/media/${t.mediaId}`} className={TRACK_ROW}>{row}</Link>
+                ) : (
+                  <div className={TRACK_ROW}>{row}</div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
@@ -458,6 +501,7 @@ const DEFAULT_HERO: HeroBranding = {
   heroImageUrl: "/hero-surfer.jpg",
   palette: "sunset",
   showGrain: true,
+  marqueeItems: MARQUEE_ITEMS,
 };
 
 export function HomePage() {
@@ -651,8 +695,8 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── Marquee (OW-6) ── */}
-      <Marquee />
+      {/* ── Marquee (OW-6, admin-editable OW-16) ── */}
+      <Marquee items={hero.marqueeItems ?? MARQUEE_ITEMS} />
 
       <div className="relative z-10">
       {/* ── Show Dates (OW-7) ── */}
@@ -704,19 +748,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── Media (OW-8, OW-9) ── */}
-      <MediaSection />
-
-      {/* ── Merch (OW-10) ── */}
-      <MerchSection />
-
-      {/* ── About (OW-11) ── */}
-      <AboutSection />
-
-      {/* ── Mailing list (OW-12) ── */}
-      <MailingListSection />
-
-      {/* ── Pinned / Latest Update ── */}
+      {/* ── Latest News (moved between Show Dates and Media, OW-17) ── */}
       {!loading && pinnedUpdate && (
         <section className="container-max section-padding">
           <div className="h-px bg-gradient-to-r from-transparent via-secondary-700 to-transparent -mt-12 sm:-mt-16 lg:-mt-20 mb-12 sm:mb-16 lg:mb-20" />
@@ -783,6 +815,18 @@ export function HomePage() {
           </motion.div>
         </section>
       )}
+
+      {/* ── Media (OW-8, OW-9) ── */}
+      <MediaSection />
+
+      {/* ── Merch (OW-10) ── */}
+      <MerchSection />
+
+      {/* ── About (OW-11) ── */}
+      <AboutSection />
+
+      {/* ── Mailing list (OW-12) ── */}
+      <MailingListSection />
 
       {/* ── Update Detail Modal ── */}
       <Transition appear show={modalOpen} as={Fragment}>

@@ -1047,6 +1047,22 @@ resource "aws_apigatewayv2_route" "subscribePost" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Featured album: public read (OW-15)
+resource "aws_apigatewayv2_route" "albumGet" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /album"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Featured album: band/admin write (OW-15)
+resource "aws_apigatewayv2_route" "albumPut" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /album"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 # --- Authenticated routes (JWT required) ---
 
 # Current user info

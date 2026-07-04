@@ -241,7 +241,11 @@ const PAGE_SIZE = 10;
 export default function MediaPage() {
   const { user } = useAuth();
   const isAdmin = hasRole(user, "admin");
-  const [activeTab, setActiveTab] = useState(0);
+  // ponytail: per-browser tab preference in localStorage — no backend needed (OW-18)
+  const [activeTab, setActiveTab] = useState(() => {
+    const i = TABS.findIndex((t) => t.type === localStorage.getItem("ow-media-tab"));
+    return i >= 0 ? i : 1; // default: Video
+  });
   const [items, setItems] = useState<MediaItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -375,7 +379,13 @@ export default function MediaPage() {
       {/* Tabs + bulk delete (admin) */}
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <div className="shrink-0">
-          <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
+          <Tab.Group
+            selectedIndex={activeTab}
+            onChange={(i) => {
+              setActiveTab(i);
+              localStorage.setItem("ow-media-tab", TABS[i].type);
+            }}
+          >
             <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-xl p-1 min-w-[18rem] max-w-sm">
               {TABS.map((tab) => (
                 <Tab

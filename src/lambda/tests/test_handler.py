@@ -537,3 +537,112 @@ class TestSubscribe:
         event = _make_event("GET", "/subscribe")
         status, _body = _parse_response(handler(event, None))
         assert status == 405
+
+
+class TestAlbum:
+    def test_album_get_empty_defaults(self, _patch_boto3):
+        """GET /album with nothing stored returns empty shape (OW-15)."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/album")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["title"] == ""
+        assert body["tracks"] == []
+        assert body["coverUrl"] == ""
+
+    def test_album_get_returns_saved_shape(self, _patch_boto3):
+        """GET /album returns stored fields."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {
+            "Item": {
+                "PK": "ALBUM", "SK": "FEATURED",
+                "title": "Crème De La Mer",
+                "yearLabel": "2026 · Self-released",
+                "coverMediaId": "",
+                "tracks": [{"title": "Sundowner", "duration": "3:24", "mediaId": "abc"}],
+            }
+        }
+
+        event = _make_event("GET", "/album")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["title"] == "Crème De La Mer"
+        assert body["tracks"][0]["mediaId"] == "abc"
+
+    def test_album_put_guest_401(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+        event = _make_event("PUT", "/album", body={"title": "X"})
+        status, _body = _parse_response(handler(event, None))
+        assert status == 401
+        mock_table.put_item.assert_not_called()
+
+    def test_album_put_band_persists_and_cleans_tracks(self, _patch_boto3):
+        """PUT /album as band saves; blank-title tracks are dropped."""
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+
+        event = _make_event(
+            "PUT", "/album",
+            body={
+                "title": " Crème De La Mer ",
+                "yearLabel": "2026 · Self-released",
+                "coverMediaId": "cover-1",
+                "tracks": [
+                    {"title": "Sundowner", "duration": "3:24", "mediaId": "m-1"},
+                    {"title": "   ", "duration": "9:99"},
+                    {"title": "Riptide Radio", "duration": "2:58"},
+                ],
+            },
+            auth=True, groups=["band"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["title"] == "Crème De La Mer"
+        assert [t["title"] for t in body["tracks"]] == ["Sundowner", "Riptide Radio"]
+        assert body["tracks"][0]["mediaId"] == "m-1"
+        assert body["tracks"][1]["mediaId"] == ""
+
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        assert item["PK"] == "ALBUM"
+        assert item["SK"] == "FEATURED"
+        assert item["coverMediaId"] == "cover-1"
+
+    def test_album_put_bad_tracks_400(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event(
+            "PUT", "/album", body={"tracks": "nope"}, auth=True, groups=["band"],
+        )
+        status, _body = _parse_response(handler(event, None))
+        assert status == 400
+
+
+class TestMarquee:
+    def test_branding_put_marquee_items_cleaned(self, _patch_boto3):
+        """PUT /branding cleans marqueeItems: trims, drops empties, stringifies (OW-16)."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"marqueeItems": ["  New album out  ", "", 123]},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["marqueeItems"] == ["New album out", "123"]
+
+    def test_branding_get_includes_default_marquee(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert len(body["marqueeItems"]) == 3

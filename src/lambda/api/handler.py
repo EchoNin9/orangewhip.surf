@@ -1957,9 +1957,15 @@ DEFAULT_HERO = {
     "heroButton2TextColor": "",
     "palette": "sunset",
     "showGrain": True,
+    "marqueeItems": [
+        'New single "Sundowner" out now',
+        "Summer tour on sale",
+        "Merch restocked",
+    ],
 }
 
 VALID_PALETTES = ("sunset", "acid-surf", "magenta-haze")
+MAX_MARQUEE_ITEMS = 10
 
 
 def _get_branding() -> dict:
@@ -2041,7 +2047,7 @@ def handle_branding(event, method, parts):
             "heroImageOpacity", "heroImageS3Key",
             "heroButton1Bg", "heroButton1TextColor",
             "heroButton2Bg", "heroButton2TextColor",
-            "palette", "showGrain",
+            "palette", "showGrain", "marqueeItems",
         ]:
             if field in data:
                 item[field] = data[field]
@@ -2055,12 +2061,86 @@ def handle_branding(event, method, parts):
             item["palette"] = "sunset"
         item["showGrain"] = bool(item.get("showGrain", True))
 
+        # Validate marquee items (OW-16): list of non-empty strings
+        raw_marquee = item.get("marqueeItems", DEFAULT_HERO["marqueeItems"])
+        if not isinstance(raw_marquee, list):
+            raw_marquee = []
+        item["marqueeItems"] = [
+            str(m).strip()[:200] for m in raw_marquee[:MAX_MARQUEE_ITEMS] if str(m).strip()
+        ]
+
         table.put_item(Item=item)
         out = dict(item)
         out["heroImageUrl"] = _presign_get(item.get("heroImageS3Key", ""))
         if "heroImageS3Key" in out:
             del out["heroImageS3Key"]
         return ok(out)
+
+    return error("Method not allowed", 405)
+
+
+# ---------------------------------------------------------------------------
+# Route: Featured album (OW-15)
+# ---------------------------------------------------------------------------
+
+ALBUM_PK = "ALBUM"
+ALBUM_SK = "FEATURED"
+MAX_TRACKS = 30
+
+
+def handle_album(event, method, parts):  # noqa: ARG001
+    """GET /album (public) / PUT /album (band+) — the single featured album."""
+    if method == "GET":
+        item = _get_item(ALBUM_PK, ALBUM_SK) or {}
+        out = {
+            "title": item.get("title", ""),
+            "yearLabel": item.get("yearLabel", ""),
+            "coverMediaId": item.get("coverMediaId", ""),
+            "tracks": item.get("tracks", []),
+        }
+        # Resolve cover art thumbnail from the referenced media item
+        cover = ""
+        if out["coverMediaId"]:
+            media = _get_item(f"MEDIA#{out['coverMediaId']}")
+            if media:
+                enriched = _enrich_media_item(media)
+                cover = enriched.get("thumbnail") or enriched.get("url") or ""
+        out["coverUrl"] = cover
+        return ok(out, cache=120)
+
+    if method == "PUT":
+        _user, err = require_role(event, "band")
+        if err:
+            return err
+
+        data = _body(event)
+        tracks = data.get("tracks", [])
+        if not isinstance(tracks, list):
+            return error("tracks must be a list", 400)
+        clean_tracks = []
+        for t in tracks[:MAX_TRACKS]:
+            if not isinstance(t, dict):
+                return error("Invalid track", 400)
+            title = str(t.get("title", "")).strip()[:200]
+            if not title:
+                continue
+            clean_tracks.append({
+                "title": title,
+                "duration": str(t.get("duration", "")).strip()[:10],
+                "mediaId": str(t.get("mediaId", "")).strip()[:64],
+            })
+
+        item = {
+            "PK": ALBUM_PK,
+            "SK": ALBUM_SK,
+            "title": str(data.get("title", "")).strip()[:200],
+            "yearLabel": str(data.get("yearLabel", "")).strip()[:200],
+            "coverMediaId": str(data.get("coverMediaId", "")).strip()[:64],
+            "tracks": clean_tracks,
+            "updatedAt": _now_iso(),
+        }
+        table.put_item(Item=item)
+        return ok({k: item[k] for k in ("title", "yearLabel", "coverMediaId", "tracks")})
 
     return error("Method not allowed", 405)
 
@@ -2575,6 +2655,8 @@ def handler(event, context):
             return handle_homepage(event, method, parts)
         if root == "subscribe":
             return handle_subscribe(event, method, parts)
+        if root == "album":
+            return handle_album(event, method, parts)
 
         # Store routes (Chunk 1 stubs)
         if root == "checkout":
