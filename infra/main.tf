@@ -1033,6 +1033,20 @@ resource "aws_apigatewayv2_route" "brandingGet" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+# Homepage: public batch endpoint (branding + pinned update + upcoming shows)
+resource "aws_apigatewayv2_route" "homepageGet" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /homepage"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Mailing list signup: public write, validated in the Lambda (OW-12)
+resource "aws_apigatewayv2_route" "subscribePost" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /subscribe"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
 # --- Authenticated routes (JWT required) ---
 
 # Current user info
