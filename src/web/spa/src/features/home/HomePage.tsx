@@ -1,15 +1,11 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Dialog, Transition } from "@headlessui/react";
-import {
-  XMarkIcon,
-  CalendarIcon,
-  MapPinIcon,
-} from "@heroicons/react/24/outline";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { useAuth, hasRole } from "../../shell/AuthContext";
-import { stagger, fadeUp, viewportOnce, GRAIN_SVG } from "../../utils/motion";
+import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
 import { OptimizedImg } from "../../utils/OptimizedImg";
 import { PageChrome } from "./PageChrome";
 
@@ -79,10 +75,47 @@ function formatDate(iso: string): string {
   });
 }
 
-function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.toDateString() === now.toDateString();
+function monthOf(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+}
+
+function dayOf(iso: string): number {
+  return new Date(iso).getDate();
+}
+
+/** Same-page anchors get a plain <a>; routes get a router Link. */
+function CtaLink({ href, className, children }: { href: string; className: string; children: ReactNode }) {
+  return href.startsWith("#") ? (
+    <a href={href} className={className}>{children}</a>
+  ) : (
+    <Link to={href} className={className}>{children}</Link>
+  );
+}
+
+/* ── Marquee strip (OW-6) — CSS-only infinite loop, two identical halves ── */
+const MARQUEE_ITEMS = ['New single "Sundowner" out now', "Summer tour on sale", "Merch restocked"];
+
+function Marquee() {
+  const half = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
+  return (
+    <div className="relative z-10 my-[50px] overflow-hidden border-y border-ow-hairline bg-ow-accent py-3.5">
+      <div className="ow-marquee flex w-max">
+        {[0, 1].map((h) => (
+          <div key={h} aria-hidden={h === 1} className="flex shrink-0 items-center">
+            {half.map((item, i) => (
+              <span
+                key={i}
+                className="flex items-center whitespace-nowrap font-anton text-2xl uppercase text-ow-on-accent"
+              >
+                <span className="px-6">{item}</span>
+                <span className="opacity-40">✦</span>
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -124,11 +157,12 @@ function SkeletonNewsCard() {
 const DEFAULT_HERO: HeroBranding = {
   heroTitle: "Orange Whip",
   heroTagline: "Industrial Surf",
-  heroButton1Text: "Upcoming Shows",
-  heroButton1Href: "/shows",
-  heroButton2Text: "Listen Now",
-  heroButton2Href: "/media",
-  heroImageOpacity: 25,
+  heroButton1Text: "Listen Now",
+  heroButton1Href: "#media",
+  heroButton2Text: "Shop Merch",
+  heroButton2Href: "#merch",
+  // ponytail: bundled default hero photo; empty admin value hides the photo layer (OW-13 wires upload)
+  heroImageUrl: "/hero-surfer.jpg",
 };
 
 export function HomePage() {
@@ -198,7 +232,7 @@ export function HomePage() {
             (a, b) =>
               new Date(a.date).getTime() - new Date(b.date).getTime(),
           )
-          .slice(0, 3);
+          .slice(0, 6);
         setShows(upcoming);
       } finally {
         if (!cancelled) setLoading(false);
@@ -216,169 +250,166 @@ export function HomePage() {
   return (
     <div className="relative bg-ow-bg" data-ow-palette="sunset">
       <PageChrome />
-      {/* ── Hero ── */}
-      <section className="relative z-10 overflow-hidden min-h-screen -mt-[88px]">
-        {/* ponytail: old opaque slate gradient removed so OW-3 chrome shows; hero rebuilt in OW-5 */}
+      {/* ── Hero (OW-5) ── */}
+      <section className="relative z-10 overflow-hidden -mt-[88px]">
+        {/* Full-bleed photo layer — hidden entirely when no image is set */}
         {hero.heroImageUrl && (
-          <div
-            className="absolute inset-0 bg-center bg-no-repeat bg-cover bg-scroll md:bg-fixed md:bg-[length:100%_auto]"
-            style={{
-              backgroundImage: `url(${hero.heroImageUrl})`,
-              opacity: (hero.heroImageOpacity ?? 25) / 100,
-            }}
-          />
+          <div className="absolute inset-x-0 top-0 z-[1] h-[min(105vh,940px)] overflow-hidden">
+            <img src={hero.heroImageUrl} alt="" className="h-full w-full object-cover" />
+            {/* Legibility gradient — keep regardless of chosen image */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, oklch(0.16 0.018 45 / 0.45) 0%, oklch(0.16 0.018 45 / 0.62) 55%, oklch(0.16 0.018 45) 100%)",
+              }}
+            />
+          </div>
         )}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_20%_80%,rgba(249,115,22,0.08),transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_80%_20%,rgba(249,115,22,0.05),transparent)]" />
-        {/* Grain texture */}
-        <div
-          className="pointer-events-none absolute inset-0 z-10 opacity-[0.03]"
-          style={{ backgroundImage: GRAIN_SVG }}
-        />
 
-        <div className="relative z-20 container-max flex flex-col items-center justify-center min-h-screen text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            <h1 className="text-6xl sm:text-8xl lg:text-9xl font-display font-bold text-gradient leading-tight tracking-tight pb-2">
-              {hero.heroTitle}
-            </h1>
-          </motion.div>
+        <div className="relative z-10 mx-auto flex max-w-[1240px] flex-col items-center px-7 pb-10 pt-[calc(88px+70px)] text-center">
+          {/* Spinning sun behind the wordmark (outer div centers, inner rotates) */}
+          <div className="absolute left-1/2 top-[38%] -z-[1] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 opacity-[0.16] blur-2xl">
+            <div
+              className="ow-sun h-full w-full rounded-full"
+              style={{
+                background:
+                  "conic-gradient(var(--ow-accent), var(--ow-accent-3), var(--ow-accent-2), var(--ow-accent))",
+              }}
+            />
+          </div>
 
-          <motion.p
-            className="mt-14 sm:mt-16 text-xl sm:text-2xl text-secondary-300 font-display tracking-widest uppercase"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-          >
-            {hero.heroTagline}
-          </motion.p>
+          {/* Eyebrow pill */}
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-ow-hairline bg-[oklch(0.95_0.015_80/0.07)] px-4 py-2 backdrop-blur">
+            <span className="h-2 w-2 rounded-full bg-ow-accent-3 shadow-[0_0_10px_2px_var(--ow-accent-3)]" />
+            <span className="font-grotesk text-[13px] font-semibold uppercase tracking-[0.08em] text-ow-text">
+              Vancouver, BC · Surf-Psych Rock
+            </span>
+          </div>
 
-          <motion.div
-            className="mt-10 flex justify-center gap-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
+          {/* Wordmark — one word per line */}
+          <h1
+            className="mt-6 font-cooper text-[clamp(64px,14vw,210px)] font-semibold italic leading-[0.92] text-ow-accent"
+            style={{
+              textShadow:
+                "0.035em 0.045em 0 oklch(0.14 0.02 45), 0.06em 0.08em 0 oklch(0.14 0.02 45 / 0.5)",
+            }}
           >
-            <Link
-              to={hero.heroButton1Href}
-              className={
-                hero.heroButton1Bg || hero.heroButton1TextColor
-                  ? "inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg shadow-lg transition-all duration-200 ease-in-out"
-                  : "btn-primary"
-              }
-              style={
-                hero.heroButton1Bg || hero.heroButton1TextColor
-                  ? {
-                      backgroundColor: hero.heroButton1Bg || undefined,
-                      color: hero.heroButton1TextColor || "#fff",
-                    }
-                  : undefined
-              }
+            {hero.heroTitle.split(" ").map((word, i, arr) => (
+              <Fragment key={i}>
+                {word}
+                {i < arr.length - 1 && <br />}
+              </Fragment>
+            ))}
+          </h1>
+
+          {/* Lead */}
+          <p className="mt-6 max-w-[560px] font-grotesk text-[clamp(16px,2.2vw,20px)] leading-relaxed text-[oklch(0.86_0.02_80)]">
+            Reverb-drenched riffs and sunburnt melodies from the Pacific Northwest. Catch the
+            wave live this summer.
+          </p>
+
+          {/* CTAs — labels/links come from branding settings; admin reconciliation in OW-13 */}
+          <div className="mt-8 flex flex-wrap justify-center gap-3.5">
+            <CtaLink
+              href={hero.heroButton1Href}
+              className="rounded-full bg-ow-accent px-8 py-4 font-grotesk text-base font-bold uppercase tracking-[0.03em] text-ow-on-accent shadow-[0_14px_40px_-14px_var(--ow-accent)] transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.02]"
             >
               {hero.heroButton1Text}
-            </Link>
-            <Link
-              to={hero.heroButton2Href}
-              className={
-                hero.heroButton2Bg || hero.heroButton2TextColor
-                  ? "inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg border transition-all duration-200 ease-in-out"
-                  : "inline-flex items-center justify-center px-6 py-3 font-semibold rounded-lg border border-secondary-600 bg-white/5 backdrop-blur-sm text-secondary-100 transition-all duration-200 hover:bg-white/10 hover:border-secondary-400 hover:-translate-y-0.5"
-              }
-              style={
-                hero.heroButton2Bg || hero.heroButton2TextColor
-                  ? {
-                      backgroundColor: hero.heroButton2Bg || undefined,
-                      color: hero.heroButton2TextColor || "#f1f5f9",
-                      borderColor: hero.heroButton2Bg ? "transparent" : undefined,
-                    }
-                  : undefined
-              }
+            </CtaLink>
+            <CtaLink
+              href={hero.heroButton2Href}
+              className="rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] px-8 py-4 font-grotesk text-base font-bold uppercase tracking-[0.03em] text-ow-text transition-all duration-200 hover:-translate-y-0.5 hover:border-ow-accent-3"
             >
               {hero.heroButton2Text}
-            </Link>
-          </motion.div>
+            </CtaLink>
+          </div>
+
+          {/* Next-show ribbon — hidden when no upcoming shows */}
+          {!loading && shows[0] && (
+            <div className="mt-10 flex w-full max-w-[760px] flex-wrap items-center gap-5 rounded-[18px] border border-ow-hairline bg-[oklch(0.95_0.015_80/0.05)] px-[22px] py-[18px] text-left backdrop-blur sm:flex-nowrap">
+              <div className="text-center font-anton leading-[0.85]">
+                <div className="text-[15px] uppercase tracking-[0.1em] text-ow-accent-3">
+                  {monthOf(shows[0].date)}
+                </div>
+                <div className="text-[32px] text-ow-text">{dayOf(shows[0].date)}</div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-grotesk text-xs font-bold uppercase tracking-[0.16em] text-ow-dim">
+                  Next Show
+                </div>
+                <div className="truncate font-grotesk text-lg font-bold text-ow-text">
+                  {shows[0].venue?.name ?? "TBA"}
+                </div>
+                {shows[0].venue?.address && (
+                  <div className="truncate font-grotesk text-sm text-ow-dim">
+                    {shows[0].venue.address}
+                  </div>
+                )}
+              </div>
+              <a
+                href="#shows"
+                className="whitespace-nowrap rounded-full border border-ow-hairline-strong px-[18px] py-[11px] font-grotesk text-[12.5px] font-bold uppercase tracking-[0.08em] text-ow-text transition-colors hover:border-transparent hover:bg-ow-accent hover:text-ow-on-accent"
+              >
+                All Dates
+              </a>
+            </div>
+          )}
         </div>
       </section>
 
+      {/* ── Marquee (OW-6) ── */}
+      <Marquee />
+
       <div className="relative z-10">
-      {/* ── Upcoming Shows (before Latest News) ── */}
-      {!loading && shows.length > 0 && (
-        <section id="shows" className="container-max section-padding">
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-          >
-            <motion.div
-              variants={fadeUp}
-              className="flex items-end justify-between mb-8"
-            >
-              <h2 className="text-3xl font-display font-bold text-secondary-100">
-                Upcoming Shows
-              </h2>
-              <Link
-                to="/shows"
-                className="group inline-flex items-center gap-1.5 text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors"
-              >
-                View All Shows
-                <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">&rarr;</span>
-              </Link>
-            </motion.div>
+      {/* ── Show Dates (OW-7) ── */}
+      <section id="shows" className="relative z-10 mx-auto w-full max-w-[1100px] px-7 pb-14 pt-4">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <h2 className="font-anton text-[clamp(40px,7vw,84px)] uppercase leading-[0.92] text-ow-text">
+            Show
+            <br />
+            <span className="text-ow-accent">Dates</span>
+          </h2>
+          <p className="max-w-[340px] font-grotesk text-[15px] text-ow-dim">
+            Doors usually 8pm. Grab tickets early — most rooms are small and these go fast.
+          </p>
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {shows.map((show) => (
-                <motion.div key={show.id} variants={fadeUp}>
-                  <Link
-                    to={`/shows/${show.id}`}
-                    className={`card block p-5 group transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5 ${
-                      isToday(show.date)
-                        ? "ring-2 ring-primary-500 border-primary-500/50"
-                        : ""
-                    }`}
-                  >
-                    {show.thumbnail && (
-                      <div className="h-40 -mx-5 -mt-5 mb-4 rounded-t-xl overflow-hidden bg-secondary-700">
-                        <OptimizedImg
-                          webpSrc={show.thumbnailWebp}
-                          src={show.thumbnail}
-                          loading="lazy"
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      </div>
-                    )}
-
-                    {isToday(show.date) && (
-                      <span className="inline-block text-xs font-bold uppercase tracking-wider text-primary-400 mb-2">
-                        Tonight
-                      </span>
-                    )}
-
-                    <div className="flex items-center gap-2 text-sm text-secondary-400 mb-2">
-                      <CalendarIcon className="w-4 h-4" />
-                      <span>{formatDate(show.date)}</span>
-                    </div>
-
-                    <h3 className="text-lg font-display font-bold text-secondary-100">
-                      {show.venue?.name}
-                    </h3>
-
-                    {show.venue?.address && (
-                      <div className="flex items-center gap-1 text-sm text-secondary-500 mt-1">
-                        <MapPinIcon className="w-3.5 h-3.5" />
-                        <span>{show.venue.address}</span>
-                      </div>
-                    )}
-                  </Link>
-                </motion.div>
-              ))}
+        <div className="mt-10 flex flex-col gap-0.5 overflow-hidden rounded-[18px] border border-ow-hairline">
+          {!loading && shows.length === 0 && (
+            <div className="bg-ow-surface px-6 py-5 font-grotesk text-ow-dim">
+              No shows on the books — join the mailing list below.
             </div>
-          </motion.div>
-        </section>
-      )}
+          )}
+          {shows.map((show) => (
+            <Link
+              key={show.id}
+              to={`/shows/${show.id}`}
+              className="grid grid-cols-[72px_1fr_auto] items-center gap-3 bg-ow-surface px-4 py-5 transition-colors hover:bg-ow-surface-hover sm:grid-cols-[96px_1fr_auto] sm:gap-5 sm:px-6"
+            >
+              <div className="font-anton leading-[0.85]">
+                <div className="text-[15px] uppercase tracking-[0.1em] text-ow-accent-3">
+                  {monthOf(show.date)}
+                </div>
+                <div className="text-[32px] text-ow-text">{dayOf(show.date)}</div>
+              </div>
+              <div className="min-w-0">
+                <div className="truncate font-grotesk text-lg font-bold text-ow-text">
+                  {show.venue?.name ?? "TBA"}
+                </div>
+                <div className="truncate font-grotesk text-sm text-ow-dim">
+                  {show.venue?.address}
+                  {show.description ? ` · ${show.description}` : ""}
+                </div>
+              </div>
+              {/* ponytail: unified orange Details pill by design — no ticket-state variants */}
+              <span className="whitespace-nowrap rounded-full bg-ow-accent px-[18px] py-[11px] font-grotesk text-[12.5px] font-bold uppercase tracking-[0.08em] text-ow-on-accent">
+                Details
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* ── Pinned / Latest Update ── */}
       {!loading && pinnedUpdate && (
