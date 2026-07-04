@@ -65,6 +65,9 @@ interface HeroBranding {
   palette?: string;
   showGrain?: boolean;
   marqueeItems?: string[];
+  aboutText1?: string;
+  aboutText2?: string;
+  bookingEmail?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -378,7 +381,7 @@ function MerchSection() {
 const ABOUT_PILL =
   "rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] px-6 py-3 font-grotesk text-[13px] font-bold uppercase tracking-[0.06em] text-ow-text transition-colors hover:border-ow-accent";
 
-function AboutSection() {
+function AboutSection({ hero }: { hero: HeroBranding }) {
   return (
     <section id="about" className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
       <div className="grid items-center gap-10 md:grid-cols-[1fr_minmax(0,420px)]">
@@ -388,19 +391,18 @@ function AboutSection() {
             <br />
             <span className="text-ow-accent">Band</span>
           </h2>
+          {/* Copy + booking email are admin-editable via branding settings (OW-20) */}
           <p className="mt-6 max-w-[48ch] text-lg leading-relaxed text-ow-text">
-            Orange Whip started in a damp East Van practice space chasing one thing: the sound
-            of the last good wave before the fog rolls in. Equal parts surf twang, fuzz-pedal
-            psych, and late-night garage swagger.
+            {hero.aboutText1 || DEFAULT_HERO.aboutText1}
           </p>
           <p className="mt-4 max-w-[48ch] text-base leading-relaxed text-ow-dim">
-            Four records, a hundred sweaty rooms, and zero plans to slow down. Bring earplugs.
+            {hero.aboutText2 || DEFAULT_HERO.aboutText2}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link to="/press" className={ABOUT_PILL}>
               Press Kit
             </Link>
-            <a href="mailto:hello@orangewhip.surf" className={ABOUT_PILL}>
+            <a href={`mailto:${hero.bookingEmail || DEFAULT_HERO.bookingEmail}`} className={ABOUT_PILL}>
               Booking
             </a>
           </div>
@@ -502,6 +504,10 @@ const DEFAULT_HERO: HeroBranding = {
   palette: "sunset",
   showGrain: true,
   marqueeItems: MARQUEE_ITEMS,
+  aboutText1:
+    "Orange Whip started in a damp East Van practice space chasing one thing: the sound of the last good wave before the fog rolls in. Equal parts surf twang, fuzz-pedal psych, and late-night garage swagger.",
+  aboutText2: "Four records, a hundred sweaty rooms, and zero plans to slow down. Bring earplugs.",
+  bookingEmail: "hello@orangewhip.surf",
 };
 
 export function HomePage() {
@@ -827,8 +833,8 @@ export function HomePage() {
       {/* ── Merch (OW-10) ── */}
       <MerchSection />
 
-      {/* ── About (OW-11) ── */}
-      <AboutSection />
+      {/* ── About (OW-11; copy editable via OW-20) ── */}
+      <AboutSection hero={hero} />
 
       {/* ── Mailing list (OW-12) ── */}
       <MailingListSection />
