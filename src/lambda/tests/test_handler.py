@@ -694,3 +694,32 @@ class TestAboutSettings:
         assert status == 200
         assert body["aboutText1"].startswith("Orange Whip started")
         assert body["bookingEmail"] == "hello@orangewhip.surf"
+
+    def test_about_image_upload_returns_presigned_url(self, _patch_boto3):
+        """POST /branding/about-image/upload returns a presigned URL under branding/about/ (OW-22)."""
+        handler = _patch_boto3
+
+        event = _make_event(
+            "POST", "/branding/about-image/upload",
+            body={"filename": "portrait.jpg"},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["uploadUrl"]
+        assert body["s3Key"].startswith("branding/about/")
+        assert body["s3Key"].endswith(".jpg")
+
+    def test_branding_get_resolves_about_image_url(self, _patch_boto3):
+        """GET /branding presigns aboutImageS3Key and never exposes the key."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {
+            "Item": {"PK": "BRANDING", "SK": "HERO", "aboutImageS3Key": "branding/about/x.jpg"}
+        }
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["aboutImageUrl"]
+        assert "aboutImageS3Key" not in body

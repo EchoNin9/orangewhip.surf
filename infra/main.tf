@@ -1461,6 +1461,14 @@ resource "aws_apigatewayv2_route" "brandingHeroImageUpload" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "brandingAboutImageUpload" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /branding/about-image/upload"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "brandingHeroImageDelete" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "DELETE /branding/hero-image"
@@ -1515,6 +1523,12 @@ resource "aws_apigatewayv2_route" "brandingHeroImageOptions" {
 resource "aws_apigatewayv2_route" "brandingHeroImageUploadOptions" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "OPTIONS /branding/hero-image/upload"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "brandingAboutImageUploadOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /branding/about-image/upload"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 

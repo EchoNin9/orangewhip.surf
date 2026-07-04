@@ -31,6 +31,7 @@ interface HeroBranding {
   aboutText1?: string;
   aboutText2?: string;
   bookingEmail?: string;
+  aboutImageUrl?: string;
 }
 
 const DEFAULT_HERO: HeroBranding = {
@@ -54,6 +55,7 @@ export function BrandingAdminPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const aboutFileRef = useRef<HTMLInputElement>(null);
 
   const [branding, setBranding] = useState<HeroBranding>(DEFAULT_HERO);
   const [loading, setLoading] = useState(true);
@@ -161,6 +163,47 @@ export function BrandingAdminPage() {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  };
+
+  /* About portrait (OW-22) — same presigned flow as the hero image */
+  const handleAboutImageUpload = async (file: File) => {
+    setUploading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const { uploadUrl, s3Key } = await apiPost<{ uploadUrl: string; s3Key: string }>(
+        "/branding/about-image/upload",
+        { filename: file.name, contentType: file.type },
+      );
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      if (!putRes.ok) throw new Error("Upload failed");
+      await apiPut("/branding", { aboutImageS3Key: s3Key });
+      setSuccess("About portrait uploaded.");
+      const updated = await apiGet<HeroBranding>("/branding");
+      setBranding((prev) => ({ ...prev, ...updated }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveAboutImage = async () => {
+    if (!confirm("Remove the About portrait?")) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      // ponytail: clears the reference; the old S3 object is orphaned (pennies)
+      await apiPut("/branding", { aboutImageS3Key: "" });
+      setBranding((prev) => ({ ...prev, aboutImageUrl: "" }));
+      setSuccess("About portrait removed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove");
     }
   };
 
@@ -378,6 +421,57 @@ export function BrandingAdminPage() {
               onChange={(e) => update({ bookingEmail: e.target.value })}
               className="input-field sm:w-80"
               placeholder="hello@orangewhip.surf"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-2">
+              Portrait image (4:5)
+            </label>
+            {branding.aboutImageUrl ? (
+              <div className="flex items-start gap-4">
+                <img
+                  src={branding.aboutImageUrl}
+                  alt="About portrait"
+                  className="w-32 aspect-[4/5] object-cover rounded-lg border border-secondary-600"
+                />
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => aboutFileRef.current?.click()}
+                    disabled={uploading}
+                    className="btn-secondary text-sm"
+                  >
+                    {uploading ? "Uploading..." : "Replace"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveAboutImage}
+                    className="text-sm text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => aboutFileRef.current?.click()}
+                disabled={uploading}
+                className="btn-secondary text-sm"
+              >
+                {uploading ? "Uploading..." : "Upload portrait"}
+              </button>
+            )}
+            <input
+              ref={aboutFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleAboutImageUpload(f);
+                e.target.value = "";
+              }}
             />
           </div>
         </div>

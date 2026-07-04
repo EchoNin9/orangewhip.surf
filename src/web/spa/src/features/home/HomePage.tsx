@@ -69,6 +69,7 @@ interface HeroBranding {
   aboutText1?: string;
   aboutText2?: string;
   bookingEmail?: string;
+  aboutImageUrl?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -408,8 +409,12 @@ function AboutSection({ hero }: { hero: HeroBranding }) {
             </a>
           </div>
         </div>
-        {/* ponytail: hatch placeholder until a real portrait is set (admin wiring is future scope) */}
-        <div className="ow-hatch aspect-[4/5] rounded-[18px] border border-ow-hairline" />
+        {/* Portrait admin-uploadable (OW-22); hatch placeholder when unset */}
+        <div className="ow-hatch aspect-[4/5] overflow-hidden rounded-[18px] border border-ow-hairline">
+          {hero.aboutImageUrl && (
+            <img src={hero.aboutImageUrl} alt="Band portrait" className="h-full w-full object-cover" />
+          )}
+        </div>
       </div>
     </section>
   );

@@ -1984,35 +1984,43 @@ def _get_branding() -> dict:
     for k in DEFAULT_HERO:
         if k in item:
             out[k] = item[k]
-    # heroImageS3Key is stored in DB but not in DEFAULT_HERO; copy it for presigning
-    if "heroImageS3Key" in item:
-        out["heroImageS3Key"] = item["heroImageS3Key"]
+    # S3 keys are stored in DB but not in DEFAULT_HERO; copy them for presigning
+    for k in ("heroImageS3Key", "aboutImageS3Key"):
+        if k in item:
+            out[k] = item[k]
     return out
 
 
+def _presign_branding(cfg: dict) -> dict:
+    """Resolve stored S3 keys to presigned URLs; never expose the keys."""
+    for key_field, url_field in (
+        ("heroImageS3Key", "heroImageUrl"),
+        ("aboutImageS3Key", "aboutImageUrl"),
+    ):
+        s3_key = cfg.get(key_field, "")
+        cfg[url_field] = _presign_get(s3_key) if s3_key else ""
+        cfg.pop(key_field, None)
+    return cfg
+
+
 def handle_branding(event, method, parts):
-    # GET /branding — public, returns hero config with presigned image URL
+    # GET /branding — public, returns hero config with presigned image URLs
     if method == "GET":
-        cfg = _get_branding()
-        s3_key = cfg.get("heroImageS3Key", "")
-        cfg["heroImageUrl"] = _presign_get(s3_key) if s3_key else ""
-        # Don't expose s3Key to public
-        if "heroImageS3Key" in cfg:
-            del cfg["heroImageS3Key"]
-        return ok(cfg, cache=300)
+        return ok(_presign_branding(_get_branding()), cache=300)
 
     # Admin-only routes
     user, err = require_role(event, "admin")
     if err:
         return err
 
-    # POST /branding/hero-image-upload — presigned URL for hero image
-    if method == "POST" and len(parts) >= 3 and parts[1] == "hero-image" and parts[2] == "upload":
+    # POST /branding/{hero-image|about-image}/upload — presigned upload URL
+    if method == "POST" and len(parts) >= 3 and parts[1] in ("hero-image", "about-image") and parts[2] == "upload":
         data = _body(event)
         filename = data.get("filename", "hero.jpg")
         ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
         file_uuid = str(uuid.uuid4())
-        s3_key = f"branding/hero/{file_uuid}.{ext}"
+        prefix = "hero" if parts[1] == "hero-image" else "about"
+        s3_key = f"branding/{prefix}/{file_uuid}.{ext}"
 
         presigned = s3.generate_presigned_url(
             "put_object",
@@ -2051,7 +2059,7 @@ def handle_branding(event, method, parts):
             "heroTitle", "heroTagline",
             "heroButton1Text", "heroButton1Href",
             "heroButton2Text", "heroButton2Href",
-            "heroImageOpacity", "heroImageS3Key",
+            "heroImageOpacity", "heroImageS3Key", "aboutImageS3Key",
             "heroButton1Bg", "heroButton1TextColor",
             "heroButton2Bg", "heroButton2TextColor",
             "palette", "showGrain", "marqueeItems",
@@ -2086,11 +2094,7 @@ def handle_branding(event, method, parts):
         item["bookingEmail"] = booking
 
         table.put_item(Item=item)
-        out = dict(item)
-        out["heroImageUrl"] = _presign_get(item.get("heroImageS3Key", ""))
-        if "heroImageS3Key" in out:
-            del out["heroImageS3Key"]
-        return ok(out)
+        return ok(_presign_branding(dict(item)))
 
     return error("Method not allowed", 405)
 
@@ -2259,11 +2263,7 @@ def handle_homepage(event, method, parts):
         return error("Method not allowed", 405)
 
     # Branding
-    cfg = _get_branding()
-    s3_key = cfg.get("heroImageS3Key", "")
-    cfg["heroImageUrl"] = _presign_get(s3_key) if s3_key else ""
-    if "heroImageS3Key" in cfg:
-        del cfg["heroImageS3Key"]
+    cfg = _presign_branding(_get_branding())
 
     # Pinned / latest update
     pinned_update = None
