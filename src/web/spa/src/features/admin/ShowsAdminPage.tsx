@@ -9,6 +9,7 @@ import {
   PhotoIcon,
 } from "@heroicons/react/24/outline";
 import { apiGet, apiPost, apiPut, apiDelete } from "../../utils/api";
+import { parseDate } from "../../utils/date";
 import { useAuth, hasRole, canEditContent } from "../../shell/AuthContext";
 import type { Show } from "../shows/ShowsPage";
 import type { MediaItem } from "../media/MediaPage";
@@ -571,7 +572,7 @@ export default function ShowsAdminPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-white truncate">{show.title}</h3>
                 <p className="text-sm text-secondary-400">
-                  {new Date(show.date).toLocaleDateString("en-US", {
+                  {parseDate(show.date).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
