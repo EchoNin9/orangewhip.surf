@@ -1,10 +1,9 @@
-import { useState, useEffect, Fragment, type ReactNode } from "react";
+import { useState, useEffect, Fragment, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { apiGet } from "../../utils/api";
-import { useAuth, hasRole } from "../../shell/AuthContext";
+import { apiGet, apiPost } from "../../utils/api";
 import { socialLinks } from "../../shell/Header";
 import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
 import { OptimizedImg } from "../../utils/OptimizedImg";
@@ -63,6 +62,8 @@ interface HeroBranding {
   heroButton1TextColor?: string;
   heroButton2Bg?: string;
   heroButton2TextColor?: string;
+  palette?: string;
+  showGrain?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -329,35 +330,116 @@ function MerchSection() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Skeleton components                                               */
-/* ------------------------------------------------------------------ */
+/* ── About section (OW-11) ── */
 
-function SkeletonShowCard() {
+const ABOUT_PILL =
+  "rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] px-6 py-3 font-grotesk text-[13px] font-bold uppercase tracking-[0.06em] text-ow-text transition-colors hover:border-ow-accent";
+
+function AboutSection() {
   return (
-    <div className="card p-5">
-      <div className="h-40 -mx-5 -mt-5 mb-4 rounded-t-xl bg-secondary-700/50 animate-pulse" />
-      <div className="h-3 w-32 bg-secondary-700/50 rounded animate-pulse mb-3" />
-      <div className="h-5 w-48 bg-secondary-700/50 rounded animate-pulse mb-2" />
-      <div className="h-3 w-40 bg-secondary-700/50 rounded animate-pulse" />
-    </div>
+    <section id="about" className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
+      <div className="grid items-center gap-10 md:grid-cols-[1fr_minmax(0,420px)]">
+        <div>
+          <h2 className="font-anton text-[clamp(40px,7vw,84px)] uppercase leading-[0.92] text-ow-text">
+            The
+            <br />
+            <span className="text-ow-accent">Band</span>
+          </h2>
+          <p className="mt-6 max-w-[48ch] text-lg leading-relaxed text-ow-text">
+            Orange Whip started in a damp East Van practice space chasing one thing: the sound
+            of the last good wave before the fog rolls in. Equal parts surf twang, fuzz-pedal
+            psych, and late-night garage swagger.
+          </p>
+          <p className="mt-4 max-w-[48ch] text-base leading-relaxed text-ow-dim">
+            Four records, a hundred sweaty rooms, and zero plans to slow down. Bring earplugs.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link to="/press" className={ABOUT_PILL}>
+              Press Kit
+            </Link>
+            <a href="mailto:hello@orangewhip.surf" className={ABOUT_PILL}>
+              Booking
+            </a>
+          </div>
+        </div>
+        {/* ponytail: hatch placeholder until a real portrait is set (admin wiring is future scope) */}
+        <div className="ow-hatch aspect-[4/5] rounded-[18px] border border-ow-hairline" />
+      </div>
+    </section>
   );
 }
 
-function SkeletonNewsCard() {
+/* ── Mailing list (OW-12) ── */
+
+function MailingListSection() {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setFailed(false);
+    try {
+      await apiPost("/subscribe", { email });
+      setSent(true);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="card p-6 sm:p-8">
-      <div className="flex flex-col sm:flex-row gap-6">
-        <div className="sm:w-48 sm:h-36 flex-shrink-0 rounded-lg bg-secondary-700/50 animate-pulse" />
-        <div className="flex-1 min-w-0 space-y-3">
-          <div className="h-3 w-16 bg-secondary-700/50 rounded animate-pulse" />
-          <div className="h-5 w-56 bg-secondary-700/50 rounded animate-pulse" />
-          <div className="h-3 w-full bg-secondary-700/50 rounded animate-pulse" />
-          <div className="h-3 w-3/4 bg-secondary-700/50 rounded animate-pulse" />
-          <div className="h-3 w-20 bg-secondary-700/50 rounded animate-pulse mt-2" />
-        </div>
+    <section className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
+      <div
+        className="rounded-[24px] p-[clamp(32px,5vw,60px)] text-center text-ow-on-accent"
+        style={{ background: "linear-gradient(135deg, var(--ow-accent), var(--ow-accent-2))" }}
+      >
+        {sent ? (
+          <h2 className="font-anton text-[clamp(32px,5.5vw,60px)] uppercase leading-none">
+            You're on the list ✦ See you out there
+          </h2>
+        ) : (
+          <>
+            <h2 className="font-anton text-[clamp(32px,5.5vw,60px)] uppercase leading-none">
+              Don't miss a show
+            </h2>
+            <p className="mx-auto mt-3 max-w-[46ch] font-semibold opacity-80">
+              Tour dates, new music, and first dibs on tickets — straight to your inbox.
+            </p>
+            <form onSubmit={submit} className="mx-auto mt-7 flex w-full max-w-[520px] flex-wrap justify-center gap-3">
+              <label htmlFor="ow-subscribe-email" className="sr-only">
+                Email address
+              </label>
+              <input
+                id="ow-subscribe-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@earth.com"
+                className="min-w-0 flex-1 basis-[260px] rounded-xl px-[18px] py-4 text-ow-text placeholder:text-ow-dimmer focus:outline-none focus:ring-2 focus:ring-ow-on-accent"
+                style={{ background: "oklch(0.16 0.02 45 / 0.92)" }}
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="rounded-xl bg-ow-on-accent px-7 py-4 font-bold uppercase text-ow-text disabled:opacity-60"
+              >
+                {busy ? "…" : "Sign Up"}
+              </button>
+            </form>
+            {failed && (
+              <p className="mt-3 text-sm font-bold" role="alert">
+                Something went wrong — try again in a minute.
+              </p>
+            )}
+          </>
+        )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -374,11 +456,11 @@ const DEFAULT_HERO: HeroBranding = {
   heroButton2Href: "#merch",
   // ponytail: bundled default hero photo; empty admin value hides the photo layer (OW-13 wires upload)
   heroImageUrl: "/hero-surfer.jpg",
+  palette: "sunset",
+  showGrain: true,
 };
 
 export function HomePage() {
-  const { user } = useAuth();
-  const canEdit = hasRole(user, 'band');
   const [hero, setHero] = useState<HeroBranding>(DEFAULT_HERO);
   const [pinnedUpdate, setPinnedUpdate] = useState<Update | null>(null);
   const [shows, setShows] = useState<Show[]>([]);
@@ -459,8 +541,8 @@ export function HomePage() {
   /* ── Render ── */
 
   return (
-    <div className="relative bg-ow-bg" data-ow-palette="sunset">
-      <PageChrome />
+    <div className="relative bg-ow-bg" data-ow-palette={hero.palette ?? "sunset"}>
+      <PageChrome showGrain={hero.showGrain !== false} />
       {/* ── Hero (OW-5) ── */}
       <section className="relative z-10 overflow-hidden -mt-[88px]">
         {/* Full-bleed photo layer — hidden entirely when no image is set */}
@@ -628,6 +710,12 @@ export function HomePage() {
       {/* ── Merch (OW-10) ── */}
       <MerchSection />
 
+      {/* ── About (OW-11) ── */}
+      <AboutSection />
+
+      {/* ── Mailing list (OW-12) ── */}
+      <MailingListSection />
+
       {/* ── Pinned / Latest Update ── */}
       {!loading && pinnedUpdate && (
         <section className="container-max section-padding">
@@ -694,72 +782,6 @@ export function HomePage() {
             </motion.div>
           </motion.div>
         </section>
-      )}
-
-      {/* ── Content coming soon (visible when no data loaded) ── */}
-      {!loading && !pinnedUpdate && shows.length === 0 && (
-        <section className="container-max section-padding">
-          <motion.div
-            className="text-center py-12 sm:py-16"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl mx-auto mb-12">
-              {[
-                { label: 'Shows', icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5', to: '/shows' },
-                { label: 'Music', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z', to: '/media' },
-                { label: 'News', icon: 'M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z', to: '/updates' },
-              ].map((item) => (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  className="card p-6 text-center transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-1 group"
-                >
-                  <div className="mx-auto w-14 h-14 rounded-xl bg-primary-500/10 flex items-center justify-center mb-4 group-hover:bg-primary-500/20 transition-colors">
-                    <svg className="w-7 h-7 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                    </svg>
-                  </div>
-                  <span className="text-lg font-display font-bold text-secondary-200 group-hover:text-primary-400 transition-colors">
-                    {item.label}
-                  </span>
-                </Link>
-              ))}
-            </div>
-
-            <p className="text-secondary-400 text-lg mb-6">
-              Content is on the way. Stay tuned!
-            </p>
-
-            {canEdit && (
-              <Link to="/admin" className="btn-primary">
-                Go to Admin Dashboard
-              </Link>
-            )}
-          </motion.div>
-        </section>
-      )}
-
-      {/* ── Skeleton loading ── */}
-      {loading && (
-        <div className="container-max section-padding space-y-12">
-          {/* Skeleton: Upcoming Shows */}
-          <div>
-            <div className="h-7 w-48 bg-secondary-700/50 rounded animate-pulse mb-8" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <SkeletonShowCard />
-              <SkeletonShowCard />
-              <SkeletonShowCard />
-            </div>
-          </div>
-          {/* Skeleton: Latest News */}
-          <div>
-            <div className="h-px bg-gradient-to-r from-transparent via-secondary-700 to-transparent mb-12" />
-            <div className="h-7 w-36 bg-secondary-700/50 rounded animate-pulse mb-8" />
-            <SkeletonNewsCard />
-          </div>
-        </div>
       )}
 
       {/* ── Update Detail Modal ── */}

@@ -25,16 +25,20 @@ interface HeroBranding {
   heroButton1TextColor?: string;
   heroButton2Bg?: string;
   heroButton2TextColor?: string;
+  palette?: string;
+  showGrain?: boolean;
 }
 
 const DEFAULT_HERO: HeroBranding = {
   heroTitle: "Orange Whip",
   heroTagline: "Industrial Surf",
-  heroButton1Text: "Upcoming Shows",
-  heroButton1Href: "/shows",
-  heroButton2Text: "Listen Now",
-  heroButton2Href: "/media",
+  heroButton1Text: "Listen Now",
+  heroButton1Href: "#media",
+  heroButton2Text: "Shop Merch",
+  heroButton2Href: "#merch",
   heroImageOpacity: 25,
+  palette: "sunset",
+  showGrain: true,
 };
 
 /* ------------------------------------------------------------------ */
@@ -110,6 +114,8 @@ export function BrandingAdminPage() {
         heroButton1TextColor: branding.heroButton1TextColor ?? "",
         heroButton2Bg: branding.heroButton2Bg ?? "",
         heroButton2TextColor: branding.heroButton2TextColor ?? "",
+        palette: branding.palette ?? "sunset",
+        showGrain: branding.showGrain ?? true,
       });
       setSuccess("Branding saved.");
     } catch (err) {
@@ -277,6 +283,36 @@ export function BrandingAdminPage() {
               {branding.heroImageOpacity ?? 25}%
             </span>
           </div>
+        </div>
+
+        {/* Theme (OW-13) */}
+        <div className="card p-6 space-y-4">
+          <h2 className="text-lg font-display font-bold text-secondary-100 mb-4">
+            Theme
+          </h2>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              Color palette
+            </label>
+            <select
+              value={branding.palette ?? "sunset"}
+              onChange={(e) => update({ palette: e.target.value })}
+              className="input-field sm:w-64"
+            >
+              <option value="sunset">Sunset (default)</option>
+              <option value="acid-surf">Acid Surf</option>
+              <option value="magenta-haze">Magenta Haze</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-3 text-sm text-secondary-300">
+            <input
+              type="checkbox"
+              checked={branding.showGrain ?? true}
+              onChange={(e) => update({ showGrain: e.target.checked })}
+              className="h-4 w-4 accent-primary-500"
+            />
+            Film-grain overlay
+          </label>
         </div>
 
         {/* Hero Text */}
