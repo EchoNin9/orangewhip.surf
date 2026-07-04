@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
+import { parseDate } from "../../utils/date";
 import { OptimizedImg } from "../../utils/OptimizedImg";
 import type { Show } from "./ShowsPage";
 
@@ -168,7 +169,7 @@ export default function ShowDetailPage() {
   }, [id]);
 
   const formattedDate = show
-    ? new Date(show.date).toLocaleDateString("en-US", {
+    ? parseDate(show.date).toLocaleDateString("en-US", {
         weekday: "long",
         month: "long",
         day: "numeric",

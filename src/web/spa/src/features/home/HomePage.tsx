@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { apiGet, apiPost } from "../../utils/api";
+import { parseDate } from "../../utils/date";
 import { socialLinks } from "../../shell/Header";
 import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
 import { OptimizedImg } from "../../utils/OptimizedImg";
@@ -75,7 +76,7 @@ interface HeroBranding {
 /* ------------------------------------------------------------------ */
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
+  return parseDate(iso).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -84,11 +85,11 @@ function formatDate(iso: string): string {
 }
 
 function monthOf(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+  return parseDate(iso).toLocaleDateString("en-US", { month: "short" }).toUpperCase();
 }
 
 function dayOf(iso: string): number {
-  return new Date(iso).getDate();
+  return parseDate(iso).getDate();
 }
 
 /** Same-page anchors get a plain <a>; routes get a router Link. */
@@ -570,10 +571,10 @@ export function HomePage() {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         const upcoming = showsData
-          .filter((s) => new Date(s.date) >= now)
+          .filter((s) => parseDate(s.date) >= now)
           .sort(
             (a, b) =>
-              new Date(a.date).getTime() - new Date(b.date).getTime(),
+              parseDate(a.date).getTime() - parseDate(b.date).getTime(),
           )
           .slice(0, 6);
         setShows(upcoming);
