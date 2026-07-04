@@ -1962,6 +1962,13 @@ DEFAULT_HERO = {
         "Summer tour on sale",
         "Merch restocked",
     ],
+    "aboutText1": (
+        "Orange Whip started in a damp East Van practice space chasing one thing: "
+        "the sound of the last good wave before the fog rolls in. Equal parts surf "
+        "twang, fuzz-pedal psych, and late-night garage swagger."
+    ),
+    "aboutText2": "Four records, a hundred sweaty rooms, and zero plans to slow down. Bring earplugs.",
+    "bookingEmail": "hello@orangewhip.surf",
 }
 
 VALID_PALETTES = ("sunset", "acid-surf", "magenta-haze")
@@ -2048,6 +2055,7 @@ def handle_branding(event, method, parts):
             "heroButton1Bg", "heroButton1TextColor",
             "heroButton2Bg", "heroButton2TextColor",
             "palette", "showGrain", "marqueeItems",
+            "aboutText1", "aboutText2", "bookingEmail",
         ]:
             if field in data:
                 item[field] = data[field]
@@ -2068,6 +2076,14 @@ def handle_branding(event, method, parts):
         item["marqueeItems"] = [
             str(m).strip()[:200] for m in raw_marquee[:MAX_MARQUEE_ITEMS] if str(m).strip()
         ]
+
+        # Validate about copy / booking email (OW-20); blanks/invalid fall back to defaults
+        for f in ("aboutText1", "aboutText2"):
+            item[f] = str(item.get(f, DEFAULT_HERO[f])).strip()[:2000] or DEFAULT_HERO[f]
+        booking = str(item.get("bookingEmail", "")).strip().lower()
+        if len(booking) > 254 or not EMAIL_RE.match(booking):
+            booking = DEFAULT_HERO["bookingEmail"]
+        item["bookingEmail"] = booking
 
         table.put_item(Item=item)
         out = dict(item)

@@ -28,6 +28,9 @@ interface HeroBranding {
   palette?: string;
   showGrain?: boolean;
   marqueeItems?: string[];
+  aboutText1?: string;
+  aboutText2?: string;
+  bookingEmail?: string;
 }
 
 const DEFAULT_HERO: HeroBranding = {
@@ -119,6 +122,9 @@ export function BrandingAdminPage() {
         palette: branding.palette ?? "sunset",
         showGrain: branding.showGrain ?? true,
         marqueeItems: (branding.marqueeItems ?? []).map((s) => s.trim()).filter(Boolean),
+        aboutText1: branding.aboutText1 ?? "",
+        aboutText2: branding.aboutText2 ?? "",
+        bookingEmail: branding.bookingEmail ?? "",
       });
       setSuccess("Branding saved.");
     } catch (err) {
@@ -333,6 +339,47 @@ export function BrandingAdminPage() {
             className="input-field font-mono text-sm"
             placeholder={'New single "Sundowner" out now'}
           />
+        </div>
+
+        {/* About section (OW-20) */}
+        <div className="card p-6 space-y-4">
+          <h2 className="text-lg font-display font-bold text-secondary-100 mb-4">
+            About Section
+          </h2>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              First paragraph
+            </label>
+            <textarea
+              value={branding.aboutText1 ?? ""}
+              onChange={(e) => update({ aboutText1: e.target.value })}
+              rows={4}
+              className="input-field text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              Second paragraph
+            </label>
+            <textarea
+              value={branding.aboutText2 ?? ""}
+              onChange={(e) => update({ aboutText2: e.target.value })}
+              rows={2}
+              className="input-field text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              Booking email
+            </label>
+            <input
+              type="email"
+              value={branding.bookingEmail ?? ""}
+              onChange={(e) => update({ bookingEmail: e.target.value })}
+              className="input-field sm:w-80"
+              placeholder="hello@orangewhip.surf"
+            />
+          </div>
         </div>
 
         {/* Hero Text */}

@@ -646,3 +646,51 @@ class TestMarquee:
         status, body = _parse_response(handler(event, None))
         assert status == 200
         assert len(body["marqueeItems"]) == 3
+
+
+class TestAboutSettings:
+    def test_branding_put_about_and_booking_persist(self, _patch_boto3):
+        """PUT /branding persists about paragraphs and booking email (OW-20)."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={
+                "aboutText1": "  Para one.  ",
+                "aboutText2": "Para two.",
+                "bookingEmail": " Bookings@OrangeWhip.surf ",
+            },
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["aboutText1"] == "Para one."
+        assert body["aboutText2"] == "Para two."
+        assert body["bookingEmail"] == "bookings@orangewhip.surf"
+
+    def test_branding_put_invalid_booking_email_falls_back(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"bookingEmail": "not-an-email"},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["bookingEmail"] == "hello@orangewhip.surf"
+
+    def test_branding_get_includes_about_defaults(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["aboutText1"].startswith("Orange Whip started")
+        assert body["bookingEmail"] == "hello@orangewhip.surf"
