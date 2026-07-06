@@ -266,6 +266,59 @@ class TestCheckout:
 # ---------------------------------------------------------------------------
 
 
+class TestPrintFiles:
+    def test_unauthenticated_unauthorized(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event("GET", "/store-print-files")
+        status, _ = _parse_response(handler(event, None))
+        assert status == 401
+
+    def test_non_admin_forbidden(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event("GET", "/store-print-files", auth=True, groups=["editor"])
+        status, _ = _parse_response(handler(event, None))
+        assert status == 403
+
+    def test_get_lists_status_per_product(self, _patch_boto3):
+        handler = _patch_boto3
+        from datetime import datetime, timezone
+        mock_s3.head_object.return_value = {
+            "LastModified": datetime(2026, 7, 5, tzinfo=timezone.utc)
+        }
+        event = _make_event("GET", "/store-print-files", auth=True, groups=["admin"])
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        # One row per product (variants share a print file), sorted by id.
+        assert [f["product_id"] for f in body] == ["poster-tour", "sticker-pack", "tee-classic"]
+        assert all(f["uploaded"] and f["last_modified"] for f in body)
+        assert body[2]["s3_key"] == "store-print/tee-classic.png"
+
+    def test_post_returns_presigned_put_for_canonical_key(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_s3.generate_presigned_url.return_value = "https://test/presigned-put"
+        event = _make_event(
+            "POST", "/store-print-files", auth=True, groups=["admin"],
+            body={"product_id": "tee-classic"},
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body == {"uploadUrl": "https://test/presigned-put",
+                        "s3Key": "store-print/tee-classic.png"}
+        # The key came from store_catalog, not the request.
+        params = mock_s3.generate_presigned_url.call_args.kwargs["Params"]
+        assert params["Key"] == "store-print/tee-classic.png"
+
+    def test_post_unknown_product_rejected(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event(
+            "POST", "/store-print-files", auth=True, groups=["admin"],
+            body={"product_id": "../../etc/passwd"},
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 400
+        assert "Unknown" in body["error"]
+
+
 class TestOrders:
     def test_non_admin_forbidden(self, _patch_boto3):
         handler = _patch_boto3
