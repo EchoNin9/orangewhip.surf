@@ -2309,6 +2309,16 @@ STRIPE_CHECKOUT_ALLOWED_COUNTRIES = [
 # demand it. Keep in sync with the shipping note in docs/store-setup.md.
 STORE_FLAT_SHIPPING_CENTS = 599
 
+# Singleton config row: admin-set Gelato UIDs per SKU ("product/variant" -> uid).
+STORE_CONFIG_PK = "STORE#CONFIG"
+
+
+def _get_store_gelato_uids() -> dict:
+    """Return the admin-configured SKU -> Gelato UID map (may be empty)."""
+    item = _get_item(STORE_CONFIG_PK, STORE_CONFIG_PK) or {}
+    uids = item.get("gelato_uids")
+    return uids if isinstance(uids, dict) else {}
+
 
 def _checkout_origin(event: dict) -> str:
     """Return the origin to use for Stripe success/cancel URLs.
@@ -2557,13 +2567,15 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
         "country": _get(shipping_address, "country", "") or "",
     }
 
-    # Map cart items -> Gelato line items via the server catalog. The cart
-    # metadata only carries (product_id, variant_id); Gelato UIDs and print
-    # files are NEVER taken from the client. Any unmappable SKU fails the
-    # whole order — a partial merch shipment is worse than a failed row an
-    # admin can retry by hand.
+    # Map cart items -> Gelato line items. The cart metadata only carries
+    # (product_id, variant_id); Gelato UIDs come from the admin-set
+    # STORE#CONFIG item (catalog entry as hardcoded fallback) and print files
+    # from the server catalog — NEVER from the client. Any unmappable SKU
+    # fails the whole order — a partial merch shipment is worse than a failed
+    # row an admin can retry by hand.
     from api import store_catalog  # noqa: PLC0415
 
+    admin_uids = _get_store_gelato_uids()
     gelato_line_items = []
     unmapped_skus = []
     for item in cart_items:
@@ -2571,11 +2583,15 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
         variant_id = item.get("variant_id") or ""
         qty = item.get("qty") or item.get("quantity") or 1
         entry = store_catalog.get_canonical_price(product_id, variant_id)
-        if not entry or not entry.get("gelato_product_uid"):
+        uid = ""
+        if entry:
+            uid = (admin_uids.get(f"{product_id}/{variant_id}")
+                   or entry.get("gelato_product_uid") or "").strip()
+        if not entry or not uid:
             unmapped_skus.append(f"{product_id}/{variant_id}")
             continue
         gelato_line_items.append({
-            "gelato_variant_uid": entry["gelato_product_uid"],
+            "gelato_variant_uid": uid,
             "qty": int(qty),
             "print_file_url": _presign_get(entry.get("print_file_key", "")),
         })
@@ -2595,7 +2611,10 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
             session_id, unmapped_skus,
         )
         status_value = "failed"
-        status_error = f"Unknown SKU(s), not in store_catalog: {', '.join(unmapped_skus)}"
+        status_error = (
+            "SKU(s) unknown or missing a Gelato UID (set UIDs in Admin → Store): "
+            + ", ".join(unmapped_skus)
+        )
     if status_value != "failed":
         try:
             result = gelato_client.create_order(
@@ -2663,6 +2682,60 @@ def handle_orders(event, method, parts):  # noqa: ARG001
     items = _query_entity("ORDER")
     items.sort(key=lambda i: i.get("created_at", ""), reverse=True)
     return ok(items)
+
+
+def handle_store_config(event, method, parts):  # noqa: ARG001
+    """GET/PUT /store-config — admin management of per-SKU Gelato UIDs.
+
+    GET -> every SKU from ``store_catalog`` with its configured UID ("" if
+    unset). PUT -> body ``{"gelato_uids": {"product/variant": "uid"}}``;
+    only known SKU keys are accepted, empty values clear a mapping. Saved on
+    the ``STORE#CONFIG`` singleton row.
+    """
+    _user, err = require_role(event, "admin")
+    if err:
+        return err
+
+    from api import store_catalog  # noqa: PLC0415
+
+    known_skus = {f"{p}/{v}" for (p, v) in store_catalog.CATALOG}
+
+    if method == "GET":
+        saved = _get_store_gelato_uids()
+        out = []
+        for (product_id, variant_id), entry in sorted(store_catalog.CATALOG.items()):
+            sku = f"{product_id}/{variant_id}"
+            out.append({
+                "product_id": product_id,
+                "variant_id": variant_id,
+                "title": entry.get("title", sku),
+                "gelato_uid": str(saved.get(sku, "") or ""),
+            })
+        return ok(out)
+
+    if method == "PUT":
+        data = _body(event)
+        raw = data.get("gelato_uids")
+        if not isinstance(raw, dict):
+            return error("gelato_uids must be an object", 400)
+        cleaned = {}
+        for sku, uid in raw.items():
+            if sku not in known_skus:
+                return error(f"Unknown SKU: {sku}", 400)
+            if not isinstance(uid, str):
+                return error(f"UID for {sku} must be a string", 400)
+            uid = uid.strip()
+            if uid:
+                cleaned[sku] = uid
+        table.put_item(Item={
+            "PK": STORE_CONFIG_PK,
+            "SK": STORE_CONFIG_PK,
+            "gelato_uids": cleaned,
+            "updated_at": _now_iso(),
+        })
+        return ok({"gelato_uids": cleaned})
+
+    return error("Method not allowed", 405)
 
 
 def handle_store_print_files(event, method, parts):  # noqa: ARG001
@@ -2773,6 +2846,8 @@ def handler(event, context):
             return handle_orders(event, method, parts)
         if root == "store-print-files":
             return handle_store_print_files(event, method, parts)
+        if root == "store-config":
+            return handle_store_config(event, method, parts)
 
         # Authenticated routes
         if root == "me":

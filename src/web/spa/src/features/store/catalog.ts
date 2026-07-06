@@ -12,7 +12,6 @@
 export interface ProductVariant {
   id: string;
   label: string;
-  gelato_variant_uid: string;
 }
 
 export interface Product {
@@ -23,7 +22,6 @@ export interface Product {
   price_cents: number;
   currency: string;
   variants: ProductVariant[];
-  gelato_product_uid: string;
   /** Site-relative path to the hero/lifestyle shot, served from
    *  src/web/spa/public/ (ships with the SPA build). */
   hero_image: string;
@@ -33,8 +31,8 @@ export interface Product {
   mockup_images?: string[];
 }
 
-// Placeholder SKUs — replace the UIDs, copy, and images with real values
-// once we've picked the actual Gelato products.
+// Gelato product UIDs are set in Admin → Store (server-side), not here.
+// Replace copy and images with real values once products are final.
 export const CATALOG: Product[] = [
   {
     id: 'tee-classic',
@@ -43,14 +41,13 @@ export const CATALOG: Product[] = [
     description: 'Soft cotton tee with the Orange Whip logo on the chest.',
     price_cents: 2800,
     currency: 'usd',
-    gelato_product_uid: 'PLACEHOLDER_TSHIRT_UID',
     hero_image: '/store-img/tee-classic/hero.jpg',
     tag: 'New',
     variants: [
-      { id: 's',  label: 'S',  gelato_variant_uid: 'PLACEHOLDER_TSHIRT_S' },
-      { id: 'm',  label: 'M',  gelato_variant_uid: 'PLACEHOLDER_TSHIRT_M' },
-      { id: 'l',  label: 'L',  gelato_variant_uid: 'PLACEHOLDER_TSHIRT_L' },
-      { id: 'xl', label: 'XL', gelato_variant_uid: 'PLACEHOLDER_TSHIRT_XL' },
+      { id: 's',  label: 'S' },
+      { id: 'm',  label: 'M' },
+      { id: 'l',  label: 'L' },
+      { id: 'xl', label: 'XL' },
     ],
   },
   {
@@ -60,11 +57,10 @@ export const CATALOG: Product[] = [
     description: 'Heavy-stock matte print of the tour poster art.',
     price_cents: 2000,
     currency: 'usd',
-    gelato_product_uid: 'PLACEHOLDER_POSTER_UID',
     hero_image: '/store-img/poster-tour/hero.jpg',
     variants: [
-      { id: 'a3', label: 'A3', gelato_variant_uid: 'PLACEHOLDER_POSTER_A3' },
-      { id: 'a2', label: 'A2', gelato_variant_uid: 'PLACEHOLDER_POSTER_A2' },
+      { id: 'a3', label: 'A3' },
+      { id: 'a2', label: 'A2' },
     ],
   },
   {
@@ -74,10 +70,9 @@ export const CATALOG: Product[] = [
     description: 'Three vinyl stickers, weather-resistant.',
     price_cents: 600,
     currency: 'usd',
-    gelato_product_uid: 'PLACEHOLDER_STICKER_UID',
     hero_image: '/store-img/sticker-pack/hero.jpg',
     variants: [
-      { id: 'default', label: 'Pack of 3', gelato_variant_uid: 'PLACEHOLDER_STICKER_DEFAULT' },
+      { id: 'default', label: 'Pack of 3' },
     ],
   },
 ];
