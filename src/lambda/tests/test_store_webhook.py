@@ -7,6 +7,7 @@ Idempotency + failure semantics:
 - Gelato raises -> still 200, row with status='failed', status_error set.
 - Redelivery (existing row status='submitted') -> 200, Gelato NOT called, no new write.
 - Other event types -> 200 with {"ignored": true}, no Gelato call, no write.
+- Cart SKU not in store_catalog -> 200, Gelato NOT called, row status='failed'.
 """
 
 import json
@@ -101,13 +102,15 @@ def _checkout_session_event(
 ) -> dict:
     """Build a fake Stripe event dict representing checkout.session.completed."""
     if cart is None:
+        # Mirrors what handle_checkout writes to session metadata: SKU +
+        # canonical price only. Gelato UIDs come from store_catalog, never
+        # from the metadata.
         cart = [{
-            "product_id": "tee",
-            "variant_id": "tee-m",
-            "gelato_variant_uid": "apparel_product_gca_t-shirt_pca_unisex-crewneck_m",
+            "product_id": "tee-classic",
+            "variant_id": "m",
             "qty": 2,
-            "unit_price_cents": 2500,
-            "title": "Orange Whip Tee (M)",
+            "unit_price_cents": 2800,
+            "title": "Orange Whip Classic Tee — M",
         }]
     return {
         "type": "checkout.session.completed",
@@ -187,9 +190,11 @@ class TestHappyPath:
         assert kwargs["customer_email"] == "buyer@example.com"
         assert kwargs["shipping"]["name"] == "Ada Lovelace"
         assert kwargs["shipping"]["country"] == "GB"
+        # Gelato UID + print file resolved from store_catalog, not the cart.
         assert kwargs["line_items"] == [{
-            "gelato_variant_uid": "apparel_product_gca_t-shirt_pca_unisex-crewneck_m",
+            "gelato_variant_uid": "PLACEHOLDER_TSHIRT_M",
             "qty": 2,
+            "print_file_url": "https://test/presigned",
         }]
 
         # DynamoDB row written with status=submitted.
@@ -287,6 +292,43 @@ class TestIdempotency:
         item = mock_table.put_item.call_args.kwargs["Item"]
         assert item["status"] == "submitted"
         assert item["gelato_order_id"] == "gelato-retry-ok"
+
+
+class TestUnknownSku:
+    def test_unmapped_sku_writes_failed_row_without_calling_gelato(self, _patch_boto3_and_env):
+        """A cart SKU missing from store_catalog must fail the whole order —
+        never submit a partial order or a client-supplied UID to Gelato."""
+        handler = _patch_boto3_and_env
+
+        fake_event = _checkout_session_event(cart=[{
+            "product_id": "tee-classic",
+            "variant_id": "m",
+            "qty": 1,
+            "unit_price_cents": 2800,
+            "title": "Orange Whip Classic Tee — M",
+        }, {
+            "product_id": "ghost-product",
+            "variant_id": "m",
+            "qty": 1,
+            "unit_price_cents": 100,
+            "title": "Not In Catalog",
+        }])
+        import stripe  # type: ignore
+
+        with patch.object(stripe.Webhook, "construct_event", return_value=fake_event), \
+             patch("api.gelato_client.create_order") as mock_gelato:
+            ev = _webhook_event(body=json.dumps(fake_event))
+            status, body = _parse(handler(ev, None))
+
+        assert status == 200
+        assert body == {"received": True}
+        mock_gelato.assert_not_called()
+
+        mock_table.put_item.assert_called_once()
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        assert item["status"] == "failed"
+        assert item["gelato_order_id"] is None
+        assert "ghost-product/m" in item["status_error"]
 
 
 class TestOtherEventTypes:

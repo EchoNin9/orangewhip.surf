@@ -159,6 +159,11 @@ class TestCheckout:
         assert kwargs["automatic_tax"] == {"enabled": False}
         assert "US" in kwargs["shipping_address_collection"]["allowed_countries"]
 
+        # Flat-rate shipping is charged at checkout.
+        ship = kwargs["shipping_options"][0]["shipping_rate_data"]
+        assert ship["type"] == "fixed_amount"
+        assert ship["fixed_amount"] == {"amount": 599, "currency": "usd"}
+
     def test_unknown_product_rejected(self, _patch_boto3):
         handler = _patch_boto3
         with patch("stripe.checkout.Session.create") as mock_create:

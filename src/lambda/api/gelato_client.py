@@ -45,7 +45,12 @@ def create_order(
             "name", "address_line1", "address_line2", "city",
             "postal_code", "state", "country"
         }
-        line_items: [{"gelato_variant_uid": str, "qty": int}]
+        line_items: [{"gelato_variant_uid": str, "qty": int,
+                      "print_file_url": str}]
+            ``print_file_url`` is a fetchable URL (we pass a presigned S3
+            URL) for the print-ready artwork; Gelato downloads it at order
+            creation. Sent as the item's ``files`` entry with the "default"
+            print area.
 
     Returns:
         {"gelato_order_id": <id from Gelato>}
@@ -73,11 +78,15 @@ def create_order(
 
     items = []
     for idx, li in enumerate(line_items):
-        items.append({
+        item: dict = {
             "itemReferenceId": f"{reference_id}-{idx}",
             "productUid": li["gelato_variant_uid"],
             "quantity": int(li["qty"]),
-        })
+        }
+        print_file_url = li.get("print_file_url") or ""
+        if print_file_url:
+            item["files"] = [{"type": "default", "url": print_file_url}]
+        items.append(item)
 
     payload = {
         "orderType": "order",
