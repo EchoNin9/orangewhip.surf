@@ -78,13 +78,12 @@ We need one UID per SKU we sell — **7 total**:
    ```
 
 5. Repeat for the poster and the stickers (3 templates total).
-6. **Paste the three JSON outputs (or just the UIDs) to Claude.** Claude
-   updates `src/lambda/api/store_catalog.py` and
-   `src/web/spa/src/features/store/catalog.ts` in one PR — the placeholders
-   currently say `PLACEHOLDER_TSHIRT_S` etc.
-
-> Why both files? The browser one is display-only; the Lambda one is the one
-> that's actually trusted for prices and Gelato UIDs. They must always match.
+6. **Paste each variant's `productUid` into the site admin:** go to
+   **Admin → Store** (`/admin/store/orders`), fill in the **Gelato Product
+   UIDs** panel (one field per SKU — Tee S/M/L/XL, Poster A3/A2, Stickers),
+   hit **Save UIDs**. Takes effect immediately, no deploy.
+7. Optionally still send Claude the template JSON — it contains mockup image
+   URLs that make free storefront photos (Part 3).
 
 ### 1.3 Upload the print artwork (in the site admin — no AWS needed)
 
@@ -216,9 +215,9 @@ After Parts 1–3 are done and deployed to staging:
 
 | Symptom | Meaning | Fix |
 |---|---|---|
-| Order row `status_error: Unknown SKU(s)…` | Catalog placeholder/typo — SKU missing from `store_catalog.py` | Fix the catalog, redeploy; re-send the webhook from Stripe dashboard (endpoint → the event → **Resend**) |
+| Order row `status_error: …missing a Gelato UID…` | A sold SKU has no UID in the admin panel | Admin → Store → Gelato Product UIDs → fill + Save; re-send the webhook from Stripe dashboard (endpoint → the event → **Resend**) |
 | `Gelato API HTTP 401` | Wrong/expired `GELATO_API_KEY` | New key (1.1), redeploy, resend webhook |
-| `Gelato API HTTP 400` mentioning productUid | A UID in `store_catalog.py` is wrong | Re-check step 1.2, resend webhook |
+| `Gelato API HTTP 400` mentioning productUid | A UID in the admin panel has a typo | Fix in Admin → Store (no deploy), resend webhook |
 | `Gelato API HTTP 400` mentioning files/url | Print file missing in S3 or wrong key name | Re-check step 1.3 file names exactly |
 | Payment in Stripe but **no row at all** in admin orders | Webhook never fired or bad signature | Step 2.2; check the endpoint's delivery log in Stripe; CloudWatch log group of the `ows-api` Lambda |
 | Checkout button errors immediately | `STRIPE_SECRET_KEY` empty/wrong mode | Step 2.1, redeploy |

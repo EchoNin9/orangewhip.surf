@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { apiGet, apiPost, ApiError } from '../../utils/api';
+import { apiGet, apiPost, apiPut, ApiError } from '../../utils/api';
 import { useAuth, hasRole } from '../../shell/AuthContext';
 import type { Order } from './types';
 import { CATALOG } from './catalog';
@@ -119,6 +119,95 @@ function PrintArtworkSection() {
   );
 }
 
+interface StoreConfigSku {
+  product_id: string;
+  variant_id: string;
+  title: string;
+  gelato_uid: string;
+}
+
+/* Per-SKU Gelato product UIDs, saved on the STORE#CONFIG item. Orders can't
+   reach Gelato until every sold SKU has one. */
+function GelatoUidsSection() {
+  const [skus, setSkus] = useState<StoreConfigSku[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setSkus(await apiGet<StoreConfigSku[]>('/store-config'));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load Gelato UIDs.');
+      }
+    })();
+  }, []);
+
+  const setUid = (index: number, value: string) => {
+    setSkus((prev) => prev.map((s, i) => (i === index ? { ...s, gelato_uid: value } : s)));
+    setDirty(true);
+    setSaved(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const gelato_uids: Record<string, string> = {};
+      for (const s of skus) {
+        gelato_uids[`${s.product_id}/${s.variant_id}`] = s.gelato_uid.trim();
+      }
+      await apiPut('/store-config', { gelato_uids });
+      setDirty(false);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="card p-5 mb-8">
+      <h2 className="text-lg font-display font-bold text-secondary-100 mb-1">
+        Gelato Product UIDs
+      </h2>
+      <p className="text-sm text-secondary-400 mb-4">
+        The Gelato variant UID for each SKU (from your Gelato template — see
+        docs/store-setup.md). Orders fail until every SKU sold has one.
+      </p>
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+          {error}
+        </div>
+      )}
+      <ul className="divide-y divide-secondary-700/30">
+        {skus.map((s, i) => (
+          <li key={`${s.product_id}/${s.variant_id}`} className="flex flex-col sm:flex-row sm:items-center gap-2 py-3">
+            <p className="text-sm text-secondary-100 sm:w-64 shrink-0 truncate">{s.title}</p>
+            <input
+              type="text"
+              value={s.gelato_uid}
+              onChange={(e) => setUid(i, e.target.value)}
+              placeholder="apparel_product_gca_t-shirt_…"
+              spellCheck={false}
+              className="flex-1 bg-secondary-800 border border-secondary-700 rounded-lg px-3 py-1.5 text-xs font-mono text-secondary-200 focus:outline-none focus:border-primary-500"
+            />
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex items-center gap-3">
+        <button className="btn-primary text-sm px-4 py-2" disabled={saving || !dirty} onClick={() => void save()}>
+          {saving ? 'Saving…' : 'Save UIDs'}
+        </button>
+        {saved && <span className="text-xs text-emerald-400">✓ saved</span>}
+      </div>
+    </section>
+  );
+}
+
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleString('en-US', {
@@ -202,6 +291,8 @@ export default function AdminOrdersPage() {
       >
         Store
       </motion.h1>
+
+      <GelatoUidsSection />
 
       <PrintArtworkSection />
 

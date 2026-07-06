@@ -319,6 +319,73 @@ class TestPrintFiles:
         assert "Unknown" in body["error"]
 
 
+class TestStoreConfig:
+    def test_unauthenticated_unauthorized(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event("GET", "/store-config")
+        status, _ = _parse_response(handler(event, None))
+        assert status == 401
+
+    def test_non_admin_forbidden(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event("PUT", "/store-config", auth=True, groups=["editor"],
+                            body={"gelato_uids": {}})
+        status, _ = _parse_response(handler(event, None))
+        assert status == 403
+
+    def test_get_lists_every_sku_with_saved_uids(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {
+            "Item": {"gelato_uids": {"tee-classic/m": "uid-m"}}
+        }
+        event = _make_event("GET", "/store-config", auth=True, groups=["admin"])
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert len(body) == 7  # every SKU in store_catalog
+        by_sku = {f"{r['product_id']}/{r['variant_id']}": r for r in body}
+        assert by_sku["tee-classic/m"]["gelato_uid"] == "uid-m"
+        assert by_sku["tee-classic/s"]["gelato_uid"] == ""
+        assert by_sku["sticker-pack/default"]["title"] == "Sticker Pack — Pack of 3"
+
+    def test_put_saves_trimmed_map_and_drops_empties(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event(
+            "PUT", "/store-config", auth=True, groups=["admin"],
+            body={"gelato_uids": {
+                "tee-classic/m": "  uid-m  ",
+                "tee-classic/s": "",
+                "poster-tour/a2": "uid-a2",
+            }},
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["gelato_uids"] == {"tee-classic/m": "uid-m", "poster-tour/a2": "uid-a2"}
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        assert item["PK"] == item["SK"] == "STORE#CONFIG"
+        assert item["gelato_uids"] == {"tee-classic/m": "uid-m", "poster-tour/a2": "uid-a2"}
+
+    def test_put_unknown_sku_rejected(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+        event = _make_event(
+            "PUT", "/store-config", auth=True, groups=["admin"],
+            body={"gelato_uids": {"ghost-product/m": "uid"}},
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 400
+        assert "Unknown SKU" in body["error"]
+        mock_table.put_item.assert_not_called()
+
+    def test_put_non_object_rejected(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event(
+            "PUT", "/store-config", auth=True, groups=["admin"],
+            body={"gelato_uids": "not-a-dict"},
+        )
+        status, _ = _parse_response(handler(event, None))
+        assert status == 400
+
+
 class TestOrders:
     def test_non_admin_forbidden(self, _patch_boto3):
         handler = _patch_boto3
