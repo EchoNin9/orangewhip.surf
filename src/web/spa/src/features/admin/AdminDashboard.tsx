@@ -92,8 +92,8 @@ const modules: ModuleCard[] = [
     visible: (u) => canAdminister(u),
   },
   {
-    title: "Store Orders",
-    description: "View online store orders and Gelato fulfillment status.",
+    title: "Store",
+    description: "Online store orders, fulfillment status, and print artwork.",
     icon: ShoppingBagIcon,
     to: "/admin/store/orders",
     visible: (u) => hasRole(u, "admin"),

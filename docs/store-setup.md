@@ -86,36 +86,22 @@ We need one UID per SKU we sell — **7 total**:
 > Why both files? The browser one is display-only; the Lambda one is the one
 > that's actually trusted for prices and Gelato UIDs. They must always match.
 
-### 1.3 Upload the print artwork to S3
+### 1.3 Upload the print artwork (in the site admin — no AWS needed)
 
 When an order comes in, our Lambda hands Gelato a link to the artwork file.
-That file lives in our media bucket, at these **exact** names (they're
-hardcoded in `store_catalog.py`):
+Upload the three files on the site itself:
 
-| File in S3 | Used for |
-|---|---|
-| `store-print/tee-classic.png` | Front print of the tee (all sizes) |
-| `store-print/poster-tour.png` | The poster (both sizes) |
-| `store-print/sticker-pack.png` | The sticker sheet |
+1. Sign in and go to **Admin → Store** (`/admin/store/orders`).
+2. The **Print Artwork** panel lists the three products, each marked
+   `missing` or `✓ uploaded`. Click **Upload** next to each and pick the
+   PNG. That's it — replacing a file later is the same button.
 
 Requirements: **PNG, 300 DPI, sized for the print area**. The Gelato template
 editor from step 1.2 shows the required pixel dimensions for each product —
 export your art at that size (transparent background for the tee).
 
-Upload (either way works):
-
-- **Console:** AWS Console → S3 → the `ows-media-…` bucket → **Create
-  folder** `store-print` → **Upload** the three PNGs into it.
-- **Terminal:**
-
-  ```bash
-  aws s3 cp tee-classic.png  s3://ows-media-452644920012/store-print/tee-classic.png
-  aws s3 cp poster-tour.png  s3://ows-media-452644920012/store-print/poster-tour.png
-  aws s3 cp sticker-pack.png s3://ows-media-452644920012/store-print/sticker-pack.png
-  ```
-
-The bucket stays private — the Lambda creates a temporary (presigned) link
-for Gelato at order time.
+The files land in our private media bucket; the Lambda creates a temporary
+(presigned) link for Gelato at order time.
 
 ### 1.4 Check the prices make sense
 
@@ -179,19 +165,16 @@ arrives but nothing gets printed.
 ## Part 3 — Storefront photos (what shoppers see)
 
 The store grid needs a nice photo per product (this is *not* the print
-file — it's the marketing shot; Gelato's template mockups work fine here).
+file — it's the marketing shot). **Easiest: don't make any.** Gelato
+generates product mockups for every template, and those are plain image
+URLs — when you send Claude the template JSON in step 1.2, the mockup URLs
+are in it (`previewUrl`), and Claude wires them into the catalog in the same
+PR as the UIDs. Zero uploads.
 
-Drop them into the repo at exactly:
-
-```
-src/web/spa/public/store-img/tee-classic/hero.jpg
-src/web/spa/public/store-img/poster-tour/hero.jpg
-src/web/spa/public/store-img/sticker-pack/hero.jpg
-```
-
-(JPG, roughly square, ~1200px is plenty.) Hand the files to Claude or copy
-them in yourself and commit — they ship with the site build automatically.
-Until they exist, the store shows a placeholder tile instead of a photo.
+Prefer your own photography? Drop files into the repo at
+`src/web/spa/public/store-img/<product>/hero.jpg` (JPG, roughly square,
+~1200px) and they win over the mockups. Until either exists, the store shows
+a plain dark tile instead of a photo.
 
 ---
 

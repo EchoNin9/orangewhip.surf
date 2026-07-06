@@ -2665,6 +2665,63 @@ def handle_orders(event, method, parts):  # noqa: ARG001
     return ok(items)
 
 
+def handle_store_print_files(event, method, parts):  # noqa: ARG001
+    """GET/POST /store-print-files — admin management of Gelato print artwork.
+
+    GET  -> upload status per product (does the S3 object exist, when).
+    POST -> presigned PUT URL for the product's canonical ``print_file_key``.
+
+    S3 keys come exclusively from ``store_catalog`` — the client only names a
+    ``product_id``, never a key, so admins can't presign arbitrary paths.
+    """
+    _user, err = require_role(event, "admin")
+    if err:
+        return err
+
+    from api import store_catalog  # noqa: PLC0415
+
+    # product_id -> print_file_key (variants of a product share one file).
+    print_files: dict[str, str] = {}
+    for (product_id, _variant_id), entry in store_catalog.CATALOG.items():
+        key = entry.get("print_file_key")
+        if key:
+            print_files[product_id] = key
+
+    if method == "GET":
+        out = []
+        for product_id, key in sorted(print_files.items()):
+            uploaded = False
+            last_modified = None
+            try:
+                head = s3.head_object(Bucket=MEDIA_BUCKET, Key=key)
+                uploaded = True
+                lm = head.get("LastModified")
+                last_modified = lm.isoformat() if lm else None
+            except ClientError:
+                pass  # 404 = not uploaded yet
+            out.append({
+                "product_id": product_id,
+                "s3_key": key,
+                "uploaded": uploaded,
+                "last_modified": last_modified,
+            })
+        return ok(out)
+
+    if method == "POST":
+        data = _body(event)
+        key = print_files.get(data.get("product_id", ""))
+        if not key:
+            return error("Unknown product", 400)
+        presigned = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": key},
+            ExpiresIn=3600,
+        )
+        return ok({"uploadUrl": presigned, "s3Key": key})
+
+    return error("Method not allowed", 405)
+
+
 def handler(event, context):
     """Lambda entry point — routes HTTP API Gateway v2 events."""
     logger.info("Event: %s", json.dumps(event, default=str))
@@ -2714,6 +2771,8 @@ def handler(event, context):
             return handle_stripe_webhook(event, method, parts)
         if root == "orders":
             return handle_orders(event, method, parts)
+        if root == "store-print-files":
+            return handle_store_print_files(event, method, parts)
 
         # Authenticated routes
         if root == "me":
