@@ -24,7 +24,8 @@ export interface Product {
   currency: string;
   variants: ProductVariant[];
   gelato_product_uid: string;
-  /** S3 key (or path) for the hero/lifestyle shot in our own bucket. */
+  /** Site-relative path to the hero/lifestyle shot, served from
+   *  src/web/spa/public/ (ships with the SPA build). */
   hero_image: string;
   /** Optional homepage tag pill, e.g. "New" / "Vinyl" / "Limited" (display only). */
   tag?: string;
@@ -43,7 +44,7 @@ export const CATALOG: Product[] = [
     price_cents: 2800,
     currency: 'usd',
     gelato_product_uid: 'PLACEHOLDER_TSHIRT_UID',
-    hero_image: 'store/tee-classic/hero.jpg',
+    hero_image: '/store-img/tee-classic/hero.jpg',
     tag: 'New',
     variants: [
       { id: 's',  label: 'S',  gelato_variant_uid: 'PLACEHOLDER_TSHIRT_S' },
@@ -60,7 +61,7 @@ export const CATALOG: Product[] = [
     price_cents: 2000,
     currency: 'usd',
     gelato_product_uid: 'PLACEHOLDER_POSTER_UID',
-    hero_image: 'store/poster-tour/hero.jpg',
+    hero_image: '/store-img/poster-tour/hero.jpg',
     variants: [
       { id: 'a3', label: 'A3', gelato_variant_uid: 'PLACEHOLDER_POSTER_A3' },
       { id: 'a2', label: 'A2', gelato_variant_uid: 'PLACEHOLDER_POSTER_A2' },
@@ -74,7 +75,7 @@ export const CATALOG: Product[] = [
     price_cents: 600,
     currency: 'usd',
     gelato_product_uid: 'PLACEHOLDER_STICKER_UID',
-    hero_image: 'store/sticker-pack/hero.jpg',
+    hero_image: '/store-img/sticker-pack/hero.jpg',
     variants: [
       { id: 'default', label: 'Pack of 3', gelato_variant_uid: 'PLACEHOLDER_STICKER_DEFAULT' },
     ],

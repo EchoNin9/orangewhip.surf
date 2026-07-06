@@ -2305,6 +2305,10 @@ STRIPE_CHECKOUT_ALLOWED_COUNTRIES = [
     "DK", "FI", "IE", "IT", "ES", "BE", "AT", "PT", "CH", "JP",
 ]
 
+# ponytail: one flat worldwide rate; per-country/weight rates only if margins
+# demand it. Keep in sync with the shipping note in docs/store-setup.md.
+STORE_FLAT_SHIPPING_CENTS = 599
+
 
 def _checkout_origin(event: dict) -> str:
     """Return the origin to use for Stripe success/cancel URLs.
@@ -2402,6 +2406,16 @@ def handle_checkout(event, method, parts):  # noqa: ARG001
             shipping_address_collection={
                 "allowed_countries": STRIPE_CHECKOUT_ALLOWED_COUNTRIES,
             },
+            shipping_options=[{
+                "shipping_rate_data": {
+                    "type": "fixed_amount",
+                    "fixed_amount": {
+                        "amount": STORE_FLAT_SHIPPING_CENTS,
+                        "currency": currency,
+                    },
+                    "display_name": "Standard shipping",
+                },
+            }],
             automatic_tax={"enabled": False},
             success_url=f"{origin}/store/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{origin}/store/cancel",
@@ -2543,16 +2557,27 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
         "country": _get(shipping_address, "country", "") or "",
     }
 
-    # Map cart items -> Gelato line items.
+    # Map cart items -> Gelato line items via the server catalog. The cart
+    # metadata only carries (product_id, variant_id); Gelato UIDs and print
+    # files are NEVER taken from the client. Any unmappable SKU fails the
+    # whole order — a partial merch shipment is worse than a failed row an
+    # admin can retry by hand.
+    from api import store_catalog  # noqa: PLC0415
+
     gelato_line_items = []
+    unmapped_skus = []
     for item in cart_items:
-        variant_uid = item.get("gelato_variant_uid") or item.get("variant_id")
+        product_id = item.get("product_id") or ""
+        variant_id = item.get("variant_id") or ""
         qty = item.get("qty") or item.get("quantity") or 1
-        if not variant_uid:
+        entry = store_catalog.get_canonical_price(product_id, variant_id)
+        if not entry or not entry.get("gelato_product_uid"):
+            unmapped_skus.append(f"{product_id}/{variant_id}")
             continue
         gelato_line_items.append({
-            "gelato_variant_uid": variant_uid,
+            "gelato_variant_uid": entry["gelato_product_uid"],
             "qty": int(qty),
+            "print_file_url": _presign_get(entry.get("print_file_key", "")),
         })
 
     total_cents = _get(session, "amount_total", 0) or 0
@@ -2564,25 +2589,33 @@ def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
     gelato_order_id = None
     status_value = "submitted"
     status_error = None
-    try:
-        result = gelato_client.create_order(
-            reference_id=session_id,
-            customer_email=email,
-            shipping=shipping,
-            line_items=gelato_line_items,
-        )
-        gelato_order_id = result.get("gelato_order_id")
-        logger.info(
-            "Gelato order created for session=%s gelato_order_id=%s",
-            session_id, gelato_order_id,
-        )
-    except Exception as exc:
-        logger.exception(
-            "Gelato order creation FAILED for session=%s — writing failed row",
-            session_id,
+    if unmapped_skus:
+        logger.error(
+            "Stripe webhook for %s has unmappable SKUs %s — NOT submitting to Gelato",
+            session_id, unmapped_skus,
         )
         status_value = "failed"
-        status_error = str(exc)
+        status_error = f"Unknown SKU(s), not in store_catalog: {', '.join(unmapped_skus)}"
+    if status_value != "failed":
+        try:
+            result = gelato_client.create_order(
+                reference_id=session_id,
+                customer_email=email,
+                shipping=shipping,
+                line_items=gelato_line_items,
+            )
+            gelato_order_id = result.get("gelato_order_id")
+            logger.info(
+                "Gelato order created for session=%s gelato_order_id=%s",
+                session_id, gelato_order_id,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Gelato order creation FAILED for session=%s — writing failed row",
+                session_id,
+            )
+            status_value = "failed"
+            status_error = str(exc)
 
     # Persist the order row regardless of Gelato outcome.
     # `entitySk` is required for the `byEntity` GSI (HASH=entityType, RANGE=entitySk):
