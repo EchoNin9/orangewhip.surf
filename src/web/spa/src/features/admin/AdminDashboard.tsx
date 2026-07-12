@@ -10,6 +10,7 @@ import {
   UsersIcon,
   KeyIcon,
   PaintBrushIcon,
+  ShoppingBagIcon,
 } from "@heroicons/react/24/outline";
 import {
   useAuth,
@@ -89,6 +90,13 @@ const modules: ModuleCard[] = [
     icon: KeyIcon,
     to: "/admin/api-keys",
     visible: (u) => canAdminister(u),
+  },
+  {
+    title: "Store",
+    description: "Online store orders, fulfillment status, and print artwork.",
+    icon: ShoppingBagIcon,
+    to: "/admin/store/orders",
+    visible: (u) => hasRole(u, "admin"),
   },
   {
     title: "Branding",

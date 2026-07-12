@@ -1,54 +1,46 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { apiGet } from "../utils/api";
+import { socialLinks } from "./Header";
 
+/* OW redesign footer (OW-12, docs/ow-redesign-2 §9) */
 export function Footer() {
-  const year = new Date().getFullYear();
+  const [bookingEmail, setBookingEmail] = useState("hello@orangewhip.surf");
+
+  /* Same admin-editable setting as the About Booking button (OW-20) */
+  useEffect(() => {
+    apiGet<{ bookingEmail?: string }>("/branding")
+      .then((b) => b.bookingEmail && setBookingEmail(b.bookingEmail))
+      .catch(() => {});
+  }, []);
 
   return (
-    <footer className="bg-secondary-900">
-      {/* Gradient separator */}
-      <div className="h-px bg-gradient-to-r from-transparent via-secondary-700 to-transparent" />
-
-      <div className="container-max py-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Brand */}
-          <div>
-            <Link to="/" className="text-xl font-display font-bold text-gradient">
-              Orange Whip
-            </Link>
-            <p className="mt-2 text-sm text-secondary-400">
-              Industrial Surf Rock
-            </p>
-          </div>
-
-          {/* Quick links */}
-          <div>
-            <h3 className="text-sm font-semibold text-secondary-200 uppercase tracking-wider mb-3">Navigate</h3>
-            <ul className="space-y-2 text-sm text-secondary-400">
-              <li><Link to="/shows" className="hover:text-primary-400 transition-colors duration-200">Shows</Link></li>
-              <li><Link to="/updates" className="hover:text-primary-400 transition-colors duration-200">Updates</Link></li>
-              <li><Link to="/press" className="hover:text-primary-400 transition-colors duration-200">Press</Link></li>
-              <li><Link to="/media" className="hover:text-primary-400 transition-colors duration-200">Media</Link></li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h3 className="text-sm font-semibold text-secondary-200 uppercase tracking-wider mb-3">Contact</h3>
-            <a
-              href="mailto:band@orangewhip.surf"
-              className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200"
-            >
-              band@orangewhip.surf
-            </a>
-          </div>
+    <footer className="border-t border-ow-hairline bg-ow-bg font-grotesk">
+      <div className="mx-auto w-full max-w-[1240px] px-7 pb-8 pt-[34px]">
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
+          <Link to="/" className="font-cooper text-[32px] font-semibold italic leading-none text-ow-accent">
+            Orange Whip
+          </Link>
+          <nav aria-label="Social links" className="flex flex-wrap gap-x-6 gap-y-2">
+            {socialLinks.map(({ name, href }) => (
+              <a
+                key={name}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-semibold uppercase text-ow-dim transition-colors hover:text-ow-accent"
+              >
+                {name}
+              </a>
+            ))}
+          </nav>
         </div>
-
-        <div className="mt-8 pt-6">
-          <div className="h-px bg-gradient-to-r from-transparent via-secondary-800 to-transparent mb-6" />
-          <p className="text-center text-xs text-secondary-500">
-            &copy; {year} Orange Whip. All rights reserved.
-          </p>
-        </div>
+        <p className="mt-6 text-[13px] text-ow-dimmer">
+          © {new Date().getFullYear()} Orange Whip · Vancouver, BC · Booking:{" "}
+          <a href={`mailto:${bookingEmail}`} className="hover:text-ow-accent">
+            {bookingEmail}
+          </a>
+        </p>
       </div>
     </footer>
   );

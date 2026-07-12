@@ -474,3 +474,252 @@ class TestBranding:
         assert "heroImageUrl" in body
         assert body["heroImageUrl"]  # presigned URL should be non-empty
         assert "heroImageS3Key" not in body  # not exposed to public
+
+    def test_branding_put_palette_and_grain(self, _patch_boto3):
+        """PUT /branding persists palette and showGrain (OW-13)."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"palette": "acid-surf", "showGrain": False},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["palette"] == "acid-surf"
+        assert body["showGrain"] is False
+
+    def test_branding_put_invalid_palette_falls_back(self, _patch_boto3):
+        """PUT /branding coerces an unknown palette to sunset."""
+        handler = _patch_boto3
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"palette": "hotdog-stand"},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["palette"] == "sunset"
+
+
+class TestSubscribe:
+    def test_subscribe_valid_email_persists(self, _patch_boto3):
+        """POST /subscribe stores SUBSCRIBER#<email> (OW-12)."""
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+
+        event = _make_event("POST", "/subscribe", body={"email": " Fan@Example.COM "})
+        status, body = _parse_response(handler(event, None))
+        assert status == 201
+        assert body["subscribed"] is True
+
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        assert item["PK"] == "SUBSCRIBER#fan@example.com"
+        assert item["email"] == "fan@example.com"
+        assert item["entityType"] == "SUBSCRIBER"
+
+    @pytest.mark.parametrize("bad", ["", "not-an-email", "a@b", "a @b.com", "x" * 300 + "@b.com"])
+    def test_subscribe_invalid_email_400(self, _patch_boto3, bad):
+        """Invalid emails are rejected server-side and never persisted."""
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+
+        event = _make_event("POST", "/subscribe", body={"email": bad})
+        status, _body = _parse_response(handler(event, None))
+        assert status == 400
+        mock_table.put_item.assert_not_called()
+
+    def test_subscribe_get_not_allowed(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event("GET", "/subscribe")
+        status, _body = _parse_response(handler(event, None))
+        assert status == 405
+
+
+class TestAlbum:
+    def test_album_get_empty_defaults(self, _patch_boto3):
+        """GET /album with nothing stored returns empty shape (OW-15)."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/album")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["title"] == ""
+        assert body["tracks"] == []
+        assert body["coverUrl"] == ""
+
+    def test_album_get_returns_saved_shape(self, _patch_boto3):
+        """GET /album returns stored fields."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {
+            "Item": {
+                "PK": "ALBUM", "SK": "FEATURED",
+                "title": "Crème De La Mer",
+                "yearLabel": "2026 · Self-released",
+                "coverMediaId": "",
+                "tracks": [{"title": "Sundowner", "duration": "3:24", "mediaId": "abc"}],
+            }
+        }
+
+        event = _make_event("GET", "/album")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["title"] == "Crème De La Mer"
+        assert body["tracks"][0]["mediaId"] == "abc"
+
+    def test_album_put_guest_401(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+        event = _make_event("PUT", "/album", body={"title": "X"})
+        status, _body = _parse_response(handler(event, None))
+        assert status == 401
+        mock_table.put_item.assert_not_called()
+
+    def test_album_put_band_persists_and_cleans_tracks(self, _patch_boto3):
+        """PUT /album as band saves; blank-title tracks are dropped."""
+        handler = _patch_boto3
+        mock_table.put_item.reset_mock()
+
+        event = _make_event(
+            "PUT", "/album",
+            body={
+                "title": " Crème De La Mer ",
+                "yearLabel": "2026 · Self-released",
+                "coverMediaId": "cover-1",
+                "tracks": [
+                    {"title": "Sundowner", "duration": "3:24", "mediaId": "m-1"},
+                    {"title": "   ", "duration": "9:99"},
+                    {"title": "Riptide Radio", "duration": "2:58"},
+                ],
+            },
+            auth=True, groups=["band"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["title"] == "Crème De La Mer"
+        assert [t["title"] for t in body["tracks"]] == ["Sundowner", "Riptide Radio"]
+        assert body["tracks"][0]["mediaId"] == "m-1"
+        assert body["tracks"][1]["mediaId"] == ""
+
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        assert item["PK"] == "ALBUM"
+        assert item["SK"] == "FEATURED"
+        assert item["coverMediaId"] == "cover-1"
+
+    def test_album_put_bad_tracks_400(self, _patch_boto3):
+        handler = _patch_boto3
+        event = _make_event(
+            "PUT", "/album", body={"tracks": "nope"}, auth=True, groups=["band"],
+        )
+        status, _body = _parse_response(handler(event, None))
+        assert status == 400
+
+
+class TestMarquee:
+    def test_branding_put_marquee_items_cleaned(self, _patch_boto3):
+        """PUT /branding cleans marqueeItems: trims, drops empties, stringifies (OW-16)."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"marqueeItems": ["  New album out  ", "", 123]},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["marqueeItems"] == ["New album out", "123"]
+
+    def test_branding_get_includes_default_marquee(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert len(body["marqueeItems"]) == 3
+
+
+class TestAboutSettings:
+    def test_branding_put_about_and_booking_persist(self, _patch_boto3):
+        """PUT /branding persists about paragraphs and booking email (OW-20)."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={
+                "aboutText1": "  Para one.  ",
+                "aboutText2": "Para two.",
+                "bookingEmail": " Bookings@OrangeWhip.surf ",
+            },
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["aboutText1"] == "Para one."
+        assert body["aboutText2"] == "Para two."
+        assert body["bookingEmail"] == "bookings@orangewhip.surf"
+
+    def test_branding_put_invalid_booking_email_falls_back(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event(
+            "PUT", "/branding",
+            body={"bookingEmail": "not-an-email"},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["bookingEmail"] == "hello@orangewhip.surf"
+
+    def test_branding_get_includes_about_defaults(self, _patch_boto3):
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {}
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["aboutText1"].startswith("Orange Whip started")
+        assert body["bookingEmail"] == "hello@orangewhip.surf"
+
+    def test_about_image_upload_returns_presigned_url(self, _patch_boto3):
+        """POST /branding/about-image/upload returns a presigned URL under branding/about/ (OW-22)."""
+        handler = _patch_boto3
+
+        event = _make_event(
+            "POST", "/branding/about-image/upload",
+            body={"filename": "portrait.jpg"},
+            auth=True, groups=["admin"],
+        )
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["uploadUrl"]
+        assert body["s3Key"].startswith("branding/about/")
+        assert body["s3Key"].endswith(".jpg")
+
+    def test_branding_get_resolves_about_image_url(self, _patch_boto3):
+        """GET /branding presigns aboutImageS3Key and never exposes the key."""
+        handler = _patch_boto3
+        mock_table.get_item.side_effect = None
+        mock_table.get_item.return_value = {
+            "Item": {"PK": "BRANDING", "SK": "HERO", "aboutImageS3Key": "branding/about/x.jpg"}
+        }
+
+        event = _make_event("GET", "/branding")
+        status, body = _parse_response(handler(event, None))
+        assert status == 200
+        assert body["aboutImageUrl"]
+        assert "aboutImageS3Key" not in body

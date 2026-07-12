@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { apiGet } from "../../utils/api";
+import { parseDate } from "../../utils/date";
 import { EmptyState } from "../../shell/EmptyState";
 import { OptimizedImg } from "../../utils/OptimizedImg";
 
@@ -32,7 +33,7 @@ export interface Show {
 /* ------------------------------------------------------------------ */
 
 function toDateStr(iso: string): string {
-  const d = new Date(iso);
+  const d = parseDate(iso);
   return d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -42,7 +43,7 @@ function toDateStr(iso: string): string {
 }
 
 function isToday(iso: string): boolean {
-  const d = new Date(iso);
+  const d = parseDate(iso);
   const now = new Date();
   return (
     d.getFullYear() === now.getFullYear() &&
@@ -52,7 +53,7 @@ function isToday(iso: string): boolean {
 }
 
 function isFuture(iso: string): boolean {
-  const d = new Date(iso);
+  const d = parseDate(iso);
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   d.setHours(0, 0, 0, 0);
@@ -218,8 +219,8 @@ export default function ShowsPage() {
       if (isFuture(s.date)) up.push(s);
       else pa.push(s);
     }
-    up.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    pa.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    up.sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
+    pa.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
     return { upcoming: up, past: pa };
   }, [shows]);
 

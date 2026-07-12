@@ -3,9 +3,11 @@ OWS API Lambda Handler
 Main router for all orangewhip.surf API routes.
 """
 
+import base64
 import json
 import logging
 import os
+import re
 import uuid
 import time
 import urllib.request
@@ -1944,16 +1946,33 @@ BRANDING_SK = "HERO"
 DEFAULT_HERO = {
     "heroTitle": "Orange Whip",
     "heroTagline": "Industrial Surf",
-    "heroButton1Text": "Upcoming Shows",
-    "heroButton1Href": "/shows",
-    "heroButton2Text": "Listen Now",
-    "heroButton2Href": "/media",
+    "heroButton1Text": "Listen Now",
+    "heroButton1Href": "#media",
+    "heroButton2Text": "Shop Merch",
+    "heroButton2Href": "#merch",
     "heroImageOpacity": 25,
     "heroButton1Bg": "",
     "heroButton1TextColor": "",
     "heroButton2Bg": "",
     "heroButton2TextColor": "",
+    "palette": "sunset",
+    "showGrain": True,
+    "marqueeItems": [
+        'New single "Sundowner" out now',
+        "Summer tour on sale",
+        "Merch restocked",
+    ],
+    "aboutText1": (
+        "Orange Whip started in a damp East Van practice space chasing one thing: "
+        "the sound of the last good wave before the fog rolls in. Equal parts surf "
+        "twang, fuzz-pedal psych, and late-night garage swagger."
+    ),
+    "aboutText2": "Four records, a hundred sweaty rooms, and zero plans to slow down. Bring earplugs.",
+    "bookingEmail": "hello@orangewhip.surf",
 }
+
+VALID_PALETTES = ("sunset", "acid-surf", "magenta-haze")
+MAX_MARQUEE_ITEMS = 10
 
 
 def _get_branding() -> dict:
@@ -1965,35 +1984,43 @@ def _get_branding() -> dict:
     for k in DEFAULT_HERO:
         if k in item:
             out[k] = item[k]
-    # heroImageS3Key is stored in DB but not in DEFAULT_HERO; copy it for presigning
-    if "heroImageS3Key" in item:
-        out["heroImageS3Key"] = item["heroImageS3Key"]
+    # S3 keys are stored in DB but not in DEFAULT_HERO; copy them for presigning
+    for k in ("heroImageS3Key", "aboutImageS3Key"):
+        if k in item:
+            out[k] = item[k]
     return out
 
 
+def _presign_branding(cfg: dict) -> dict:
+    """Resolve stored S3 keys to presigned URLs; never expose the keys."""
+    for key_field, url_field in (
+        ("heroImageS3Key", "heroImageUrl"),
+        ("aboutImageS3Key", "aboutImageUrl"),
+    ):
+        s3_key = cfg.get(key_field, "")
+        cfg[url_field] = _presign_get(s3_key) if s3_key else ""
+        cfg.pop(key_field, None)
+    return cfg
+
+
 def handle_branding(event, method, parts):
-    # GET /branding — public, returns hero config with presigned image URL
+    # GET /branding — public, returns hero config with presigned image URLs
     if method == "GET":
-        cfg = _get_branding()
-        s3_key = cfg.get("heroImageS3Key", "")
-        cfg["heroImageUrl"] = _presign_get(s3_key) if s3_key else ""
-        # Don't expose s3Key to public
-        if "heroImageS3Key" in cfg:
-            del cfg["heroImageS3Key"]
-        return ok(cfg, cache=300)
+        return ok(_presign_branding(_get_branding()), cache=300)
 
     # Admin-only routes
     user, err = require_role(event, "admin")
     if err:
         return err
 
-    # POST /branding/hero-image-upload — presigned URL for hero image
-    if method == "POST" and len(parts) >= 3 and parts[1] == "hero-image" and parts[2] == "upload":
+    # POST /branding/{hero-image|about-image}/upload — presigned upload URL
+    if method == "POST" and len(parts) >= 3 and parts[1] in ("hero-image", "about-image") and parts[2] == "upload":
         data = _body(event)
         filename = data.get("filename", "hero.jpg")
         ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
         file_uuid = str(uuid.uuid4())
-        s3_key = f"branding/hero/{file_uuid}.{ext}"
+        prefix = "hero" if parts[1] == "hero-image" else "about"
+        s3_key = f"branding/{prefix}/{file_uuid}.{ext}"
 
         presigned = s3.generate_presigned_url(
             "put_object",
@@ -2032,9 +2059,11 @@ def handle_branding(event, method, parts):
             "heroTitle", "heroTagline",
             "heroButton1Text", "heroButton1Href",
             "heroButton2Text", "heroButton2Href",
-            "heroImageOpacity", "heroImageS3Key",
+            "heroImageOpacity", "heroImageS3Key", "aboutImageS3Key",
             "heroButton1Bg", "heroButton1TextColor",
             "heroButton2Bg", "heroButton2TextColor",
+            "palette", "showGrain", "marqueeItems",
+            "aboutText1", "aboutText2", "bookingEmail",
         ]:
             if field in data:
                 item[field] = data[field]
@@ -2043,14 +2072,130 @@ def handle_branding(event, method, parts):
         opacity = item.get("heroImageOpacity", 25)
         item["heroImageOpacity"] = max(0, min(100, int(opacity) if opacity is not None else 25))
 
+        # Validate palette / grain (OW-13)
+        if item.get("palette") not in VALID_PALETTES:
+            item["palette"] = "sunset"
+        item["showGrain"] = bool(item.get("showGrain", True))
+
+        # Validate marquee items (OW-16): list of non-empty strings
+        raw_marquee = item.get("marqueeItems", DEFAULT_HERO["marqueeItems"])
+        if not isinstance(raw_marquee, list):
+            raw_marquee = []
+        item["marqueeItems"] = [
+            str(m).strip()[:200] for m in raw_marquee[:MAX_MARQUEE_ITEMS] if str(m).strip()
+        ]
+
+        # Validate about copy / booking email (OW-20); blanks/invalid fall back to defaults
+        for f in ("aboutText1", "aboutText2"):
+            item[f] = str(item.get(f, DEFAULT_HERO[f])).strip()[:2000] or DEFAULT_HERO[f]
+        booking = str(item.get("bookingEmail", "")).strip().lower()
+        if len(booking) > 254 or not EMAIL_RE.match(booking):
+            booking = DEFAULT_HERO["bookingEmail"]
+        item["bookingEmail"] = booking
+
         table.put_item(Item=item)
-        out = dict(item)
-        out["heroImageUrl"] = _presign_get(item.get("heroImageS3Key", ""))
-        if "heroImageS3Key" in out:
-            del out["heroImageS3Key"]
-        return ok(out)
+        return ok(_presign_branding(dict(item)))
 
     return error("Method not allowed", 405)
+
+
+# ---------------------------------------------------------------------------
+# Route: Featured album (OW-15)
+# ---------------------------------------------------------------------------
+
+ALBUM_PK = "ALBUM"
+ALBUM_SK = "FEATURED"
+MAX_TRACKS = 30
+
+
+def handle_album(event, method, parts):  # noqa: ARG001
+    """GET /album (public) / PUT /album (band+) — the single featured album."""
+    if method == "GET":
+        item = _get_item(ALBUM_PK, ALBUM_SK) or {}
+        out = {
+            "title": item.get("title", ""),
+            "yearLabel": item.get("yearLabel", ""),
+            "coverMediaId": item.get("coverMediaId", ""),
+            "tracks": item.get("tracks", []),
+        }
+        # Resolve cover art thumbnail from the referenced media item
+        cover = ""
+        if out["coverMediaId"]:
+            media = _get_item(f"MEDIA#{out['coverMediaId']}")
+            if media:
+                enriched = _enrich_media_item(media)
+                cover = enriched.get("thumbnail") or enriched.get("url") or ""
+        out["coverUrl"] = cover
+        return ok(out, cache=120)
+
+    if method == "PUT":
+        _user, err = require_role(event, "band")
+        if err:
+            return err
+
+        data = _body(event)
+        tracks = data.get("tracks", [])
+        if not isinstance(tracks, list):
+            return error("tracks must be a list", 400)
+        clean_tracks = []
+        for t in tracks[:MAX_TRACKS]:
+            if not isinstance(t, dict):
+                return error("Invalid track", 400)
+            title = str(t.get("title", "")).strip()[:200]
+            if not title:
+                continue
+            clean_tracks.append({
+                "title": title,
+                "duration": str(t.get("duration", "")).strip()[:10],
+                "mediaId": str(t.get("mediaId", "")).strip()[:64],
+            })
+
+        item = {
+            "PK": ALBUM_PK,
+            "SK": ALBUM_SK,
+            "title": str(data.get("title", "")).strip()[:200],
+            "yearLabel": str(data.get("yearLabel", "")).strip()[:200],
+            "coverMediaId": str(data.get("coverMediaId", "")).strip()[:64],
+            "tracks": clean_tracks,
+            "updatedAt": _now_iso(),
+        }
+        table.put_item(Item=item)
+        return ok({k: item[k] for k in ("title", "yearLabel", "coverMediaId", "tracks")})
+
+    return error("Method not allowed", 405)
+
+
+# ---------------------------------------------------------------------------
+# Route: Mailing list subscribe (OW-12)
+# ---------------------------------------------------------------------------
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def handle_subscribe(event, method, parts):  # noqa: ARG001
+    """POST /subscribe — public mailing-list signup.
+
+    Server-side email validation is the trust boundary; the client's
+    type="email" is a convenience only.
+    """
+    if method != "POST":
+        return error("Method not allowed", 405)
+
+    data = _body(event)
+    email = str(data.get("email", "")).strip().lower()
+    if len(email) > 254 or not EMAIL_RE.match(email):
+        return error("Invalid email", 400)
+
+    # ponytail: put_item is idempotent per email — resubscribing just refreshes the row
+    table.put_item(Item={
+        "PK": f"SUBSCRIBER#{email}",
+        "SK": "META",
+        "email": email,
+        "createdAt": _now_iso(),
+        "entityType": "SUBSCRIBER",
+        "entitySk": f"{_now_iso()}#{email}",
+    })
+    return ok({"subscribed": True}, 201)
 
 
 # ---------------------------------------------------------------------------
@@ -2118,11 +2263,7 @@ def handle_homepage(event, method, parts):
         return error("Method not allowed", 405)
 
     # Branding
-    cfg = _get_branding()
-    s3_key = cfg.get("heroImageS3Key", "")
-    cfg["heroImageUrl"] = _presign_get(s3_key) if s3_key else ""
-    if "heroImageS3Key" in cfg:
-        del cfg["heroImageS3Key"]
+    cfg = _presign_branding(_get_branding())
 
     # Pinned / latest update
     pinned_update = None
@@ -2153,6 +2294,505 @@ def handle_homepage(event, method, parts):
         "pinnedUpdate": pinned_update,
         "upcomingShows": upcoming,
     }, cache=120)
+
+
+# ---------------------------------------------------------------------------
+# Route: Store (Chunk 1 stubs — filled in by Chunks 3 & 4)
+# ---------------------------------------------------------------------------
+
+STRIPE_CHECKOUT_ALLOWED_COUNTRIES = [
+    "US", "CA", "GB", "AU", "NZ", "DE", "FR", "NL", "SE", "NO",
+    "DK", "FI", "IE", "IT", "ES", "BE", "AT", "PT", "CH", "JP",
+]
+
+# ponytail: one flat worldwide rate; per-country/weight rates only if margins
+# demand it. Keep in sync with the shipping note in docs/store-setup.md.
+STORE_FLAT_SHIPPING_CENTS = 599
+
+# Singleton config row: admin-set Gelato UIDs per SKU ("product/variant" -> uid).
+STORE_CONFIG_PK = "STORE#CONFIG"
+
+
+def _get_store_gelato_uids() -> dict:
+    """Return the admin-configured SKU -> Gelato UID map (may be empty)."""
+    item = _get_item(STORE_CONFIG_PK, STORE_CONFIG_PK) or {}
+    uids = item.get("gelato_uids")
+    return uids if isinstance(uids, dict) else {}
+
+
+def _checkout_origin(event: dict) -> str:
+    """Return the origin to use for Stripe success/cancel URLs.
+
+    Derived from the request's ``Origin`` header so that the same Lambda can
+    serve preview deploys and prod. Falls back to the production site if the
+    header is missing or empty.
+    """
+    origin = _get_header(event, "origin") or ""
+    origin = origin.strip().rstrip("/")
+    if not origin:
+        return "https://orangewhip.surf"
+    return origin
+
+
+def handle_checkout(event, method, parts):  # noqa: ARG001
+    """POST /checkout — create a Stripe Checkout Session.
+
+    SECURITY: client-supplied prices are ignored. All line item prices come
+    from the server-side ``store_catalog`` mirror; the client only sends
+    ``product_id``, ``variant_id``, and ``qty``.
+    """
+    if method != "POST":
+        return error("Method not allowed", 405)
+
+    body = _body(event)
+    items = body.get("items")
+    if not isinstance(items, list) or not items:
+        return error("Cart is empty", 400)
+
+    # Lazy import so handler module loads even if `stripe` isn't installed in
+    # local/test envs that don't exercise this route.
+    import stripe
+    from api import store_catalog
+
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+    if not stripe_key:
+        logger.error("handle_checkout: STRIPE_SECRET_KEY is not configured")
+        return error("Checkout is not configured", 500)
+    stripe.api_key = stripe_key
+
+    server_line_items: list[dict] = []
+    stripe_line_items: list[dict] = []
+    currency: str | None = None
+
+    for raw in items:
+        if not isinstance(raw, dict):
+            return error("Invalid cart item", 400)
+        product_id = raw.get("product_id")
+        variant_id = raw.get("variant_id")
+        qty_raw = raw.get("qty")
+        if not isinstance(product_id, str) or not isinstance(variant_id, str):
+            return error("Invalid cart item", 400)
+        # qty must be a positive int. Reject floats, bools (bools are ints in
+        # Python so explicitly disallow), and non-positive values.
+        if isinstance(qty_raw, bool) or not isinstance(qty_raw, int) or qty_raw < 1:
+            return error("Invalid quantity", 400)
+
+        canonical = store_catalog.get_canonical_price(product_id, variant_id)
+        if canonical is None:
+            logger.warning(
+                "handle_checkout: unknown SKU product_id=%s variant_id=%s",
+                product_id, variant_id,
+            )
+            return error("Unknown product or variant", 400)
+
+        if currency is None:
+            currency = canonical["currency"]
+        elif canonical["currency"] != currency:
+            # Stripe Checkout requires a single currency per session.
+            return error("Cart contains mixed currencies", 400)
+
+        server_line_items.append({
+            "product_id": product_id,
+            "variant_id": variant_id,
+            "qty": qty_raw,
+            "unit_price_cents": canonical["price_cents"],
+            "title": canonical["title"],
+        })
+        stripe_line_items.append({
+            "price_data": {
+                "currency": canonical["currency"],
+                "unit_amount": canonical["price_cents"],
+                "product_data": {"name": canonical["title"]},
+            },
+            "quantity": qty_raw,
+        })
+
+    origin = _checkout_origin(event)
+
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=stripe_line_items,
+            shipping_address_collection={
+                "allowed_countries": STRIPE_CHECKOUT_ALLOWED_COUNTRIES,
+            },
+            shipping_options=[{
+                "shipping_rate_data": {
+                    "type": "fixed_amount",
+                    "fixed_amount": {
+                        "amount": STORE_FLAT_SHIPPING_CENTS,
+                        "currency": currency,
+                    },
+                    "display_name": "Standard shipping",
+                },
+            }],
+            automatic_tax={"enabled": False},
+            success_url=f"{origin}/store/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{origin}/store/cancel",
+            metadata={"cart": json.dumps(server_line_items)},
+        )
+    except stripe.error.StripeError as exc:
+        logger.exception("handle_checkout: Stripe error")
+        return error(f"Stripe error: {exc}", 502)
+
+    logger.info(
+        "handle_checkout: created session id=%s items=%d",
+        getattr(session, "id", "?"), len(server_line_items),
+    )
+    return ok({"url": session.url})
+
+
+def _stripe_webhook_raw_body(event: dict) -> bytes:
+    """Return the raw request body as bytes (required for Stripe signature verify)."""
+    raw = event.get("body") or ""
+    if event.get("isBase64Encoded"):
+        try:
+            return base64.b64decode(raw)
+        except Exception:
+            logger.exception("Failed to base64-decode webhook body")
+            return b""
+    if isinstance(raw, bytes):
+        return raw
+    return raw.encode("utf-8")
+
+
+def handle_stripe_webhook(event, method, parts):  # noqa: ARG001
+    """POST /stripe-webhook — verify Stripe signature, submit to Gelato,
+    write the ORDER# row to DynamoDB.
+
+    Always returns 200 after a successful signature verify (even on Gelato
+    failure) — Stripe should not retry the whole webhook on downstream errors;
+    the DynamoDB row carries the failure state.
+
+    Idempotency: keyed by the Stripe session id. If an order row already exists
+    with status='submitted' and a gelato_order_id, this is a no-op so Stripe
+    redeliveries don't create duplicate Gelato orders.
+    """
+    if method != "POST":
+        return error("Method not allowed", 405)
+
+    # Lazy import — keeps the module import light and tests can stub the module.
+    import stripe  # noqa: PLC0415
+
+    raw_body = _stripe_webhook_raw_body(event)
+    signature_header = _get_header(event, "Stripe-Signature") or ""
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    try:
+        stripe_event = stripe.Webhook.construct_event(
+            raw_body, signature_header, webhook_secret
+        )
+    except Exception:
+        logger.exception("Stripe webhook signature verification failed")
+        return error("Invalid signature", 400)
+
+    event_type = (
+        stripe_event.get("type") if isinstance(stripe_event, dict) else getattr(stripe_event, "type", None)
+    )
+    if event_type != "checkout.session.completed":
+        logger.info("Ignoring Stripe event type %s", event_type)
+        return ok({"ignored": True})
+
+    # Pull the session object out of the event (supports both dict + Stripe object).
+    data = (
+        stripe_event.get("data", {}) if isinstance(stripe_event, dict)
+        else getattr(stripe_event, "data", {})
+    ) or {}
+    session = data.get("object") if isinstance(data, dict) else getattr(data, "object", None)
+    if session is None:
+        logger.error("Stripe webhook missing data.object")
+        return ok({"received": True})
+
+    def _get(obj, key, default=None):
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
+    session_id = _get(session, "id") or ""
+    if not session_id:
+        logger.error("Stripe webhook missing session id")
+        return ok({"received": True})
+
+    pk_sk = f"ORDER#{session_id}"
+
+    # Idempotency: bail if a successful row already exists.
+    try:
+        existing = _get_item(pk_sk, pk_sk)
+    except Exception:
+        logger.exception("Failed to look up existing order row %s", pk_sk)
+        existing = None
+    if existing and existing.get("status") == "submitted" and existing.get("gelato_order_id"):
+        logger.info("Stripe webhook redelivery for %s — already submitted", session_id)
+        return ok({"already_processed": True})
+
+    # Parse cart from session metadata.
+    metadata = _get(session, "metadata", {}) or {}
+    cart_raw = _get(metadata, "cart", "") if isinstance(metadata, dict) else getattr(metadata, "cart", "")
+    try:
+        cart_items = json.loads(cart_raw) if cart_raw else []
+    except (json.JSONDecodeError, TypeError):
+        logger.exception("Failed to parse cart metadata for %s", session_id)
+        cart_items = []
+
+    # Buyer details.
+    customer_details = _get(session, "customer_details", {}) or {}
+    email = _get(customer_details, "email", "") or ""
+
+    # Recent Stripe API versions put shipping under
+    # session.collected_information.shipping_details; older versions used
+    # session.shipping_details directly. Customer details is the final
+    # fallback (Stripe still populates address+name there).
+    collected = _get(session, "collected_information", {}) or {}
+    shipping_details = (
+        _get(collected, "shipping_details", None)
+        or _get(session, "shipping_details", None)
+        or {}
+    )
+    shipping_address = _get(shipping_details, "address", {}) or {}
+    shipping_name = _get(shipping_details, "name", "") or ""
+
+    if not shipping_address:
+        # Last-resort fallback to customer_details (always populated).
+        shipping_address = _get(customer_details, "address", {}) or {}
+    if not shipping_name:
+        shipping_name = _get(customer_details, "name", "") or ""
+
+    shipping = {
+        "name": shipping_name,
+        "address_line1": _get(shipping_address, "line1", "") or "",
+        "address_line2": _get(shipping_address, "line2", "") or "",
+        "city": _get(shipping_address, "city", "") or "",
+        "postal_code": _get(shipping_address, "postal_code", "") or "",
+        "state": _get(shipping_address, "state", "") or "",
+        "country": _get(shipping_address, "country", "") or "",
+    }
+
+    # Map cart items -> Gelato line items. The cart metadata only carries
+    # (product_id, variant_id); Gelato UIDs come from the admin-set
+    # STORE#CONFIG item (catalog entry as hardcoded fallback) and print files
+    # from the server catalog — NEVER from the client. Any unmappable SKU
+    # fails the whole order — a partial merch shipment is worse than a failed
+    # row an admin can retry by hand.
+    from api import store_catalog  # noqa: PLC0415
+
+    admin_uids = _get_store_gelato_uids()
+    gelato_line_items = []
+    unmapped_skus = []
+    for item in cart_items:
+        product_id = item.get("product_id") or ""
+        variant_id = item.get("variant_id") or ""
+        qty = item.get("qty") or item.get("quantity") or 1
+        entry = store_catalog.get_canonical_price(product_id, variant_id)
+        uid = ""
+        if entry:
+            uid = (admin_uids.get(f"{product_id}/{variant_id}")
+                   or entry.get("gelato_product_uid") or "").strip()
+        if not entry or not uid:
+            unmapped_skus.append(f"{product_id}/{variant_id}")
+            continue
+        gelato_line_items.append({
+            "gelato_variant_uid": uid,
+            "qty": int(qty),
+            "print_file_url": _presign_get(entry.get("print_file_key", "")),
+        })
+
+    total_cents = _get(session, "amount_total", 0) or 0
+    currency = _get(session, "currency", "") or ""
+
+    # Submit to Gelato.
+    from api import gelato_client  # noqa: PLC0415
+
+    gelato_order_id = None
+    status_value = "submitted"
+    status_error = None
+    if unmapped_skus:
+        logger.error(
+            "Stripe webhook for %s has unmappable SKUs %s — NOT submitting to Gelato",
+            session_id, unmapped_skus,
+        )
+        status_value = "failed"
+        status_error = (
+            "SKU(s) unknown or missing a Gelato UID (set UIDs in Admin → Store): "
+            + ", ".join(unmapped_skus)
+        )
+    if status_value != "failed":
+        try:
+            result = gelato_client.create_order(
+                reference_id=session_id,
+                customer_email=email,
+                shipping=shipping,
+                line_items=gelato_line_items,
+            )
+            gelato_order_id = result.get("gelato_order_id")
+            logger.info(
+                "Gelato order created for session=%s gelato_order_id=%s",
+                session_id, gelato_order_id,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Gelato order creation FAILED for session=%s — writing failed row",
+                session_id,
+            )
+            status_value = "failed"
+            status_error = str(exc)
+
+    # Persist the order row regardless of Gelato outcome.
+    # `entitySk` is required for the `byEntity` GSI (HASH=entityType, RANGE=entitySk):
+    # rows missing it never appear in admin's GET /orders. Use the created_at
+    # ISO timestamp so the GSI itself is sorted newest-first when paginated.
+    created_at = _now_iso()
+    order_row = {
+        "PK": pk_sk,
+        "SK": pk_sk,
+        "entityType": "ORDER",
+        "entitySk": created_at,
+        "stripe_session_id": session_id,
+        "gelato_order_id": gelato_order_id,
+        "status": status_value,
+        "status_error": status_error,
+        "email": email,
+        "total_cents": int(total_cents) if total_cents is not None else 0,
+        "currency": currency,
+        "created_at": created_at,
+        "line_items": cart_items,
+        "shipping": shipping,
+    }
+    try:
+        table.put_item(Item=order_row)
+    except Exception:
+        logger.exception("Failed to write ORDER# row for %s", session_id)
+        # Still return 200 — Stripe shouldn't retry, this needs human attention.
+
+    return ok({"received": True})
+
+
+def handle_orders(event, method, parts):  # noqa: ARG001
+    """GET /orders — admin-gated list of online store orders.
+
+    Reads ``ORDER`` entities from the single table (written by the Stripe
+    webhook in Chunk 4) and returns them newest-first by ``created_at``.
+    """
+    if method != "GET":
+        return error("Method not allowed", 405)
+
+    _user, err = require_role(event, "admin")
+    if err:
+        return err
+
+    items = _query_entity("ORDER")
+    items.sort(key=lambda i: i.get("created_at", ""), reverse=True)
+    return ok(items)
+
+
+def handle_store_config(event, method, parts):  # noqa: ARG001
+    """GET/PUT /store-config — admin management of per-SKU Gelato UIDs.
+
+    GET -> every SKU from ``store_catalog`` with its configured UID ("" if
+    unset). PUT -> body ``{"gelato_uids": {"product/variant": "uid"}}``;
+    only known SKU keys are accepted, empty values clear a mapping. Saved on
+    the ``STORE#CONFIG`` singleton row.
+    """
+    _user, err = require_role(event, "admin")
+    if err:
+        return err
+
+    from api import store_catalog  # noqa: PLC0415
+
+    known_skus = {f"{p}/{v}" for (p, v) in store_catalog.CATALOG}
+
+    if method == "GET":
+        saved = _get_store_gelato_uids()
+        out = []
+        for (product_id, variant_id), entry in sorted(store_catalog.CATALOG.items()):
+            sku = f"{product_id}/{variant_id}"
+            out.append({
+                "product_id": product_id,
+                "variant_id": variant_id,
+                "title": entry.get("title", sku),
+                "gelato_uid": str(saved.get(sku, "") or ""),
+            })
+        return ok(out)
+
+    if method == "PUT":
+        data = _body(event)
+        raw = data.get("gelato_uids")
+        if not isinstance(raw, dict):
+            return error("gelato_uids must be an object", 400)
+        cleaned = {}
+        for sku, uid in raw.items():
+            if sku not in known_skus:
+                return error(f"Unknown SKU: {sku}", 400)
+            if not isinstance(uid, str):
+                return error(f"UID for {sku} must be a string", 400)
+            uid = uid.strip()
+            if uid:
+                cleaned[sku] = uid
+        table.put_item(Item={
+            "PK": STORE_CONFIG_PK,
+            "SK": STORE_CONFIG_PK,
+            "gelato_uids": cleaned,
+            "updated_at": _now_iso(),
+        })
+        return ok({"gelato_uids": cleaned})
+
+    return error("Method not allowed", 405)
+
+
+def handle_store_print_files(event, method, parts):  # noqa: ARG001
+    """GET/POST /store-print-files — admin management of Gelato print artwork.
+
+    GET  -> upload status per product (does the S3 object exist, when).
+    POST -> presigned PUT URL for the product's canonical ``print_file_key``.
+
+    S3 keys come exclusively from ``store_catalog`` — the client only names a
+    ``product_id``, never a key, so admins can't presign arbitrary paths.
+    """
+    _user, err = require_role(event, "admin")
+    if err:
+        return err
+
+    from api import store_catalog  # noqa: PLC0415
+
+    # product_id -> print_file_key (variants of a product share one file).
+    print_files: dict[str, str] = {}
+    for (product_id, _variant_id), entry in store_catalog.CATALOG.items():
+        key = entry.get("print_file_key")
+        if key:
+            print_files[product_id] = key
+
+    if method == "GET":
+        out = []
+        for product_id, key in sorted(print_files.items()):
+            uploaded = False
+            last_modified = None
+            try:
+                head = s3.head_object(Bucket=MEDIA_BUCKET, Key=key)
+                uploaded = True
+                lm = head.get("LastModified")
+                last_modified = lm.isoformat() if lm else None
+            except ClientError:
+                pass  # 404 = not uploaded yet
+            out.append({
+                "product_id": product_id,
+                "s3_key": key,
+                "uploaded": uploaded,
+                "last_modified": last_modified,
+            })
+        return ok(out)
+
+    if method == "POST":
+        data = _body(event)
+        key = print_files.get(data.get("product_id", ""))
+        if not key:
+            return error("Unknown product", 400)
+        presigned = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": MEDIA_BUCKET, "Key": key},
+            ExpiresIn=3600,
+        )
+        return ok({"uploadUrl": presigned, "s3Key": key})
+
+    return error("Method not allowed", 405)
 
 
 def handler(event, context):
@@ -2192,6 +2832,22 @@ def handler(event, context):
             return handle_branding(event, method, parts)
         if root == "homepage":
             return handle_homepage(event, method, parts)
+        if root == "subscribe":
+            return handle_subscribe(event, method, parts)
+        if root == "album":
+            return handle_album(event, method, parts)
+
+        # Store routes (Chunk 1 stubs)
+        if root == "checkout":
+            return handle_checkout(event, method, parts)
+        if root == "stripe-webhook":
+            return handle_stripe_webhook(event, method, parts)
+        if root == "orders":
+            return handle_orders(event, method, parts)
+        if root == "store-print-files":
+            return handle_store_print_files(event, method, parts)
+        if root == "store-config":
+            return handle_store_config(event, method, parts)
 
         # Authenticated routes
         if root == "me":

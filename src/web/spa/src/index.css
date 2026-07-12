@@ -3,8 +3,43 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── OW redesign tokens (docs/ow-redesign-2, OW-2) ──
+     OKLCH is the source of truth; hex values in the spec are approximations.
+     Base tokens live on :root; the three accents swap via data-ow-palette. */
+  :root {
+    --ow-bg: oklch(0.16 0.018 45);
+    --ow-bg-top: oklch(0.27 0.06 45);
+    --ow-text: oklch(0.95 0.015 80);
+    --ow-text-dim: oklch(0.78 0.02 80);
+    --ow-text-dimmer: oklch(0.6 0.02 80);
+    --ow-on-accent: oklch(0.13 0.02 45);
+    --ow-hairline: oklch(0.95 0.015 80 / 0.1);
+    --ow-hairline-strong: oklch(0.95 0.015 80 / 0.18);
+    --ow-surface: oklch(0.95 0.015 80 / 0.035);
+    --ow-surface-hover: oklch(0.95 0.015 80 / 0.07);
+    /* Sunset (default palette) */
+    --ow-accent: oklch(0.72 0.2 50);
+    --ow-accent-2: oklch(0.68 0.21 0);
+    --ow-accent-3: oklch(0.8 0.16 85);
+  }
+  [data-ow-palette='acid-surf'] {
+    --ow-accent: oklch(0.72 0.2 50);
+    --ow-accent-2: oklch(0.78 0.13 195);
+    --ow-accent-3: oklch(0.85 0.18 130);
+  }
+  [data-ow-palette='magenta-haze'] {
+    --ow-accent: oklch(0.67 0.25 352);
+    --ow-accent-2: oklch(0.6 0.2 300);
+    --ow-accent-3: oklch(0.76 0.19 48);
+  }
+
   html {
     @apply scroll-smooth;
+  }
+
+  /* Anchor sections land below the 88px sticky nav (OW-4) */
+  section {
+    scroll-margin-top: 88px;
   }
 
   body {
@@ -76,7 +111,50 @@
   }
 }
 
+/* ── OW redesign page chrome animations (OW-3) — motion-safe only ── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ow-blob-drift-1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(60px, -40px) scale(1.15); }
+  }
+  @keyframes ow-blob-drift-2 {
+    0%, 100% { transform: translate(0, 0) scale(1.1); }
+    50% { transform: translate(-70px, 50px) scale(0.9); }
+  }
+  @keyframes ow-blob-drift-3 {
+    0%, 100% { transform: translate(0, 0) scale(0.95); }
+    50% { transform: translate(40px, 60px) scale(1.2); }
+  }
+  .ow-blob-1 { animation: ow-blob-drift-1 22s ease-in-out infinite; }
+  .ow-blob-2 { animation: ow-blob-drift-2 26s ease-in-out infinite; }
+  .ow-blob-3 { animation: ow-blob-drift-3 18s ease-in-out infinite; }
+
+  /* Hero spinning sun (OW-5) */
+  @keyframes ow-spin {
+    to { transform: rotate(360deg); }
+  }
+  .ow-sun { animation: ow-spin 60s linear infinite; }
+
+  /* Marquee strip (OW-6) — track holds two identical halves, shift one half */
+  @keyframes ow-marquee {
+    to { transform: translateX(-50%); }
+  }
+  .ow-marquee { animation: ow-marquee 26s linear infinite; }
+}
+
 @layer utilities {
+  /* Diagonal hatch placeholder tile (OW-8/9/10) */
+  .ow-hatch {
+    background-color: var(--ow-surface);
+    background-image: repeating-linear-gradient(
+      45deg,
+      var(--ow-hairline) 0,
+      var(--ow-hairline) 1px,
+      transparent 1px,
+      transparent 9px
+    );
+  }
+
   /* Scrollbar styling */
   .scrollbar-thin {
     scrollbar-width: thin;

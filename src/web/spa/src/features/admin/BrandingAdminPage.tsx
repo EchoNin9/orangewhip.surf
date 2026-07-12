@@ -25,16 +25,26 @@ interface HeroBranding {
   heroButton1TextColor?: string;
   heroButton2Bg?: string;
   heroButton2TextColor?: string;
+  palette?: string;
+  showGrain?: boolean;
+  marqueeItems?: string[];
+  aboutText1?: string;
+  aboutText2?: string;
+  bookingEmail?: string;
+  aboutImageUrl?: string;
 }
 
 const DEFAULT_HERO: HeroBranding = {
   heroTitle: "Orange Whip",
   heroTagline: "Industrial Surf",
-  heroButton1Text: "Upcoming Shows",
-  heroButton1Href: "/shows",
-  heroButton2Text: "Listen Now",
-  heroButton2Href: "/media",
+  heroButton1Text: "Listen Now",
+  heroButton1Href: "#media",
+  heroButton2Text: "Shop Merch",
+  heroButton2Href: "#merch",
   heroImageOpacity: 25,
+  palette: "sunset",
+  showGrain: true,
+  marqueeItems: ['New single "Sundowner" out now', "Summer tour on sale", "Merch restocked"],
 };
 
 /* ------------------------------------------------------------------ */
@@ -45,6 +55,7 @@ export function BrandingAdminPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const aboutFileRef = useRef<HTMLInputElement>(null);
 
   const [branding, setBranding] = useState<HeroBranding>(DEFAULT_HERO);
   const [loading, setLoading] = useState(true);
@@ -110,6 +121,12 @@ export function BrandingAdminPage() {
         heroButton1TextColor: branding.heroButton1TextColor ?? "",
         heroButton2Bg: branding.heroButton2Bg ?? "",
         heroButton2TextColor: branding.heroButton2TextColor ?? "",
+        palette: branding.palette ?? "sunset",
+        showGrain: branding.showGrain ?? true,
+        marqueeItems: (branding.marqueeItems ?? []).map((s) => s.trim()).filter(Boolean),
+        aboutText1: branding.aboutText1 ?? "",
+        aboutText2: branding.aboutText2 ?? "",
+        bookingEmail: branding.bookingEmail ?? "",
       });
       setSuccess("Branding saved.");
     } catch (err) {
@@ -146,6 +163,47 @@ export function BrandingAdminPage() {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  };
+
+  /* About portrait (OW-22) — same presigned flow as the hero image */
+  const handleAboutImageUpload = async (file: File) => {
+    setUploading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const { uploadUrl, s3Key } = await apiPost<{ uploadUrl: string; s3Key: string }>(
+        "/branding/about-image/upload",
+        { filename: file.name, contentType: file.type },
+      );
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      if (!putRes.ok) throw new Error("Upload failed");
+      await apiPut("/branding", { aboutImageS3Key: s3Key });
+      setSuccess("About portrait uploaded.");
+      const updated = await apiGet<HeroBranding>("/branding");
+      setBranding((prev) => ({ ...prev, ...updated }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveAboutImage = async () => {
+    if (!confirm("Remove the About portrait?")) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      // ponytail: clears the reference; the old S3 object is orphaned (pennies)
+      await apiPut("/branding", { aboutImageS3Key: "" });
+      setBranding((prev) => ({ ...prev, aboutImageUrl: "" }));
+      setSuccess("About portrait removed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove");
     }
   };
 
@@ -276,6 +334,145 @@ export function BrandingAdminPage() {
             <span className="text-secondary-300 font-mono w-12">
               {branding.heroImageOpacity ?? 25}%
             </span>
+          </div>
+        </div>
+
+        {/* Theme (OW-13) */}
+        <div className="card p-6 space-y-4">
+          <h2 className="text-lg font-display font-bold text-secondary-100 mb-4">
+            Theme
+          </h2>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              Color palette
+            </label>
+            <select
+              value={branding.palette ?? "sunset"}
+              onChange={(e) => update({ palette: e.target.value })}
+              className="input-field sm:w-64"
+            >
+              <option value="sunset">Sunset (default)</option>
+              <option value="acid-surf">Acid Surf</option>
+              <option value="magenta-haze">Magenta Haze</option>
+            </select>
+          </div>
+          <label className="flex items-center gap-3 text-sm text-secondary-300">
+            <input
+              type="checkbox"
+              checked={branding.showGrain ?? true}
+              onChange={(e) => update({ showGrain: e.target.checked })}
+              className="h-4 w-4 accent-primary-500"
+            />
+            Film-grain overlay
+          </label>
+        </div>
+
+        {/* Marquee banner (OW-16) */}
+        <div className="card p-6">
+          <h2 className="text-lg font-display font-bold text-secondary-100 mb-1">
+            Marquee Banner
+          </h2>
+          <p className="text-sm text-secondary-400 mb-4">
+            One message per line. Leave empty to hide the strip.
+          </p>
+          <textarea
+            value={(branding.marqueeItems ?? []).join("\n")}
+            onChange={(e) => update({ marqueeItems: e.target.value.split("\n") })}
+            rows={4}
+            className="input-field font-mono text-sm"
+            placeholder={'New single "Sundowner" out now'}
+          />
+        </div>
+
+        {/* About section (OW-20) */}
+        <div className="card p-6 space-y-4">
+          <h2 className="text-lg font-display font-bold text-secondary-100 mb-4">
+            About Section
+          </h2>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              First paragraph
+            </label>
+            <textarea
+              value={branding.aboutText1 ?? ""}
+              onChange={(e) => update({ aboutText1: e.target.value })}
+              rows={4}
+              className="input-field text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              Second paragraph
+            </label>
+            <textarea
+              value={branding.aboutText2 ?? ""}
+              onChange={(e) => update({ aboutText2: e.target.value })}
+              rows={2}
+              className="input-field text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-1">
+              Booking email
+            </label>
+            <input
+              type="email"
+              value={branding.bookingEmail ?? ""}
+              onChange={(e) => update({ bookingEmail: e.target.value })}
+              className="input-field sm:w-80"
+              placeholder="hello@orangewhip.surf"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary-300 mb-2">
+              Portrait image (4:5)
+            </label>
+            {branding.aboutImageUrl ? (
+              <div className="flex items-start gap-4">
+                <img
+                  src={branding.aboutImageUrl}
+                  alt="About portrait"
+                  className="w-32 aspect-[4/5] object-cover rounded-lg border border-secondary-600"
+                />
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => aboutFileRef.current?.click()}
+                    disabled={uploading}
+                    className="btn-secondary text-sm"
+                  >
+                    {uploading ? "Uploading..." : "Replace"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveAboutImage}
+                    className="text-sm text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => aboutFileRef.current?.click()}
+                disabled={uploading}
+                className="btn-secondary text-sm"
+              >
+                {uploading ? "Uploading..." : "Upload portrait"}
+              </button>
+            )}
+            <input
+              ref={aboutFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleAboutImageUpload(f);
+                e.target.value = "";
+              }}
+            />
           </div>
         </div>
 
@@ -423,6 +620,217 @@ export function BrandingAdminPage() {
           </Link>
         </div>
       </form>
+
+      {/* Featured album (OW-15) — separate save from branding */}
+      <AlbumEditor />
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Featured album editor (OW-15)                                      */
+/* ------------------------------------------------------------------ */
+
+interface AlbumTrack {
+  title: string;
+  duration: string;
+  mediaId: string;
+}
+
+interface AlbumData {
+  title: string;
+  yearLabel: string;
+  coverMediaId: string;
+  tracks: AlbumTrack[];
+}
+
+interface MediaOption {
+  id: string;
+  title: string;
+  type: string;
+}
+
+function AlbumEditor() {
+  const [album, setAlbum] = useState<AlbumData>({
+    title: "",
+    yearLabel: "",
+    coverMediaId: "",
+    tracks: [],
+  });
+  const [mediaOpts, setMediaOpts] = useState<MediaOption[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<AlbumData>("/album")
+      .then((a) =>
+        setAlbum({
+          title: a.title ?? "",
+          yearLabel: a.yearLabel ?? "",
+          coverMediaId: a.coverMediaId ?? "",
+          tracks: (a.tracks ?? []).map((t) => ({
+            title: t.title ?? "",
+            duration: t.duration ?? "",
+            mediaId: t.mediaId ?? "",
+          })),
+        }),
+      )
+      .catch(() => {});
+    // ponytail: media <select> instead of a picker modal — same media library, far less code
+    apiGet<{ items: MediaOption[] }>("/media?limit=100")
+      .then((r) => setMediaOpts(r.items))
+      .catch(() => {});
+  }, []);
+
+  const up = (patch: Partial<AlbumData>) => {
+    setAlbum((prev) => ({ ...prev, ...patch }));
+    setMsg(null);
+    setErr(null);
+  };
+
+  const setTrack = (i: number, patch: Partial<AlbumTrack>) =>
+    up({ tracks: album.tracks.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
+
+  const moveTrack = (i: number, d: number) => {
+    const t = [...album.tracks];
+    const j = i + d;
+    if (j < 0 || j >= t.length) return;
+    [t[i], t[j]] = [t[j], t[i]];
+    up({ tracks: t });
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setErr(null);
+    try {
+      await apiPut("/album", album);
+      setMsg("Album saved.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to save album");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card p-6 space-y-4 max-w-2xl mt-8">
+      <h2 className="text-lg font-display font-bold text-secondary-100">
+        Featured Album
+      </h2>
+      <p className="text-sm text-secondary-400">
+        Shown in the homepage Media › Listen section. Tracks linked to a media
+        item become clickable.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-secondary-300 mb-1">Title</label>
+          <input
+            type="text"
+            value={album.title}
+            onChange={(e) => up({ title: e.target.value })}
+            className="input-field"
+            placeholder="Crème De La Mer"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-secondary-300 mb-1">
+            Year / label line
+          </label>
+          <input
+            type="text"
+            value={album.yearLabel}
+            onChange={(e) => up({ yearLabel: e.target.value })}
+            className="input-field"
+            placeholder="2026 · Self-released"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-300 mb-1">Cover art</label>
+        <select
+          value={album.coverMediaId}
+          onChange={(e) => up({ coverMediaId: e.target.value })}
+          className="input-field"
+        >
+          <option value="">None (hatch placeholder)</option>
+          {mediaOpts
+            .filter((m) => m.type === "image")
+            .map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title}
+              </option>
+            ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-secondary-300 mb-2">Tracks</label>
+        <div className="space-y-2">
+          {album.tracks.map((t, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="w-6 text-right text-xs text-secondary-500 font-mono">
+                {i + 1}
+              </span>
+              <input
+                type="text"
+                value={t.title}
+                onChange={(e) => setTrack(i, { title: e.target.value })}
+                className="input-field flex-1 min-w-[140px]"
+                placeholder="Track title"
+              />
+              <input
+                type="text"
+                value={t.duration}
+                onChange={(e) => setTrack(i, { duration: e.target.value })}
+                className="input-field w-20"
+                placeholder="3:24"
+              />
+              <select
+                value={t.mediaId}
+                onChange={(e) => setTrack(i, { mediaId: e.target.value })}
+                className="input-field w-44"
+              >
+                <option value="">No media link</option>
+                {mediaOpts.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={() => moveTrack(i, -1)} disabled={i === 0}
+                className="px-2 py-1 text-secondary-400 hover:text-white disabled:opacity-30">↑</button>
+              <button type="button" onClick={() => moveTrack(i, 1)} disabled={i === album.tracks.length - 1}
+                className="px-2 py-1 text-secondary-400 hover:text-white disabled:opacity-30">↓</button>
+              <button
+                type="button"
+                onClick={() => up({ tracks: album.tracks.filter((_, j) => j !== i) })}
+                className="px-2 py-1 text-secondary-400 hover:text-red-400"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            up({ tracks: [...album.tracks, { title: "", duration: "", mediaId: "" }] })
+          }
+          className="btn-secondary text-sm mt-3"
+        >
+          Add Track
+        </button>
+      </div>
+
+      {err && <p className="text-sm text-red-400">{err}</p>}
+      {msg && <p className="text-sm text-green-400">{msg}</p>}
+
+      <button type="button" onClick={save} disabled={saving} className="btn-primary">
+        {saving ? "Saving..." : "Save Album"}
+      </button>
+    </div>
   );
 }

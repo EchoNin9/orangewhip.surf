@@ -2,6 +2,13 @@
  * Image component that prefers WebP source when available,
  * falling back to the original JPEG/PNG URL.
  */
+
+// A missing file (e.g. store hero shots not uploaded yet) degrades to the
+// container's background instead of a broken-image icon.
+function hideOnError(e: React.SyntheticEvent<HTMLImageElement>) {
+  e.currentTarget.style.visibility = "hidden";
+}
+
 export function OptimizedImg({
   webpSrc,
   src,
@@ -19,9 +26,9 @@ export function OptimizedImg({
     return (
       <picture>
         <source srcSet={webpSrc} type="image/webp" />
-        <img src={src} alt={alt} className={className} loading={loading} />
+        <img src={src} alt={alt} className={className} loading={loading} onError={hideOnError} />
       </picture>
     );
   }
-  return <img src={src} alt={alt} className={className} loading={loading} />;
+  return <img src={src} alt={alt} className={className} loading={loading} onError={hideOnError} />;
 }

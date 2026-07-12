@@ -7,6 +7,7 @@ interface Window {
   CATEGORIES_CACHE_KEY?: string;
   getCategoriesFromCache?: () => { id: string; name: string }[];
   saveCategoriesToCache?: (cats: unknown[]) => void;
+  STRIPE_PUBLISHABLE_KEY?: string;
   auth?: {
     getAccessToken: (cb: (err: Error | null, token?: string) => void) => void;
     getIdToken: (cb: (err: Error | null, token?: string) => void) => void;

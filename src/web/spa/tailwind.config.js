@@ -3,7 +3,27 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      screens: {
+        // Redesign nav breakpoint: ≤760 mobile, ≥761 desktop (OW-4)
+        ow: '761px',
+      },
       colors: {
+        // OW redesign tokens — resolved from CSS vars in index.css (OW-2)
+        ow: {
+          bg: 'var(--ow-bg)',
+          'bg-top': 'var(--ow-bg-top)',
+          text: 'var(--ow-text)',
+          dim: 'var(--ow-text-dim)',
+          dimmer: 'var(--ow-text-dimmer)',
+          accent: 'var(--ow-accent)',
+          'accent-2': 'var(--ow-accent-2)',
+          'accent-3': 'var(--ow-accent-3)',
+          'on-accent': 'var(--ow-on-accent)',
+          hairline: 'var(--ow-hairline)',
+          'hairline-strong': 'var(--ow-hairline-strong)',
+          surface: 'var(--ow-surface)',
+          'surface-hover': 'var(--ow-surface-hover)',
+        },
         primary: {
           50: '#fff7ed',
           100: '#ffedd5',
@@ -32,6 +52,10 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Oswald', 'system-ui', 'sans-serif'],
+        // OW redesign faces (OW-2)
+        cooper: ['"Cooper Hewitt"', 'system-ui', 'sans-serif'],
+        anton: ['Anton', 'Oswald', 'system-ui', 'sans-serif'],
+        grotesk: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out forwards',

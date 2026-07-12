@@ -746,10 +746,13 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      TABLE_NAME           = aws_dynamodb_table.main.name
-      MEDIA_BUCKET         = aws_s3_bucket.media.id
-      COGNITO_USER_POOL_ID = aws_cognito_user_pool.main.id
-      THUMB_FUNCTION_NAME  = aws_lambda_function.thumb.function_name
+      TABLE_NAME            = aws_dynamodb_table.main.name
+      MEDIA_BUCKET          = aws_s3_bucket.media.id
+      COGNITO_USER_POOL_ID  = aws_cognito_user_pool.main.id
+      THUMB_FUNCTION_NAME   = aws_lambda_function.thumb.function_name
+      STRIPE_SECRET_KEY     = var.stripeSecretKey
+      STRIPE_WEBHOOK_SECRET = var.stripeWebhookSecret
+      GELATO_API_KEY        = var.gelatoApiKey
     }
   }
 }
@@ -1028,6 +1031,36 @@ resource "aws_apigatewayv2_route" "brandingGet" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /branding"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Homepage: public batch endpoint (branding + pinned update + upcoming shows)
+resource "aws_apigatewayv2_route" "homepageGet" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /homepage"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Mailing list signup: public write, validated in the Lambda (OW-12)
+resource "aws_apigatewayv2_route" "subscribePost" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /subscribe"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Featured album: public read (OW-15)
+resource "aws_apigatewayv2_route" "albumGet" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /album"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Featured album: band/admin write (OW-15)
+resource "aws_apigatewayv2_route" "albumPut" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /album"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
 # --- Authenticated routes (JWT required) ---
@@ -1428,6 +1461,14 @@ resource "aws_apigatewayv2_route" "brandingHeroImageUpload" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+resource "aws_apigatewayv2_route" "brandingAboutImageUpload" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /branding/about-image/upload"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
 resource "aws_apigatewayv2_route" "brandingHeroImageDelete" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "DELETE /branding/hero-image"
@@ -1482,6 +1523,83 @@ resource "aws_apigatewayv2_route" "brandingHeroImageOptions" {
 resource "aws_apigatewayv2_route" "brandingHeroImageUploadOptions" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "OPTIONS /branding/hero-image/upload"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "brandingAboutImageUploadOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /branding/about-image/upload"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# --- Online store (Stripe + Gelato) ---
+# /checkout: anonymous (shoppers don't log in).
+# /stripe-webhook: anonymous; signature verified inside the Lambda.
+# /orders: JWT-authed; admin role enforced inside the handler (matches
+# the existing admin route convention).
+resource "aws_apigatewayv2_route" "checkoutPost" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /checkout"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "stripeWebhookPost" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /stripe-webhook"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_apigatewayv2_route" "ordersGet" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /orders"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+# Admin upload of Gelato print artwork (presigned PUT, keys from store_catalog).
+resource "aws_apigatewayv2_route" "storePrintFilesGet" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /store-print-files"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "storePrintFilesPost" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "POST /store-print-files"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "storePrintFilesOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /store-print-files"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+# Admin-set Gelato product UIDs per SKU (STORE#CONFIG item).
+resource "aws_apigatewayv2_route" "storeConfigGet" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "GET /store-config"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "storeConfigPut" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "PUT /store-config"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+resource "aws_apigatewayv2_route" "storeConfigOptions" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "OPTIONS /store-config"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 

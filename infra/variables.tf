@@ -101,3 +101,36 @@ variable "redirectBucketName" {
   type        = string
   default     = "ows-redirect-info"
 }
+
+# ------------------------------------------------------------------------------
+# Online store (Stripe + Gelato)
+# ------------------------------------------------------------------------------
+# Secrets are passed in via TF_VAR_* env vars from the deploy workflow
+# (GitHub Actions secrets). Defaults are empty so `terraform plan` works
+# locally without secrets configured.
+variable "stripeSecretKey" {
+  description = "Stripe secret key (sk_test_... / sk_live_...). Server-side only."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "stripeWebhookSecret" {
+  description = "Stripe webhook signing secret (whsec_...) for /stripe-webhook signature verification."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "gelatoApiKey" {
+  description = "Gelato API key for placing print-on-demand orders."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "stripePublishableKey" {
+  description = "Stripe publishable key (pk_test_... / pk_live_...). Safe to ship to the browser via config.js."
+  type        = string
+  default     = ""
+}

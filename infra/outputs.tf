@@ -97,3 +97,8 @@ output "apiInvokeUrl" {
   description = "API Gateway HTTP API invoke URL (for frontend)."
   value       = aws_apigatewayv2_stage.default.invoke_url
 }
+
+output "stripePublishableKey" {
+  description = "Stripe publishable key (for SPA config.js). Empty until set via TF_VAR_stripePublishableKey."
+  value       = var.stripePublishableKey
+}
