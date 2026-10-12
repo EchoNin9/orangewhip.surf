@@ -203,6 +203,7 @@ function MediaSection() {
   const yearLabel = album?.yearLabel || "2026 · Self-released";
   const coverUrl = album?.coverUrl || "";
   const tracks = album?.tracks?.length ? album.tracks : FALLBACK_TRACKS;
+  const anyPlayable = tracks.some((t) => t.mediaId);
 
   const TRACK_ROW = "flex items-center gap-4 border-b border-ow-hairline px-2 py-3.5";
 
@@ -241,11 +242,13 @@ function MediaSection() {
           {tracks.map((t, i) => {
             const row = (
               <>
-                <span className="font-anton text-[15px] text-ow-accent-3">
+                <span className="w-5 shrink-0 font-anton text-[15px] text-ow-accent-3">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                {/* Only playable rows get the ▶ and hover — inert rows read as a listing */}
-                {t.mediaId && <span className="text-ow-accent">▶</span>}
+                {/* Only playable rows show the ▶ (and hover); inert rows keep its slot in a mixed list so titles align */}
+                <span aria-hidden="true" className={t.mediaId ? "text-ow-accent" : anyPlayable ? "invisible" : "hidden"}>
+                  ▶
+                </span>
                 <span className="min-w-0 flex-1 truncate text-base font-semibold text-ow-text">{t.title}</span>
                 <span className="text-sm tabular-nums text-ow-dim">{t.duration}</span>
               </>
