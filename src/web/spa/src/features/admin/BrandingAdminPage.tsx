@@ -128,6 +128,8 @@ export function BrandingAdminPage() {
         aboutText2: branding.aboutText2 ?? "",
         bookingEmail: branding.bookingEmail ?? "",
       });
+      /* AppLayout reads the palette once per load — apply the saved one now */
+      document.documentElement.dataset.owPalette = branding.palette ?? "sunset";
       setSuccess("Branding saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");

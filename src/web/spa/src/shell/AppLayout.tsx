@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { PageTransition } from '@/utils/PageTransition';
+import { apiGet } from '@/utils/api';
 
 /* ── Eager-loaded: homepage only ── */
 import { HomePage } from '@/features/home/HomePage';
@@ -51,6 +52,18 @@ function PageLoader() {
 
 export function AppLayout() {
   const location = useLocation();
+  const [bookingEmail, setBookingEmail] = useState('hello@orangewhip.surf');
+
+  /* Site-wide branding: the palette goes on <html> so header, page and footer
+     resolve the same accents (it used to sit on the HomePage wrapper only). */
+  useEffect(() => {
+    apiGet<{ palette?: string; bookingEmail?: string }>('/branding')
+      .then((b) => {
+        document.documentElement.dataset.owPalette = b.palette || 'sunset';
+        if (b.bookingEmail) setBookingEmail(b.bookingEmail);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary-900">
@@ -106,7 +119,7 @@ export function AppLayout() {
         </ErrorBoundary>
       </div>
 
-      <Footer />
+      <Footer bookingEmail={bookingEmail} />
     </div>
   );
 }

@@ -1,12 +1,10 @@
 import { useState, useEffect, Fragment, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { apiGet, apiPost } from "../../utils/api";
 import { parseDate } from "../../utils/date";
 import { socialLinks } from "../../shell/Header";
-import { stagger, fadeUp, viewportOnce } from "../../utils/motion";
 import { OptimizedImg } from "../../utils/OptimizedImg";
 import { CATALOG } from "../store/catalog";
 import { formatPrice } from "../store/useCart";
@@ -324,9 +322,11 @@ function MediaSection() {
         </div>
       )}
 
-      <Link to="/media" className="mt-10 inline-block text-sm font-bold uppercase text-ow-accent">
-        See all media →
-      </Link>
+      <div className="mt-10">
+        <Link to="/media" className={`${ABOUT_PILL} inline-block`}>
+          See all media →
+        </Link>
+      </div>
     </section>
   );
 }
@@ -344,7 +344,7 @@ function MerchSection() {
         <h2 className="font-anton text-[clamp(40px,7vw,84px)] uppercase leading-[0.92] text-ow-text">
           Merch
         </h2>
-        <Link to="/store" className="text-sm font-bold uppercase text-ow-accent">
+        <Link to="/store" className={ABOUT_PILL}>
           Visit full store →
         </Link>
       </div>
@@ -600,13 +600,14 @@ export function HomePage() {
   /* ── Render ── */
 
   return (
-    <div className="relative bg-ow-bg" data-ow-palette={hero.palette ?? "sunset"}>
+    <div className="relative bg-ow-bg">
       {/* ── Hero (OW-5) — pinned; the rest of the page scrolls over it (OW-19) ── */}
       <section className="sticky top-0 z-0 -mt-[88px] h-[100svh] overflow-hidden">
         {/* Full-bleed photo layer — hidden entirely when no image is set */}
         {hero.heroImageUrl && (
           <div className="absolute inset-0 z-[1] overflow-hidden">
-            <img src={hero.heroImageUrl} alt="" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+            {/* ponytail: lowercase spread — React 18 doesn't know fetchPriority; switch to the prop on React 19 */}
+            <img src={hero.heroImageUrl} alt="" {...{ fetchpriority: "high" }} className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
             {/* Legibility gradient — keep regardless of chosen image */}
             <div
               className="absolute inset-0"
@@ -776,69 +777,51 @@ export function HomePage() {
 
       {/* ── Latest News (moved between Show Dates and Media, OW-17) ── */}
       {!loading && pinnedUpdate && (
-        <section className="container-max section-padding">
-          <div className="h-px bg-gradient-to-r from-transparent via-secondary-700 to-transparent -mt-12 sm:-mt-16 lg:-mt-20 mb-12 sm:mb-16 lg:mb-20" />
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
+        <section className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
+          <h2 className="mb-10 font-anton text-[clamp(40px,7vw,84px)] uppercase leading-[0.92] text-ow-text">
+            Latest
+            <br />
+            <span className="text-ow-accent">News</span>
+          </h2>
+
+          <button
+            type="button"
+            className="block w-full rounded-[18px] border border-ow-hairline bg-ow-surface p-6 text-left transition-colors hover:border-ow-accent hover:bg-ow-surface-hover sm:p-8"
+            onClick={() => {
+              setModalOpen(true);
+              setMediaIdx(0);
+            }}
           >
-            <motion.h2
-              variants={fadeUp}
-              className="text-3xl font-display font-bold text-secondary-100 mb-8"
-            >
-              Latest News
-            </motion.h2>
-
-            <motion.div
-              variants={fadeUp}
-              className="card p-6 sm:p-8 cursor-pointer transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5"
-              onClick={() => {
-                setModalOpen(true);
-                setMediaIdx(0);
-              }}
-            >
-              <div className="flex flex-col sm:flex-row gap-6">
-                {pinnedUpdate.media?.[0] && (
-                  <div className="sm:w-48 sm:h-36 flex-shrink-0 rounded-lg overflow-hidden bg-secondary-700">
-                    {pinnedUpdate.media[0].type === "image" ? (
-                      <OptimizedImg
-                        webpSrc={pinnedUpdate.media[0].thumbnailWebp}
-                        src={
-                          pinnedUpdate.media[0].thumbnailUrl ||
-                          pinnedUpdate.media[0].url
-                        }
-                        loading="lazy"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-secondary-400">
-                        <PlayTriangle />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  {pinnedUpdate.pinned && (
-                    <span className="inline-block text-xs font-semibold uppercase tracking-wider text-primary-400 mb-2">
-                      Pinned
-                    </span>
+            <div className="flex flex-col gap-6 sm:flex-row">
+              {pinnedUpdate.media?.[0] && (
+                <div className="ow-hatch aspect-video flex-shrink-0 overflow-hidden rounded-[14px] border border-ow-hairline sm:aspect-auto sm:h-36 sm:w-48">
+                  {pinnedUpdate.media[0].type === "image" ? (
+                    <OptimizedImg
+                      webpSrc={pinnedUpdate.media[0].thumbnailWebp}
+                      src={pinnedUpdate.media[0].thumbnailUrl || pinnedUpdate.media[0].url}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-ow-text">
+                      <PlayTriangle />
+                    </div>
                   )}
-                  <h3 className="text-xl font-display font-bold text-secondary-100">
-                    {pinnedUpdate.title}
-                  </h3>
-                  <p className="mt-2 text-secondary-400 line-clamp-3">
-                    {pinnedUpdate.content}
-                  </p>
-                  <p className="mt-3 text-xs text-secondary-500">
-                    {formatDate(pinnedUpdate.createdAt)}
-                  </p>
                 </div>
+              )}
+
+              <div className="min-w-0 flex-1">
+                {pinnedUpdate.pinned && (
+                  <span className="mb-2 inline-block text-[13px] font-bold uppercase tracking-[0.16em] text-ow-accent-3">
+                    Pinned
+                  </span>
+                )}
+                <h3 className="font-grotesk text-lg font-bold text-ow-text">{pinnedUpdate.title}</h3>
+                <p className="mt-2 line-clamp-3 text-ow-dim">{pinnedUpdate.content}</p>
+                <p className="mt-3 text-[13px] text-ow-dimmer">{formatDate(pinnedUpdate.createdAt)}</p>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </button>
         </section>
       )}
 
@@ -870,7 +853,7 @@ export function HomePage() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-[oklch(0.13_0.02_45/0.85)]" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
@@ -884,14 +867,16 @@ export function HomePage() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-2xl card p-6 sm:p-8">
-                  <div className="flex items-start justify-between mb-4">
-                    <Dialog.Title className="text-2xl font-display font-bold text-secondary-100">
+                <Dialog.Panel className="w-full max-w-2xl rounded-[18px] border border-ow-hairline-strong bg-ow-bg p-6 font-grotesk sm:p-8">
+                  <div className="mb-6 flex items-start justify-between gap-4">
+                    <Dialog.Title className="font-anton text-[clamp(28px,4.5vw,44px)] uppercase leading-[0.92] text-ow-text">
                       {pinnedUpdate?.title}
                     </Dialog.Title>
                     <button
+                      type="button"
+                      aria-label="Close"
                       onClick={() => setModalOpen(false)}
-                      className="p-1 text-secondary-400 hover:text-white transition-colors"
+                      className="-mr-2.5 -mt-2.5 rounded-full p-2.5 text-ow-dim transition-colors hover:text-ow-accent"
                     >
                       <XMarkIcon className="w-6 h-6" />
                     </button>
@@ -900,7 +885,7 @@ export function HomePage() {
                   {/* Media carousel */}
                   {pinnedUpdate?.media && pinnedUpdate.media.length > 0 && (
                     <div className="mb-6">
-                      <div className="relative rounded-lg overflow-hidden bg-secondary-700 aspect-video">
+                      <div className="ow-hatch relative aspect-video overflow-hidden rounded-[14px] border border-ow-hairline">
                         {pinnedUpdate.media[mediaIdx].type === "image" ? (
                           <OptimizedImg
                             webpSrc={pinnedUpdate.media[mediaIdx].mediumUrl}
@@ -924,28 +909,33 @@ export function HomePage() {
                       </div>
 
                       {pinnedUpdate.media.length > 1 && (
-                        <div className="flex justify-center gap-2 mt-3">
+                        <div className="mt-2 flex justify-center">
                           {pinnedUpdate.media.map((_, i) => (
                             <button
                               key={i}
+                              type="button"
+                              aria-label={`Show item ${i + 1}`}
+                              aria-current={i === mediaIdx}
                               onClick={() => setMediaIdx(i)}
-                              className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                                i === mediaIdx
-                                  ? "bg-primary-500"
-                                  : "bg-secondary-600 hover:bg-secondary-500"
-                              }`}
-                            />
+                              className="group flex h-11 w-11 items-center justify-center"
+                            >
+                              <span
+                                className={`h-2.5 w-2.5 rounded-full transition-colors ${
+                                  i === mediaIdx ? "bg-ow-accent" : "bg-ow-hairline-strong group-hover:bg-ow-dim"
+                                }`}
+                              />
+                            </button>
                           ))}
                         </div>
                       )}
                     </div>
                   )}
 
-                  <p className="text-secondary-300 whitespace-pre-wrap leading-relaxed">
+                  <p className="whitespace-pre-wrap leading-relaxed text-ow-dim">
                     {pinnedUpdate?.content}
                   </p>
 
-                  <p className="mt-4 text-xs text-secondary-500">
+                  <p className="mt-4 text-[13px] text-ow-dimmer">
                     {pinnedUpdate && formatDate(pinnedUpdate.createdAt)}
                   </p>
                 </Dialog.Panel>

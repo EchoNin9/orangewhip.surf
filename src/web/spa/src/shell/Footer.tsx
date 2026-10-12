@@ -1,18 +1,9 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiGet } from "../utils/api";
 import { socialLinks } from "./Header";
 
 /* OW redesign footer (OW-12, docs/ow-redesign-2 §9) */
-export function Footer() {
-  const [bookingEmail, setBookingEmail] = useState("hello@orangewhip.surf");
-
-  /* Same admin-editable setting as the About Booking button (OW-20) */
-  useEffect(() => {
-    apiGet<{ bookingEmail?: string }>("/branding")
-      .then((b) => b.bookingEmail && setBookingEmail(b.bookingEmail))
-      .catch(() => {});
-  }, []);
+/* bookingEmail: same admin-editable setting as the About Booking button (OW-20), fetched in AppLayout */
+export function Footer({ bookingEmail }: { bookingEmail: string }) {
 
   return (
     <footer className="border-t border-ow-hairline bg-ow-bg font-grotesk">
