@@ -1958,9 +1958,9 @@ DEFAULT_HERO = {
     "palette": "sunset",
     "showGrain": True,
     "marqueeItems": [
-        'New single "Sundowner" out now',
-        "Summer tour on sale",
-        "Merch restocked",
+        "Surf-psych from East Van",
+        "Bring earplugs",
+        "Join the mailing list",
     ],
     "aboutText1": (
         "Orange Whip started in a damp East Van practice space chasing one thing: "

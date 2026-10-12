@@ -44,7 +44,7 @@ const DEFAULT_HERO: HeroBranding = {
   heroImageOpacity: 25,
   palette: "sunset",
   showGrain: true,
-  marqueeItems: ['New single "Sundowner" out now', "Summer tour on sale", "Merch restocked"],
+  marqueeItems: ["Surf-psych from East Van", "Bring earplugs", "Join the mailing list"],
 };
 
 /* ------------------------------------------------------------------ */
@@ -380,7 +380,7 @@ export function BrandingAdminPage() {
             onChange={(e) => update({ marqueeItems: e.target.value.split("\n") })}
             rows={4}
             className="input-field font-mono text-sm"
-            placeholder={'New single "Sundowner" out now'}
+            placeholder="Surf-psych from East Van"
           />
         </div>
 

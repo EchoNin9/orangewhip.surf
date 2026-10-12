@@ -103,7 +103,7 @@ function CtaLink({ href, className, children }: { href: string; className: strin
 }
 
 /* ── Marquee strip (OW-6; items admin-editable via branding settings, OW-16) ── */
-const MARQUEE_ITEMS = ['New single "Sundowner" out now', "Summer tour on sale", "Merch restocked"];
+const MARQUEE_ITEMS = ["Surf-psych from East Van", "Bring earplugs", "Join the mailing list"];
 
 function Marquee({ items }: { items: string[] }) {
   if (items.length === 0) return null;
@@ -204,8 +204,7 @@ function MediaSection() {
   const coverUrl = album?.coverUrl || "";
   const tracks = album?.tracks?.length ? album.tracks : FALLBACK_TRACKS;
 
-  const TRACK_ROW =
-    "flex items-center gap-4 border-b border-ow-hairline px-2 py-3.5 transition-colors hover:bg-ow-surface";
+  const TRACK_ROW = "flex items-center gap-4 border-b border-ow-hairline px-2 py-3.5";
 
   return (
     <section id="media" className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
@@ -219,7 +218,7 @@ function MediaSection() {
         <div>
           <div className="ow-hatch aspect-square overflow-hidden rounded-2xl border border-ow-hairline">
             {coverUrl && (
-              <img src={coverUrl} alt={`${albumTitle} album art`} className="h-full w-full object-cover" />
+              <img src={coverUrl} alt={`${albumTitle} album art`} className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
             )}
           </div>
           <div className="mt-4 font-cooper text-[22px] font-semibold italic text-ow-accent">
@@ -245,7 +244,8 @@ function MediaSection() {
                 <span className="font-anton text-[15px] text-ow-accent-3">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="text-ow-accent">▶</span>
+                {/* Only playable rows get the ▶ and hover — inert rows read as a listing */}
+                {t.mediaId && <span className="text-ow-accent">▶</span>}
                 <span className="min-w-0 flex-1 truncate text-base font-semibold text-ow-text">{t.title}</span>
                 <span className="text-sm tabular-nums text-ow-dim">{t.duration}</span>
               </>
@@ -253,7 +253,7 @@ function MediaSection() {
             return (
               <li key={i}>
                 {t.mediaId ? (
-                  <Link to={`/media/${t.mediaId}`} className={TRACK_ROW}>{row}</Link>
+                  <Link to={`/media/${t.mediaId}`} className={`${TRACK_ROW} transition-colors hover:bg-ow-surface`}>{row}</Link>
                 ) : (
                   <div className={TRACK_ROW}>{row}</div>
                 )}
@@ -412,7 +412,7 @@ function AboutSection({ hero }: { hero: HeroBranding }) {
         {/* Portrait admin-uploadable (OW-22); hatch placeholder when unset */}
         <div className="ow-hatch aspect-[4/5] overflow-hidden rounded-[18px] border border-ow-hairline">
           {hero.aboutImageUrl && (
-            <img src={hero.aboutImageUrl} alt="Band portrait" className="h-full w-full object-cover" />
+            <img src={hero.aboutImageUrl} alt="Band portrait" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
           )}
         </div>
       </div>
@@ -443,7 +443,7 @@ function MailingListSection() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
+    <section id="mailing" className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
       <div
         className="rounded-[24px] p-[clamp(32px,5vw,60px)] text-center text-ow-on-accent"
         style={{ background: "linear-gradient(135deg, var(--ow-accent), var(--ow-accent-2))" }}
@@ -603,7 +603,7 @@ export function HomePage() {
         {/* Full-bleed photo layer — hidden entirely when no image is set */}
         {hero.heroImageUrl && (
           <div className="absolute inset-0 z-[1] overflow-hidden">
-            <img src={hero.heroImageUrl} alt="" className="h-full w-full object-cover" />
+            <img src={hero.heroImageUrl} alt="" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
             {/* Legibility gradient — keep regardless of chosen image */}
             <div
               className="absolute inset-0"
@@ -731,8 +731,14 @@ export function HomePage() {
 
         <div className="mt-10 flex flex-col gap-0.5 overflow-hidden rounded-[18px] border border-ow-hairline">
           {!loading && shows.length === 0 && (
-            <div className="bg-ow-surface px-6 py-5 font-grotesk text-ow-dim">
-              No shows on the books — join the mailing list below.
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-ow-surface px-6 py-5 font-grotesk text-ow-dim">
+              No shows on the books — hear about the next one first.
+              <a
+                href="#mailing"
+                className="whitespace-nowrap rounded-full border border-ow-hairline-strong px-[18px] py-[11px] text-[12.5px] font-bold uppercase tracking-[0.08em] text-ow-text transition-colors hover:border-transparent hover:bg-ow-accent hover:text-ow-on-accent"
+              >
+                Join the list
+              </a>
             </div>
           )}
           {shows.map((show) => (
