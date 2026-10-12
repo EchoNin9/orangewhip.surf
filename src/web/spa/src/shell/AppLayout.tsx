@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -66,6 +66,8 @@ export function AppLayout() {
   }, []);
 
   return (
+    /* Motion-Safe Rule (DESIGN.md): every framer-motion animation honours the OS reduced-motion setting */
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen flex flex-col bg-secondary-900">
       <Header />
 
@@ -121,5 +123,6 @@ export function AppLayout() {
 
       <Footer bookingEmail={bookingEmail} />
     </div>
+    </MotionConfig>
   );
 }

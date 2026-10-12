@@ -12,14 +12,14 @@ export function Footer({ bookingEmail }: { bookingEmail: string }) {
           <Link to="/" className="font-cooper text-[32px] font-semibold italic leading-none text-ow-accent">
             Orange Whip
           </Link>
-          <nav aria-label="Social links" className="flex flex-wrap gap-x-6 gap-y-2">
+          <nav aria-label="Social links" className="flex flex-wrap gap-x-6">
             {socialLinks.map(({ name, href }) => (
               <a
                 key={name}
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sm font-semibold uppercase text-ow-dim transition-colors hover:text-ow-accent"
+                className="inline-flex min-h-11 items-center text-sm font-semibold uppercase text-ow-dim transition-colors hover:text-ow-accent"
               >
                 {name}
               </a>
