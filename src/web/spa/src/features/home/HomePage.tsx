@@ -211,6 +211,7 @@ function MediaSection() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const urlCache = useRef(new Map<string, string>());
   const inflight = useRef(new Map<string, Promise<string>>());
+  const wanted = useRef<number | null>(null); // last tapped track
   const [current, setCurrent] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
@@ -256,7 +257,9 @@ function MediaSection() {
     const audio = audioRef.current;
     const id = tracks[i].mediaId;
     if (!audio || !id) return;
-    if (i === current) {
+    wanted.current = i;
+    // An errored source (expired presigned URL) falls through to a refetch
+    if (i === current && !audio.error) {
       if (audio.paused) audio.play().catch(() => {});
       else audio.pause();
       return;
@@ -265,11 +268,12 @@ function MediaSection() {
     if (cached) return start(i, cached);
     setLoadingIdx(i);
     try {
-      start(i, await fetchUrl(id));
+      const url = await fetchUrl(id);
+      if (wanted.current === i) start(i, url); // a later tap wins over a slow fetch
     } catch {
-      navigate(`/media/${id}`); // can't play inline — fall back to the media page
+      if (wanted.current === i) navigate(`/media/${id}`); // can't play inline — fall back to the media page
     } finally {
-      setLoadingIdx(null);
+      setLoadingIdx((l) => (l === i ? null : l));
     }
   }
 
