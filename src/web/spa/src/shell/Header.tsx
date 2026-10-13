@@ -60,8 +60,11 @@ export const socialLinks = [
   { name: "SoundCloud", href: "https://soundcloud.com/adam-jinks/sets/orange-whip", Icon: SoundCloudIcon },
 ];
 
+/* Route nav matches the homepage anchors' type (homeAnchorClass); the current page stays accent */
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `transition-colors duration-200 ${isActive ? "text-ow-accent font-semibold" : "text-ow-text hover:text-ow-accent"}`;
+  `font-grotesk font-semibold text-sm uppercase tracking-[0.06em] transition-colors duration-200 ${
+    isActive ? "text-ow-accent" : "text-ow-text hover:text-ow-accent"
+  }`;
 
 /* OW redesign homepage nav (OW-4): section anchors, no Tickets button (intentionally removed).
    #media/#merch/#about sections land with OW-8/9/10/11. */
