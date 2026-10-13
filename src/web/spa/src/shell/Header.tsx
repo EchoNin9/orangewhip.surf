@@ -61,7 +61,7 @@ export const socialLinks = [
 ];
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `transition-colors duration-200 ${isActive ? "text-primary-400 font-semibold" : "text-secondary-300 hover:text-white"}`;
+  `transition-colors duration-200 ${isActive ? "text-ow-accent font-semibold" : "text-ow-text hover:text-ow-accent"}`;
 
 /* OW redesign homepage nav (OW-4): section anchors, no Tickets button (intentionally removed).
    #media/#merch/#about sections land with OW-8/9/10/11. */
@@ -120,13 +120,13 @@ export function Header() {
         </div>
       )}
       {/* Social bar */}
-      <div className={`border-b ${scrolled || !isHome ? "border-secondary-800" : "border-white/10"}`}>
+      <div className="border-b border-ow-hairline">
         <div className="container-max flex items-center justify-between gap-4 py-1.5">
           {user ? (
             <div className="flex items-center gap-3 min-w-0">
               <Link
                 to="/profile"
-                className="text-sm text-secondary-400 hover:text-primary-400 transition-colors truncate max-w-[180px]"
+                className="text-sm text-ow-dim hover:text-ow-accent transition-colors truncate max-w-[180px]"
               >
                 {user.userHandle?.trim() || user.displayName || user.email}
               </Link>
@@ -137,7 +137,7 @@ export function Header() {
                     sessionStorage.setItem('ows_view_as_guest', (!viewAsGuest).toString());
                     window.location.reload();
                   }}
-                  className="text-xs text-secondary-500 hover:text-primary-400 transition-colors whitespace-nowrap"
+                  className="text-xs text-ow-dimmer hover:text-ow-accent transition-colors whitespace-nowrap"
                 >
                   {sessionStorage.getItem('ows_view_as_guest') === 'true'
                     ? 'View as member'
@@ -210,14 +210,14 @@ export function Header() {
           </button>
 
           {user ? (
-            <div className="flex items-center gap-4 ml-4 pl-4 border-l border-secondary-700">
+            <div className="flex items-center gap-4 ml-4 pl-4 border-l border-ow-hairline">
               {showAdminLink && (
                 <NavLink to="/admin" className={navLinkClass}>Admin</NavLink>
               )}
               <NavLink to="/profile" className={navLinkClass}>
                 <UserCircleIcon className="w-5 h-5" />
               </NavLink>
-              <button onClick={signOut} className="text-secondary-400 hover:text-red-400 transition-colors text-xs">
+              <button onClick={signOut} className="text-ow-dim hover:text-ow-accent transition-colors text-xs">
                 Sign Out
               </button>
             </div>
@@ -270,7 +270,7 @@ export function Header() {
             className={`overflow-hidden border-t ${
               isHome
                 ? "ow:hidden border-ow-hairline bg-[oklch(0.16_0.018_45/0.92)] backdrop-blur-[14px]"
-                : "md:hidden border-secondary-800 bg-secondary-900/95 backdrop-blur-sm"
+                : "md:hidden border-ow-hairline bg-[oklch(0.16_0.018_45/0.92)] backdrop-blur-[14px]"
             }`}
           >
             <div className="container-max py-4 space-y-2">
@@ -306,8 +306,8 @@ export function Header() {
                   className={({ isActive }) =>
                     isHome
                       ? `block py-3 ${homeAnchorClass}`
-                      : `block px-3 py-2 rounded-md transition-colors ${
-                          isActive ? "bg-secondary-800 text-primary-400" : "text-secondary-300 hover:bg-secondary-800 hover:text-white"
+                      : `block px-3 py-2 rounded-full transition-colors ${
+                          isActive ? "bg-ow-surface-hover text-ow-accent" : "text-ow-text hover:bg-ow-surface hover:text-ow-accent"
                         }`
                   }
                   onClick={() => setMobileOpen(false)}
@@ -321,7 +321,7 @@ export function Header() {
                   className={
                     isHome
                       ? `block w-full py-3 text-left ${homeAnchorClass}`
-                      : "block w-full text-left px-3 py-2 rounded-md text-red-400 hover:bg-secondary-800 transition-colors"
+                      : "block w-full text-left px-3 py-2 rounded-full text-ow-dim hover:bg-ow-surface hover:text-ow-accent transition-colors"
                   }
                 >
                   Sign Out

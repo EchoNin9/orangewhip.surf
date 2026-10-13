@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment, type FormEvent, type ReactNode }
 import { Link, useNavigate } from "react-router-dom";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
+import { PlayIcon, PauseIcon, ForwardIcon } from "@heroicons/react/24/solid";
 import { apiGet, apiPost } from "../../utils/api";
 import { parseDate } from "../../utils/date";
 import { socialLinks } from "../../shell/Header";
@@ -169,7 +169,7 @@ interface Album {
 }
 
 const STREAM_BTN =
-  "flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-[11px] px-2 text-center font-grotesk text-xs font-bold uppercase";
+  "flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-full px-2 text-center font-grotesk text-xs font-bold uppercase";
 
 interface HomeMediaItem {
   id: string;
@@ -215,6 +215,17 @@ function MediaSection() {
   const [playing, setPlaying] = useState(false);
   const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
   const [time, setTime] = useState({ at: 0, total: 0 });
+
+  /* The now-playing pill only shows while the tracklist is off-screen */
+  const listRef = useRef<HTMLUListElement>(null);
+  const [listInView, setListInView] = useState(true);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setListInView(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   function fetchUrl(id: string): Promise<string> {
     let p = inflight.current.get(id);
@@ -293,15 +304,15 @@ function MediaSection() {
               Spotify
             </a>
             <a href={social("YouTube")} target="_blank" rel="noreferrer" className={`${STREAM_BTN} border border-ow-hairline bg-[oklch(0.95_0.015_80/0.08)] text-ow-text`}>
-              Youtube
+              YouTube
             </a>
             <a href={social("SoundCloud")} target="_blank" rel="noreferrer" className={`${STREAM_BTN} border border-ow-hairline bg-[oklch(0.95_0.015_80/0.08)] text-ow-text`}>
-              Soundcloud
+              SoundCloud
             </a>
           </div>
         </div>
         <div>
-        <ul>
+        <ul ref={listRef}>
           {tracks.map((t, i) => {
             const isCurrent = i === current;
             const pct = isCurrent && time.total ? (time.at / time.total) * 100 : 0;
@@ -347,8 +358,10 @@ function MediaSection() {
                     </>
                   )}
                   {id ? (
-                    <Link to={`/media/${id}`} className={`${STRETCH} ${titleClass} transition-colors hover:text-ow-accent`}>
-                      <span className="truncate">{t.title}</span>
+                    <Link to={`/media/${id}`} className={`group ${STRETCH} ${titleClass} transition-colors hover:text-ow-accent focus-visible:text-ow-accent`}>
+                      <span className="truncate decoration-ow-accent decoration-2 underline-offset-4 group-hover:underline group-focus-visible:underline">
+                        {t.title}
+                      </span>
                     </Link>
                   ) : (
                     <span className={titleClass}>{t.title}</span>
@@ -366,6 +379,19 @@ function MediaSection() {
           })}
         </ul>
         {!album?.tracks?.length && <p className="mt-3 text-[13px] text-ow-dimmer">Sample tracklist.</p>}
+        <p className="sr-only" aria-live="polite">
+          {current !== null ? `${playing ? "Playing" : "Paused"}: ${tracks[current].title}` : ""}
+        </p>
+        {current !== null && !listInView && (
+          <NowPlaying
+            title={tracks[current].title}
+            playing={playing}
+            hasNext={tracks.some((t, j) => j > current && t.mediaId)}
+            onToggle={() => void toggle(current)}
+            onNext={playNext}
+            onJump={() => listRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+          />
+        )}
         <audio
           ref={audioRef}
           preload="none"
@@ -575,12 +601,12 @@ function MailingListSection() {
         style={{ background: "linear-gradient(135deg, var(--ow-accent), var(--ow-accent-2))" }}
       >
         {sent ? (
-          <h2 className="font-anton text-[clamp(32px,5.5vw,60px)] uppercase leading-none">
+          <h2 className="font-anton text-[clamp(32px,5.5vw,60px)] uppercase leading-[0.92]">
             You're on the list ✦ See you out there
           </h2>
         ) : (
           <>
-            <h2 className="font-anton text-[clamp(32px,5.5vw,60px)] uppercase leading-none">
+            <h2 className="font-anton text-[clamp(32px,5.5vw,60px)] uppercase leading-[0.92]">
               Don't miss a show
             </h2>
             <p className="mx-auto mt-3 max-w-[46ch] font-semibold opacity-80">
@@ -603,7 +629,7 @@ function MailingListSection() {
               <button
                 type="submit"
                 disabled={busy}
-                className="rounded-xl bg-ow-on-accent px-7 py-4 font-bold uppercase text-ow-text disabled:opacity-60"
+                className="rounded-full bg-ow-on-accent px-7 py-4 font-bold uppercase text-ow-text disabled:opacity-60"
               >
                 {busy ? "…" : "Sign Up"}
               </button>
@@ -757,7 +783,7 @@ export function HomePage() {
           {/* Eyebrow pill */}
           <div className="inline-flex items-center gap-2.5 rounded-full border border-ow-hairline bg-[oklch(0.95_0.015_80/0.07)] px-4 py-2 backdrop-blur">
             <span className="h-2 w-2 rounded-full bg-ow-accent-3 shadow-[0_0_10px_2px_var(--ow-accent-3)]" />
-            <span className="font-grotesk text-[13px] font-semibold uppercase tracking-[0.08em] text-ow-text">
+            <span className="font-grotesk text-[13px] font-semibold uppercase tracking-[0.06em] text-ow-text">
               Vancouver, BC · Surf-Psych Rock
             </span>
           </div>
@@ -1122,5 +1148,49 @@ function Linkified({ text }: { text: string }) {
         ),
       )}
     </>
+  );
+}
+
+/** Floating now-playing control, shown while a track plays and the tracklist is scrolled away. */
+function NowPlaying({
+  title,
+  playing,
+  hasNext,
+  onToggle,
+  onNext,
+  onJump,
+}: {
+  title: string;
+  playing: boolean;
+  hasNext: boolean;
+  onToggle: () => void;
+  onNext: () => void;
+  onJump: () => void;
+}) {
+  return (
+    <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-full border border-ow-hairline-strong bg-[oklch(0.16_0.018_45/0.72)] p-1.5 font-grotesk backdrop-blur-[14px] sm:left-auto sm:right-6 sm:w-[360px]">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={playing ? `Pause ${title}` : `Play ${title}`}
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ow-accent text-ow-on-accent transition-opacity hover:opacity-90"
+      >
+        {playing ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5 pl-0.5" />}
+      </button>
+      <button type="button" onClick={onJump} className="min-w-0 flex-1 text-left" aria-label={`Show ${title} in the tracklist`}>
+        <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-ow-accent-3">Now playing</span>
+        <span className="block truncate text-sm font-semibold text-ow-text">{title}</span>
+      </button>
+      {hasNext && (
+        <button
+          type="button"
+          onClick={onNext}
+          aria-label="Next track"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ow-text transition-colors hover:text-ow-accent"
+        >
+          <ForwardIcon className="h-5 w-5" />
+        </button>
+      )}
+    </div>
   );
 }

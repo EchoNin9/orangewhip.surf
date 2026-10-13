@@ -28,7 +28,7 @@ export function Footer({ bookingEmail }: { bookingEmail: string }) {
         </div>
         <p className="mt-6 text-[13px] text-ow-dimmer">
           © {new Date().getFullYear()} Orange Whip · Vancouver, BC · Booking:{" "}
-          <a href={`mailto:${bookingEmail}`} className="relative hover:text-ow-accent before:absolute before:-inset-x-1 before:-inset-y-3.5 before:content-['']">
+          <a href={`mailto:${bookingEmail}`} className="relative text-ow-dim hover:text-ow-accent before:absolute before:-inset-x-1 before:-inset-y-3.5 before:content-['']">
             {bookingEmail}
           </a>
         </p>
