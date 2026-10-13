@@ -138,11 +138,13 @@ export function BrandingAdminPage() {
     }
   };
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = async (original: File) => {
     setUploading(true);
     setError(null);
     setSuccess(null);
     try {
+      // Hero is the page's largest image (LCP) — shrink before upload
+      const file = await shrinkImage(original);
       const { uploadUrl, s3Key } = await apiPost<{
         uploadUrl: string;
         s3Key: string;
@@ -835,4 +837,30 @@ function AlbumEditor() {
       </button>
     </div>
   );
+}
+
+/**
+ * Downscale a photo to at most `maxDim` px on its long edge and re-encode it
+ * (WebP, JPEG where the browser can't encode WebP). Returns the original when
+ * it's already small or the browser can't decode it.
+ * ponytail: client-side only; a server-side variant pipeline would also cover
+ * images uploaded before this existed — re-upload those once.
+ */
+async function shrinkImage(file: File, maxDim = 1920, quality = 0.82): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const encode = (type: string) => new Promise<Blob | null>((res) => canvas.toBlob(res, type, quality));
+    let blob = await encode("image/webp");
+    if (!blob || blob.type !== "image/webp") blob = await encode("image/jpeg");
+    if (!blob || blob.size >= file.size) return file;
+    const ext = blob.type === "image/webp" ? "webp" : "jpg";
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + "." + ext, { type: blob.type });
+  } catch {
+    return file;
+  }
 }

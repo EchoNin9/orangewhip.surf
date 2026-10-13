@@ -1,7 +1,8 @@
-import { useState, useEffect, Fragment, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef, Fragment, type FormEvent, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
 import { apiGet, apiPost } from "../../utils/api";
 import { parseDate } from "../../utils/date";
 import { socialLinks } from "../../shell/Header";
@@ -133,9 +134,9 @@ function Marquee({ items }: { items: string[] }) {
 function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <div className="mb-6 flex items-center gap-4">
-      <span className="shrink-0 font-grotesk text-[13px] font-bold uppercase tracking-[0.16em] text-ow-accent-3">
+      <h3 className="shrink-0 font-grotesk text-[13px] font-bold uppercase tracking-[0.16em] text-ow-accent-3">
         {children}
-      </span>
+      </h3>
       <span className="h-px flex-1 bg-ow-hairline" />
     </div>
   );
@@ -168,7 +169,7 @@ interface Album {
 }
 
 const STREAM_BTN =
-  "flex-1 min-w-0 rounded-[11px] px-2 py-[11px] text-center font-grotesk text-xs font-bold uppercase";
+  "flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-[11px] px-2 text-center font-grotesk text-xs font-bold uppercase";
 
 interface HomeMediaItem {
   id: string;
@@ -203,6 +204,69 @@ function MediaSection() {
   const tracks = album?.tracks?.length ? album.tracks : FALLBACK_TRACKS;
   const anyPlayable = tracks.some((t) => t.mediaId);
 
+  /* Inline playback: one shared <audio>. A track's presigned URL is fetched on
+     hover/touch (prefetch) or first tap, then cached so later taps call play()
+     synchronously inside the gesture (Safari's autoplay rule). */
+  const navigate = useNavigate();
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const urlCache = useRef(new Map<string, string>());
+  const inflight = useRef(new Map<string, Promise<string>>());
+  const [current, setCurrent] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
+  const [time, setTime] = useState({ at: 0, total: 0 });
+
+  function fetchUrl(id: string): Promise<string> {
+    let p = inflight.current.get(id);
+    if (!p) {
+      p = apiGet<{ url: string }>(`/media?id=${id}`).then((r) => {
+        urlCache.current.set(id, r.url);
+        return r.url;
+      });
+      p.catch(() => inflight.current.delete(id));
+      inflight.current.set(id, p);
+    }
+    return p;
+  }
+
+  function start(i: number, url: string) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.src = url;
+    setCurrent(i);
+    setTime({ at: 0, total: 0 });
+    audio.play().catch((err: DOMException) => {
+      // NotAllowed: the gesture expired while fetching — URL is cached now, next tap plays
+      if (err.name !== "NotAllowedError" && err.name !== "AbortError") navigate(`/media/${tracks[i].mediaId}`);
+    });
+  }
+
+  async function toggle(i: number) {
+    const audio = audioRef.current;
+    const id = tracks[i].mediaId;
+    if (!audio || !id) return;
+    if (i === current) {
+      if (audio.paused) audio.play().catch(() => {});
+      else audio.pause();
+      return;
+    }
+    const cached = urlCache.current.get(id);
+    if (cached) return start(i, cached);
+    setLoadingIdx(i);
+    try {
+      start(i, await fetchUrl(id));
+    } catch {
+      navigate(`/media/${id}`); // can't play inline — fall back to the media page
+    } finally {
+      setLoadingIdx(null);
+    }
+  }
+
+  function playNext() {
+    const next = current === null ? -1 : tracks.findIndex((t, j) => j > current && t.mediaId);
+    if (next >= 0) void toggle(next);
+  }
+
   const TRACK_ROW = "flex items-center gap-4 border-b border-ow-hairline px-2 py-3.5";
 
   return (
@@ -236,25 +300,51 @@ function MediaSection() {
             </a>
           </div>
         </div>
+        <div>
         <ul>
           {tracks.map((t, i) => {
+            const isCurrent = i === current;
+            const pct = isCurrent && time.total ? (time.at / time.total) * 100 : 0;
             const row = (
               <>
                 <span className="w-5 shrink-0 font-anton text-[15px] text-ow-accent-3">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                {/* Only playable rows show the ▶ (and hover); inert rows keep its slot in a mixed list so titles align */}
-                <span aria-hidden="true" className={t.mediaId ? "text-ow-accent" : anyPlayable ? "invisible" : "hidden"}>
-                  ▶
+                {/* Only playable rows show play/pause (and hover); inert rows keep the slot in a mixed list so titles align */}
+                <span
+                  aria-hidden="true"
+                  className={`w-4 shrink-0 text-ow-accent ${t.mediaId ? "" : anyPlayable ? "invisible" : "hidden"} ${
+                    loadingIdx === i ? "motion-safe:animate-pulse" : ""
+                  }`}
+                >
+                  {isCurrent && playing ? <PauseIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-base font-semibold text-ow-text">{t.title}</span>
-                <span className="text-sm tabular-nums text-ow-dim">{t.duration}</span>
+                <span className={`min-w-0 flex-1 truncate text-base font-semibold ${isCurrent ? "text-ow-accent" : "text-ow-text"}`}>
+                  {t.title}
+                </span>
+                <span className="text-sm tabular-nums text-ow-dim">
+                  {isCurrent && time.at > 0 ? `${clock(time.at)}${time.total ? ` / ${clock(time.total)}` : ""}` : t.duration}
+                </span>
+                {/* Progress fills the row's bottom hairline */}
+                {isCurrent && (
+                  <span aria-hidden="true" className="absolute -bottom-px left-0 h-0.5 bg-ow-accent" style={{ width: `${pct}%` }} />
+                )}
               </>
             );
+            const id = t.mediaId;
             return (
               <li key={i}>
-                {t.mediaId ? (
-                  <Link to={`/media/${t.mediaId}`} className={`${TRACK_ROW} transition-colors hover:bg-ow-surface`}>{row}</Link>
+                {id ? (
+                  <button
+                    type="button"
+                    onClick={() => void toggle(i)}
+                    onPointerEnter={() => void fetchUrl(id).catch(() => {})}
+                    onFocus={() => void fetchUrl(id).catch(() => {})}
+                    aria-label={`${isCurrent && playing ? "Pause" : "Play"} ${t.title}`}
+                    className={`${TRACK_ROW} relative w-full text-left transition-colors hover:bg-ow-surface ${isCurrent ? "bg-ow-surface" : ""}`}
+                  >
+                    {row}
+                  </button>
                 ) : (
                   <div className={TRACK_ROW}>{row}</div>
                 )}
@@ -262,6 +352,24 @@ function MediaSection() {
             );
           })}
         </ul>
+        {!album?.tracks?.length && <p className="mt-3 text-[13px] text-ow-dimmer">Sample tracklist.</p>}
+        <audio
+          ref={audioRef}
+          preload="none"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onTimeUpdate={(e) => setTime({ at: e.currentTarget.currentTime, total: e.currentTarget.duration || 0 })}
+          onEnded={playNext}
+          onError={() => {
+            // presigned URL expired or unplayable — forget it so the next tap refetches
+            const id = current === null ? undefined : tracks[current].mediaId;
+            if (id) {
+              urlCache.current.delete(id);
+              inflight.current.delete(id);
+            }
+          }}
+        />
+        </div>
       </div>
 
       {/* ── 5b. Watch ── */}
@@ -269,8 +377,8 @@ function MediaSection() {
         <div className="mt-14">
           <Eyebrow>Watch</Eyebrow>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
-            {videos.map((v) => (
-              <Link key={v.id} to={`/media/${v.id}`} className="group block">
+            {videos.map((v, i) => (
+              <Link key={v.id} to={`/media/${v.id}`} className={`group block ${i > 0 ? "hidden sm:block" : ""}`}>
                 <div className="ow-hatch relative aspect-video overflow-hidden rounded-[14px] border border-ow-hairline transition-colors group-hover:border-ow-accent">
                   {v.thumbnail && (
                     <OptimizedImg
@@ -282,8 +390,8 @@ function MediaSection() {
                     />
                   )}
                   <div className="absolute inset-0 grid place-items-center">
-                    <span className="grid h-[54px] w-[54px] place-items-center rounded-full border-[1.5px] border-white/70 bg-black/45 pl-1 text-ow-text backdrop-blur">
-                      ▶
+                    <span className="grid h-[54px] w-[54px] place-items-center rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.7)] bg-[oklch(0.13_0.02_45/0.5)] pl-0.5 text-ow-text backdrop-blur">
+                      <PlayIcon aria-hidden="true" className="h-5 w-5" />
                     </span>
                   </div>
                   {/* ponytail: no duration field on media items yet — chip lands when the API grows one */}
@@ -300,12 +408,14 @@ function MediaSection() {
       {photos.length > 0 && (
         <div className="mt-14">
           <Eyebrow>Photos</Eyebrow>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3.5">
-            {photos.map((p) => (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-6">
+            {photos.map((p, i) => (
               <Link
                 key={p.id}
                 to={`/media/${p.id}`}
-                className="ow-hatch aspect-square overflow-hidden rounded-xl border border-ow-hairline transition-all hover:scale-[1.02] hover:border-ow-accent"
+                className={`ow-hatch aspect-square overflow-hidden rounded-xl border border-ow-hairline transition-all hover:scale-[1.02] hover:border-ow-accent ${
+                  i >= 4 ? "hidden sm:block" : ""
+                }`}
               >
                 {p.thumbnail && (
                   <OptimizedImg
@@ -348,7 +458,7 @@ function MerchSection() {
           Visit full store →
         </Link>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-[22px]">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(220px,1fr))] sm:gap-[22px]">
         {products.map((p) => (
           <Link key={p.id} to={`/store/${p.slug}`} className="group block">
             <div className="ow-hatch relative aspect-square overflow-hidden rounded-2xl border border-ow-hairline transition-all duration-200 group-hover:-translate-y-1 group-hover:border-ow-accent">
@@ -368,8 +478,8 @@ function MerchSection() {
                 </span>
               )}
             </div>
-            <div className="mt-3 flex items-baseline justify-between gap-3">
-              <span className="min-w-0 truncate text-base font-bold text-ow-text">{p.title}</span>
+            <div className="mt-3 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+              <span className="min-w-0 text-base font-bold text-ow-text">{p.title}</span>
               <span className="font-anton text-lg text-ow-accent">
                 {formatPrice(p.price_cents, p.currency)}
               </span>
@@ -474,7 +584,7 @@ function MailingListSection() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@earth.com"
-                className="min-w-0 flex-1 basis-[260px] rounded-xl px-[18px] py-4 text-ow-text placeholder:text-ow-dimmer focus:outline-none focus:ring-2 focus:ring-ow-on-accent"
+                className="min-w-0 flex-1 basis-[260px] rounded-xl px-[18px] py-4 text-ow-text placeholder:text-[oklch(0.66_0.02_80)] focus:outline-none focus:ring-2 focus:ring-ow-on-accent"
                 style={{ background: "oklch(0.16 0.02 45 / 0.92)" }}
               />
               <button
@@ -487,7 +597,7 @@ function MailingListSection() {
             </form>
             {failed && (
               <p className="mt-3 text-sm font-bold" role="alert">
-                Something went wrong — try again in a minute.
+                Couldn’t sign you up just now — check the address and try again.
               </p>
             )}
           </>
@@ -658,7 +768,7 @@ export function HomePage() {
           {/* Lead */}
           <p className="mt-6 max-w-[560px] font-grotesk text-[clamp(16px,2.2vw,20px)] leading-relaxed text-[oklch(0.86_0.02_80)]">
             Reverb-drenched riffs and sunburnt melodies from the Pacific Northwest. Catch the
-            wave live this summer.
+            wave live.
           </p>
 
           {/* CTAs — labels/links come from branding settings; admin reconciliation in OW-13 */}
@@ -729,17 +839,24 @@ export function HomePage() {
             <span className="text-ow-accent">Dates</span>
           </h2>
           <p className="max-w-[340px] font-grotesk text-[15px] text-ow-dim">
-            Doors usually 8pm. Grab tickets early — most rooms are small and these go fast.
+            {!loading && shows.length === 0
+              ? "Doors usually 8pm. New dates go to the mailing list first."
+              : "Doors usually 8pm. Grab tickets early — most rooms are small and these go fast."}
           </p>
         </div>
 
         <div className="mt-10 flex flex-col gap-0.5 overflow-hidden rounded-[18px] border border-ow-hairline">
           {!loading && shows.length === 0 && (
             <div className="flex flex-wrap items-center justify-between gap-4 bg-ow-surface px-6 py-5 font-grotesk text-ow-dim">
-              No shows on the books — hear about the next one first.
+              <Link
+                to="/shows"
+                className="text-ow-text underline decoration-ow-accent decoration-2 underline-offset-4 transition-colors hover:text-ow-accent"
+              >
+                No upcoming shows at the moment. Check out media from our past shows.
+              </Link>
               <a
                 href="#mailing"
-                className="whitespace-nowrap rounded-full border border-ow-hairline-strong px-[18px] py-[11px] text-[12.5px] font-bold uppercase tracking-[0.08em] text-ow-text transition-colors hover:border-transparent hover:bg-ow-accent hover:text-ow-on-accent"
+                className="whitespace-nowrap rounded-full bg-ow-accent px-[18px] py-[11px] text-[12.5px] font-bold uppercase tracking-[0.08em] text-ow-on-accent transition-opacity hover:opacity-90"
               >
                 Join the list
               </a>
@@ -776,7 +893,7 @@ export function HomePage() {
       </section>
 
       {/* ── Latest News (moved between Show Dates and Media, OW-17) ── */}
-      {!loading && pinnedUpdate && (
+      {!loading && pinnedUpdate && isFresh(pinnedUpdate.createdAt) && (
         <section className="mx-auto w-full max-w-[1100px] px-7 py-14 font-grotesk">
           <h2 className="mb-10 font-anton text-[clamp(40px,7vw,84px)] uppercase leading-[0.92] text-ow-text">
             Latest
@@ -784,14 +901,7 @@ export function HomePage() {
             <span className="text-ow-accent">News</span>
           </h2>
 
-          <button
-            type="button"
-            className="block w-full rounded-[18px] border border-ow-hairline bg-ow-surface p-6 text-left transition-colors hover:border-ow-accent hover:bg-ow-surface-hover sm:p-8"
-            onClick={() => {
-              setModalOpen(true);
-              setMediaIdx(0);
-            }}
-          >
+          <div className="rounded-[18px] border border-ow-hairline bg-ow-surface p-6 sm:p-8">
             <div className="flex flex-col gap-6 sm:flex-row">
               {pinnedUpdate.media?.[0] && (
                 <div className="ow-hatch aspect-video flex-shrink-0 overflow-hidden rounded-[14px] border border-ow-hairline sm:aspect-auto sm:h-36 sm:w-48">
@@ -799,6 +909,7 @@ export function HomePage() {
                     <OptimizedImg
                       webpSrc={pinnedUpdate.media[0].thumbnailWebp}
                       src={pinnedUpdate.media[0].thumbnailUrl || pinnedUpdate.media[0].url}
+                      alt={pinnedUpdate.title}
                       loading="lazy"
                       className="h-full w-full object-cover"
                     />
@@ -817,11 +928,25 @@ export function HomePage() {
                   </span>
                 )}
                 <h3 className="font-grotesk text-lg font-bold text-ow-text">{pinnedUpdate.title}</h3>
-                <p className="mt-2 line-clamp-3 text-ow-dim">{pinnedUpdate.content}</p>
-                <p className="mt-3 text-[13px] text-ow-dimmer">{formatDate(pinnedUpdate.createdAt)}</p>
+                <p className="mt-2 line-clamp-3 text-ow-dim">
+                  <Linkified text={pinnedUpdate.content} />
+                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[13px] text-ow-dimmer">{formatDate(pinnedUpdate.createdAt)}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalOpen(true);
+                      setMediaIdx(0);
+                    }}
+                    className="whitespace-nowrap rounded-full border border-ow-hairline-strong px-[18px] py-[11px] text-[12.5px] font-bold uppercase tracking-[0.08em] text-ow-text transition-colors hover:border-transparent hover:bg-ow-accent hover:text-ow-on-accent"
+                  >
+                    Read more
+                  </button>
+                </div>
               </div>
             </div>
-          </button>
+          </div>
         </section>
       )}
 
@@ -932,7 +1057,7 @@ export function HomePage() {
                   )}
 
                   <p className="whitespace-pre-wrap leading-relaxed text-ow-dim">
-                    {pinnedUpdate?.content}
+                    <Linkified text={pinnedUpdate?.content ?? ""} />
                   </p>
 
                   <p className="mt-4 text-[13px] text-ow-dimmer">
@@ -956,5 +1081,33 @@ function PlayTriangle() {
     <svg className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
       <path d="M8 5v14l11-7z" />
     </svg>
+  );
+}
+
+/** m:ss for the track clock */
+function clock(sec: number): string {
+  return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+}
+
+/* A news post older than this reads as stale "Latest News" — hide it instead */
+const NEWS_MAX_AGE_DAYS = 60;
+function isFresh(createdAt: string): boolean {
+  return Date.now() - parseDate(createdAt).getTime() < NEWS_MAX_AGE_DAYS * 86_400_000;
+}
+
+/** Plain text with bare http(s) URLs turned into links */
+function Linkified({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+        i % 2 ? (
+          <a key={i} href={part} target="_blank" rel="noreferrer" className="break-all text-ow-accent underline underline-offset-2">
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </>
   );
 }

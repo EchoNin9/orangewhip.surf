@@ -154,7 +154,7 @@ export function Header() {
               key={name}
               href={href}
               title={name}
-              className="relative text-secondary-400 hover:text-primary-400 transition-colors before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-['']"
+              className="relative text-ow-dim hover:text-ow-accent transition-colors before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-['']"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -198,7 +198,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="relative p-1.5 text-secondary-300 hover:text-primary-400 transition-colors before:absolute before:-inset-1.5 before:content-['']"
+            className="relative p-1.5 text-ow-text hover:text-ow-accent transition-colors before:absolute before:-inset-1.5 before:content-['']"
             aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
           >
             <ShoppingBagIcon className="w-5 h-5" />
@@ -224,7 +224,7 @@ export function Header() {
           ) : (
             <NavLink
               to="/login"
-              className="ml-4 inline-flex items-center justify-center rounded-lg bg-ow-accent px-4 py-1.5 text-xs font-semibold text-ow-on-accent transition-opacity hover:opacity-90"
+              className="ml-4 inline-flex items-center justify-center rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] px-4 py-1.5 font-grotesk text-xs font-bold uppercase tracking-[0.06em] text-ow-text transition-[border-color,box-shadow] duration-200 hover:border-ow-accent hover:shadow-[0_0_14px_-2px_var(--ow-accent)]"
             >
               Sign In
             </NavLink>
@@ -236,7 +236,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="relative p-2 text-secondary-300 hover:text-white before:absolute before:-inset-0.5 before:content-['']"
+            className="relative p-2 text-ow-text hover:text-ow-accent before:absolute before:-inset-0.5 before:content-['']"
             aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
           >
             <ShoppingBagIcon className="w-6 h-6" />
@@ -250,7 +250,7 @@ export function Header() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className={`relative p-2 text-secondary-300 hover:text-white before:absolute before:-inset-0.5 before:content-[''] ${
+            className={`relative p-2 text-ow-text hover:text-ow-accent before:absolute before:-inset-0.5 before:content-[''] ${
               isHome ? "border border-ow-hairline-strong rounded-[10px] text-ow-text" : ""
             }`}
           >
