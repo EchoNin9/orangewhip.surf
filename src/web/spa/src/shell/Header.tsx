@@ -154,7 +154,7 @@ export function Header() {
               key={name}
               href={href}
               title={name}
-              className="text-secondary-400 hover:text-primary-400 transition-colors"
+              className="relative text-secondary-400 hover:text-primary-400 transition-colors before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-['']"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -198,12 +198,12 @@ export function Header() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="relative p-1.5 text-secondary-300 hover:text-primary-400 transition-colors"
+            className="relative p-1.5 text-secondary-300 hover:text-primary-400 transition-colors before:absolute before:-inset-1.5 before:content-['']"
             aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
           >
             <ShoppingBagIcon className="w-5 h-5" />
             {itemCount > 0 && (
-              <span className="absolute -top-0.5 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+              <span className="absolute -top-0.5 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-ow-accent text-ow-on-accent text-[10px] font-bold flex items-center justify-center tabular-nums">
                 {itemCount > 99 ? "99+" : itemCount}
               </span>
             )}
@@ -222,7 +222,12 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <NavLink to="/login" className="btn-primary text-xs !px-4 !py-1.5 ml-4">Sign In</NavLink>
+            <NavLink
+              to="/login"
+              className="ml-4 inline-flex items-center justify-center rounded-lg bg-ow-accent px-4 py-1.5 text-xs font-semibold text-ow-on-accent transition-opacity hover:opacity-90"
+            >
+              Sign In
+            </NavLink>
           )}
         </div>
 
@@ -231,12 +236,12 @@ export function Header() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="relative p-2 text-secondary-300 hover:text-white"
+            className="relative p-2 text-secondary-300 hover:text-white before:absolute before:-inset-0.5 before:content-['']"
             aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
           >
             <ShoppingBagIcon className="w-6 h-6" />
             {itemCount > 0 && (
-              <span className="absolute top-1 right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+              <span className="absolute top-1 right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-ow-accent text-ow-on-accent text-[10px] font-bold flex items-center justify-center tabular-nums">
                 {itemCount > 99 ? "99+" : itemCount}
               </span>
             )}
@@ -245,7 +250,7 @@ export function Header() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className={`p-2 text-secondary-300 hover:text-white ${
+            className={`relative p-2 text-secondary-300 hover:text-white before:absolute before:-inset-0.5 before:content-[''] ${
               isHome ? "border border-ow-hairline-strong rounded-[10px] text-ow-text" : ""
             }`}
           >
@@ -262,8 +267,10 @@ export function Header() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className={`overflow-hidden border-t border-secondary-800 bg-secondary-900/95 backdrop-blur-sm ${
-              isHome ? "ow:hidden" : "md:hidden"
+            className={`overflow-hidden border-t ${
+              isHome
+                ? "ow:hidden border-ow-hairline bg-[oklch(0.16_0.018_45/0.92)] backdrop-blur-[14px]"
+                : "md:hidden border-secondary-800 bg-secondary-900/95 backdrop-blur-sm"
             }`}
           >
             <div className="container-max py-4 space-y-2">
@@ -297,9 +304,11 @@ export function Header() {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `block px-3 py-2 rounded-md transition-colors ${
-                      isActive ? "bg-secondary-800 text-primary-400" : "text-secondary-300 hover:bg-secondary-800 hover:text-white"
-                    }`
+                    isHome
+                      ? `block py-3 ${homeAnchorClass}`
+                      : `block px-3 py-2 rounded-md transition-colors ${
+                          isActive ? "bg-secondary-800 text-primary-400" : "text-secondary-300 hover:bg-secondary-800 hover:text-white"
+                        }`
                   }
                   onClick={() => setMobileOpen(false)}
                 >
@@ -309,7 +318,11 @@ export function Header() {
               {user && (
                 <button
                   onClick={() => { signOut(); setMobileOpen(false); }}
-                  className="block w-full text-left px-3 py-2 rounded-md text-red-400 hover:bg-secondary-800 transition-colors"
+                  className={
+                    isHome
+                      ? `block w-full py-3 text-left ${homeAnchorClass}`
+                      : "block w-full text-left px-3 py-2 rounded-md text-red-400 hover:bg-secondary-800 transition-colors"
+                  }
                 >
                   Sign Out
                 </button>
