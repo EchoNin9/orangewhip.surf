@@ -326,7 +326,7 @@ function MediaSection() {
             const icon = (
               <span
                 aria-hidden="true"
-                className={`w-4 shrink-0 text-ow-accent ${id ? "" : anyPlayable ? "invisible" : "hidden"} ${
+                className={`w-4 shrink-0 text-ow-accent transition-[filter,color,transform] duration-200 group-hover/play:scale-110 group-hover/play:text-ow-text group-hover/play:[filter:drop-shadow(0_0_3px_var(--ow-accent))_drop-shadow(0_0_10px_var(--ow-accent))] group-focus-visible/play:text-ow-text group-focus-visible/play:[filter:drop-shadow(0_0_3px_var(--ow-accent))_drop-shadow(0_0_10px_var(--ow-accent))] ${id ? "" : anyPlayable ? "invisible" : "hidden"} ${
                   loadingIdx === i ? "motion-safe:animate-pulse" : ""
                 }`}
               >
@@ -346,7 +346,7 @@ function MediaSection() {
                       onPointerEnter={() => void fetchUrl(id).catch(() => {})}
                       onFocus={() => void fetchUrl(id).catch(() => {})}
                       aria-label={`${isCurrent && playing ? "Pause" : "Play"} ${t.title}`}
-                      className={`${STRETCH} -ml-2 shrink-0 gap-4 pl-2 pr-1`}
+                      className={`group/play ${STRETCH} -ml-2 shrink-0 gap-4 pl-2 pr-1`}
                     >
                       {number}
                       {icon}
@@ -429,7 +429,7 @@ function MediaSection() {
                     />
                   )}
                   <div className="absolute inset-0 grid place-items-center">
-                    <span className="grid h-[54px] w-[54px] place-items-center rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.7)] bg-[oklch(0.13_0.02_45/0.5)] pl-0.5 text-ow-text backdrop-blur">
+                    <span className="grid h-[54px] w-[54px] place-items-center rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.7)] bg-[oklch(0.13_0.02_45/0.5)] pl-0.5 text-ow-text backdrop-blur transition-[color,border-color,filter] duration-200 group-hover:border-ow-accent group-hover:text-ow-accent group-hover:drop-shadow-[0_0_8px_var(--ow-accent)]">
                       <PlayIcon aria-hidden="true" className="h-5 w-5" />
                     </span>
                   </div>
@@ -889,7 +889,7 @@ export function HomePage() {
             <div className="flex flex-wrap items-center justify-between gap-4 bg-ow-surface px-6 py-5 font-grotesk text-ow-dim">
               <Link
                 to="/shows"
-                className="text-ow-text underline decoration-ow-accent decoration-2 underline-offset-4 transition-colors hover:text-ow-accent"
+                className="text-ow-text transition-colors hover:text-ow-accent focus-visible:text-ow-accent"
               >
                 No upcoming shows at the moment. Check out media from our past shows.
               </Link>
