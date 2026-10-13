@@ -87,14 +87,14 @@ function MediaCarousel({ media }: { media: ShowMediaItem[] }) {
         <>
           <button
             onClick={() => paginate(-1)}
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary-900/70 text-white hover:bg-primary-500/80 transition-colors"
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary-900/70 text-ow-text hover:bg-primary-500/80 transition-colors"
             aria-label="Previous"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => paginate(1)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary-900/70 text-white hover:bg-primary-500/80 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary-900/70 text-ow-text hover:bg-primary-500/80 transition-colors"
             aria-label="Next"
           >
             <ChevronRightIcon className="w-5 h-5" />
@@ -215,7 +215,7 @@ export default function ShowDetailPage() {
           transition={{ duration: 0.5 }}
         >
           {/* Title */}
-          <h1 className="text-3xl sm:text-4xl font-display font-bold text-white mb-2">
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-ow-text mb-2">
             {show.title}
           </h1>
 
@@ -235,7 +235,7 @@ export default function ShowDetailPage() {
               <h2 className="text-sm uppercase tracking-wider text-secondary-400 font-semibold mb-3">
                 Venue
               </h2>
-              <p className="text-xl font-display font-bold text-white">{show.venue.name}</p>
+              <p className="text-xl font-display font-bold text-ow-text">{show.venue.name}</p>
               {show.venue.address && (
                 <p className="text-secondary-300 mt-1">{show.venue.address}</p>
               )}

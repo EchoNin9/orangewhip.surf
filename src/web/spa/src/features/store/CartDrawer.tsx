@@ -73,7 +73,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                 leaveFrom="translate-x-0"
                 leaveTo="translate-x-full"
               >
-                <Dialog.Panel className="pointer-events-auto w-screen max-w-md bg-secondary-900 border-l border-secondary-800 shadow-2xl flex flex-col h-full">
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-md bg-secondary-900 border-l border-secondary-800 flex flex-col h-full">
                   {/* Header */}
                   <div className="flex items-center justify-between px-5 py-4 border-b border-secondary-800">
                     <Dialog.Title className="text-lg font-display font-bold text-secondary-100 flex items-center gap-2">
@@ -83,7 +83,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                     <button
                       type="button"
                       onClick={onClose}
-                      className="p-1 rounded-lg text-secondary-400 hover:text-white hover:bg-secondary-800 transition-colors"
+                      className="p-1 rounded-lg text-secondary-400 hover:text-ow-text hover:bg-secondary-800 transition-colors"
                     >
                       <XMarkIcon className="w-6 h-6" />
                     </button>

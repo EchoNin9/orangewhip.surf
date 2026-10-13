@@ -28,9 +28,9 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
     >
       <Link
         to={`/store/${product.slug}`}
-        className="card block overflow-hidden group transition-all duration-300 hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5"
+        className="card block overflow-hidden group transition-colors duration-200 hover:border-primary-500/60 hover:bg-ow-surface-hover"
       >
-        <div className="relative aspect-square bg-secondary-800 overflow-hidden">
+        <div className="ow-hatch relative aspect-square overflow-hidden">
           {product.hero_image ? (
             <OptimizedImg
               src={product.hero_image}
@@ -48,7 +48,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         </div>
 
         <div className="p-5">
-          <h3 className="text-lg font-display font-bold text-white group-hover:text-primary-400 transition-colors truncate">
+          <h3 className="text-lg font-display font-bold text-ow-text group-hover:text-primary-400 transition-colors truncate">
             {product.title}
           </h3>
           <p className="mt-1 text-sm text-primary-400 font-medium">

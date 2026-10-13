@@ -135,7 +135,7 @@ export function AuthPage() {
               onClick={() => switchTab(t)}
               className={`flex-1 py-2.5 text-sm font-semibold rounded-md transition-colors ${
                 tab === t
-                  ? "bg-primary-500 text-white shadow"
+                  ? "bg-primary-500 text-ow-on-accent shadow"
                   : "text-secondary-400 hover:text-secondary-200"
               }`}
             >

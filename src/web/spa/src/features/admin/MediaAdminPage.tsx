@@ -409,7 +409,7 @@ function UploadTab({ categories }: { categories: Category[] }) {
 
                     {/* Thumb badge */}
                     {idx === thumbIdx && (
-                      <div className="absolute top-1 left-1 bg-primary-500 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                      <div className="absolute top-1 left-1 bg-primary-500 text-ow-on-accent text-[10px] px-1.5 py-0.5 rounded font-semibold">
                         THUMB
                       </div>
                     )}
@@ -1053,7 +1053,7 @@ export default function MediaAdminPage() {
               className={({ selected }) =>
                 `flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors outline-none ${
                   selected
-                    ? "bg-primary-500 text-white shadow"
+                    ? "bg-primary-500 text-ow-on-accent shadow"
                     : "text-secondary-400 hover:text-white hover:bg-secondary-700/50"
                 }`
               }
@@ -1256,7 +1256,7 @@ export default function MediaAdminPage() {
                                   )}
                                 </div>
                                 {isThumb && (
-                                  <div className="absolute top-1 left-1 bg-primary-500 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                                  <div className="absolute top-1 left-1 bg-primary-500 text-ow-on-accent text-[10px] px-1.5 py-0.5 rounded font-semibold">
                                     THUMB
                                   </div>
                                 )}
@@ -1308,7 +1308,7 @@ export default function MediaAdminPage() {
                                   </div>
                                 )}
                               </div>
-                              <div className="absolute top-1 left-1 bg-primary-500/70 text-white text-[10px] px-1.5 py-0.5 rounded">
+                              <div className="absolute top-1 left-1 bg-primary-500/70 text-ow-on-accent text-[10px] px-1.5 py-0.5 rounded">
                                 NEW
                               </div>
                               <button

@@ -1,3 +1,9 @@
+/** Accent step: --ow-accent mixed with white/black, opacity-aware. */
+const tint = (toward, pct) => {
+  const base = toward ? `color-mix(in oklch, var(--ow-accent) ${pct}%, ${toward})` : 'var(--ow-accent)';
+  return `color-mix(in oklch, ${base} calc(<alpha-value> * 100%), transparent)`;
+};
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -24,38 +30,42 @@ export default {
           surface: 'var(--ow-surface)',
           'surface-hover': 'var(--ow-surface-hover)',
         },
+        // Legacy scales, re-pointed at the OW system (route migration, step C).
+        // primary-* follows the live palette: --ow-accent mixed toward white/black,
+        // with <alpha-value> so opacity modifiers (bg-primary-500/25) keep working.
         primary: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
+          50: tint('white', 12),
+          100: tint('white', 22),
+          200: tint('white', 40),
+          300: tint('white', 62),
+          400: tint('white', 82),
+          500: tint(null, 100),
+          600: tint('black', 85),
+          700: tint('black', 70),
+          800: tint('black', 55),
+          900: tint('black', 42),
         },
+        // secondary-* = warm neutrals at slate's lightness steps (contrast preserved; 900 = --ow-bg)
         secondary: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
+          50: '#fcf9f5',
+          100: '#f4eee4',
+          200: '#e4ddd2',
+          300: '#d1c9be',
+          400: '#a9a094',
+          500: '#7c7368',
+          600: '#5e534a',
+          700: '#483d36',
+          800: '#2a1f19',
+          900: '#140b07',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Oswald', 'system-ui', 'sans-serif'],
+        sans: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+        display: ['Anton', 'system-ui', 'sans-serif'],
         // OW redesign faces (OW-2)
         cooper: ['"Cooper Hewitt"', 'system-ui', 'sans-serif'],
-        anton: ['Anton', 'Oswald', 'system-ui', 'sans-serif'],
-        grotesk: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
+        anton: ['Anton', 'system-ui', 'sans-serif'],
+        grotesk: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out forwards',

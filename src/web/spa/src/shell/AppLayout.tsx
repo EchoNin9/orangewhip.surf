@@ -68,7 +68,7 @@ export function AppLayout() {
   return (
     /* Motion-Safe Rule (DESIGN.md): every framer-motion animation honours the OS reduced-motion setting */
     <MotionConfig reducedMotion="user">
-    <div className="min-h-screen flex flex-col bg-secondary-900">
+    <div className="min-h-screen flex flex-col bg-ow-bg">
       <Header />
 
       <div className="flex-1">

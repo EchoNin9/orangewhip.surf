@@ -129,7 +129,7 @@ export function UpdatesPage() {
               <motion.div
                 key={u.id}
                 variants={sharedFadeUp}
-                className="card p-5 sm:p-6 cursor-pointer transition-all duration-300 hover:border-primary-500/50 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5"
+                className="card p-5 sm:p-6 cursor-pointer transition-colors duration-200 hover:border-primary-500/50 hover:bg-ow-surface-hover"
                 onClick={() => openUpdate(u)}
               >
                 <div className="flex flex-col sm:flex-row gap-5">
@@ -223,7 +223,7 @@ export function UpdatesPage() {
                         </Dialog.Title>
                         <button
                           onClick={() => setSelected(null)}
-                          className="p-1 text-secondary-400 hover:text-white transition-colors"
+                          className="p-1 text-secondary-400 hover:text-ow-text transition-colors"
                         >
                           <XMarkIcon className="w-6 h-6" />
                         </button>

@@ -64,7 +64,7 @@ export default function ProductPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="relative aspect-square rounded-xl overflow-hidden bg-secondary-800">
+          <div className="ow-hatch relative aspect-square rounded-xl overflow-hidden border border-ow-hairline">
             {activeImage ? (
               <OptimizedImg
                 src={activeImage}
@@ -106,7 +106,7 @@ export default function ProductPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.05 }}
         >
-          <h1 className="text-3xl sm:text-4xl font-display font-bold text-white mb-3">
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-ow-text mb-3">
             {product.title}
           </h1>
           <p className="text-2xl text-primary-400 font-semibold mb-6">

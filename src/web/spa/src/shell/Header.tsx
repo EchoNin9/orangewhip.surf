@@ -100,8 +100,8 @@ export function Header() {
         isHome
           ? "backdrop-blur-[14px] bg-[oklch(0.16_0.018_45/0.72)] border-b border-ow-hairline"
           : scrolled
-            ? "bg-secondary-900/95 backdrop-blur-sm shadow-lg"
-            : "bg-secondary-900"
+            ? "bg-[oklch(0.16_0.018_45/0.72)] backdrop-blur-[14px] border-b border-ow-hairline"
+            : "bg-ow-bg border-b border-ow-hairline"
       }`}
     >
       {/* Impersonation banner */}

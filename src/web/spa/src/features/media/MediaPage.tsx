@@ -118,7 +118,7 @@ function MediaCard({
     >
       <Link
         to={`/media/${item.id}`}
-        className={`card block overflow-hidden group transition-all duration-300 hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5 ${
+        className={`card block overflow-hidden group transition-colors duration-200 hover:border-primary-500/60 hover:bg-ow-surface-hover ${
           selected ? "ring-2 ring-red-500 border-red-500/50" : ""
         }`}
       >
@@ -178,8 +178,8 @@ function MediaCard({
             <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${
               hasThumb ? "bg-black/30 opacity-0 group-hover:opacity-100" : "opacity-100"
             }`}>
-              <div className="w-12 h-12 rounded-full bg-primary-500/90 flex items-center justify-center shadow-lg group-hover:bg-primary-500 group-hover:scale-110 transition-all">
-                <PlayIcon className="w-6 h-6 text-white ml-0.5" />
+              <div className="w-12 h-12 rounded-full bg-primary-500/90 flex items-center justify-center group-hover:bg-primary-500 group-hover:scale-110 transition-all">
+                <PlayIcon className="w-6 h-6 text-ow-on-accent ml-0.5" />
               </div>
             </div>
           )}
@@ -201,7 +201,7 @@ function MediaCard({
 
         {/* Content */}
         <div className="p-4">
-          <h3 className="text-sm font-semibold text-white group-hover:text-primary-400 transition-colors truncate">
+          <h3 className="text-sm font-semibold text-ow-text group-hover:text-primary-400 transition-colors truncate">
             {item.title}
           </h3>
           <div className="mt-1 flex items-center gap-3 text-xs text-secondary-400">
@@ -393,8 +393,8 @@ export default function MediaPage() {
                   className={({ selected }) =>
                     `flex-1 min-w-[5.5rem] py-2.5 px-4 text-sm font-medium rounded-lg transition-colors outline-none whitespace-nowrap ${
                       selected
-                        ? "bg-primary-500 text-white shadow"
-                        : "text-secondary-400 hover:text-white hover:bg-secondary-700/50"
+                        ? "bg-primary-500 text-ow-on-accent"
+                        : "text-secondary-400 hover:text-ow-text hover:bg-secondary-700/50"
                     }`
                   }
                 >
