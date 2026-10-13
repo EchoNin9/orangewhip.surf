@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import {
   ArrowLeftIcon,
   ArrowTopRightOnSquareIcon,
@@ -78,12 +78,12 @@ function CopyLinkButton() {
     <button
       type="button"
       onClick={handleCopy}
-      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary-800 hover:bg-secondary-700 text-secondary-200 hover:text-primary-400 transition-colors text-sm font-medium"
+      className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-secondary-800 hover:bg-secondary-700 text-secondary-200 hover:text-primary-400 transition-colors text-sm font-medium"
       title="Copy link to clipboard"
     >
       {copied ? (
         <>
-          <CheckIcon className="w-4 h-4 text-green-400" />
+          <CheckIcon className="w-4 h-4 text-ow-success" />
           Copied!
         </>
       ) : (
@@ -139,7 +139,7 @@ export function PressDetailPage() {
   if (error || !card) {
     return (
       <div className="container-max section-padding text-center">
-        <p className="text-red-400 mb-4">
+        <p className="text-ow-danger mb-4">
           {error ?? "Press item not found"}
         </p>
         <Link
@@ -214,7 +214,7 @@ export function PressDetailPage() {
                   key={att.id}
                   href={att.url}
                   download={att.filename}
-                  className="inline-flex items-center gap-1.5 text-sm bg-secondary-800 hover:bg-secondary-700 text-secondary-200 px-3 py-1.5 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm bg-secondary-800 hover:bg-secondary-700 text-secondary-200 px-3 py-1.5 rounded-full transition-colors"
                 >
                   <DocumentArrowDownIcon className="w-4 h-4 text-primary-400" />
                   {att.filename}

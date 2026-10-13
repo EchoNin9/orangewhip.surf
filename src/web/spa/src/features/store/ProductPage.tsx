@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from '@/utils/framer';
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { OptimizedImg } from '../../utils/OptimizedImg';
 import { findProduct } from './catalog';
@@ -64,7 +64,7 @@ export default function ProductPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="relative aspect-square rounded-xl overflow-hidden bg-secondary-800">
+          <div className="ow-hatch relative aspect-square rounded-xl overflow-hidden border border-ow-hairline">
             {activeImage ? (
               <OptimizedImg
                 src={activeImage}
@@ -87,7 +87,7 @@ export default function ProductPage() {
                   key={src}
                   type="button"
                   onClick={() => setActiveImage(src)}
-                  className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                  className={`aspect-square rounded-xl overflow-hidden border-2 transition-colors ${
                     activeImage === src
                       ? 'border-primary-500'
                       : 'border-transparent hover:border-secondary-500'
@@ -106,7 +106,7 @@ export default function ProductPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.05 }}
         >
-          <h1 className="text-3xl sm:text-4xl font-display font-bold text-white mb-3">
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-ow-text mb-3">
             {product.title}
           </h1>
           <p className="text-2xl text-primary-400 font-semibold mb-6">
@@ -130,7 +130,7 @@ export default function ProductPage() {
                       key={v.id}
                       type="button"
                       onClick={() => setVariantId(v.id)}
-                      className={`min-w-[3rem] px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                      className={`min-w-[3rem] px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
                         selected
                           ? 'bg-primary-500/20 text-primary-300 border-primary-500/60'
                           : 'bg-secondary-800 text-secondary-300 border-secondary-700 hover:border-secondary-500'

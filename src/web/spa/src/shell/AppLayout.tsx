@@ -1,10 +1,9 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { ErrorBoundary } from './ErrorBoundary';
-import { PageTransition } from '@/utils/PageTransition';
+import { apiGet } from '@/utils/api';
 
 /* ── Eager-loaded: homepage only ── */
 import { HomePage } from '@/features/home/HomePage';
@@ -51,16 +50,36 @@ function PageLoader() {
 
 export function AppLayout() {
   const location = useLocation();
+  const [bookingEmail, setBookingEmail] = useState('hello@orangewhip.surf');
+
+  /* Site-wide branding: the palette goes on <html> so header, page and footer
+     resolve the same accents (it used to sit on the HomePage wrapper only). */
+  useEffect(() => {
+    apiGet<{ palette?: string; bookingEmail?: string }>('/branding')
+      .then((b) => {
+        document.documentElement.dataset.owPalette = b.palette || 'sunset';
+        if (b.bookingEmail) setBookingEmail(b.bookingEmail);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary-900">
+    <div className="min-h-screen flex flex-col bg-ow-bg">
+      {/* Skip link: first focusable element on every page */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-full focus:bg-ow-accent focus:px-5 focus:py-3 focus:font-grotesk focus:text-sm focus:font-bold focus:uppercase focus:text-ow-on-accent"
+      >
+        Skip to content
+      </a>
       <Header />
 
-      <div className="flex-1">
+      <div id="main" tabIndex={-1} className="flex-1 outline-none">
         <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
-          <AnimatePresence mode="wait">
-            <PageTransition key={location.pathname}>
+          {/* Route entrance in CSS (ow-page-in, motion-safe); reduced motion for lazy
+              framer pages is handled in utils/framer.ts */}
+          <div key={location.pathname} className="ow-page-in">
               <Routes location={location}>
                 {/* Public pages */}
                 <Route path="/" element={<HomePage />} />
@@ -100,13 +119,12 @@ export function AppLayout() {
                 <Route path="/admin/branding" element={<BrandingAdminPage />} />
                 <Route path="/admin/store/orders" element={<AdminOrdersPage />} />
               </Routes>
-            </PageTransition>
-          </AnimatePresence>
+          </div>
         </Suspense>
         </ErrorBoundary>
       </div>
 
-      <Footer />
+      <Footer bookingEmail={bookingEmail} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from '@/utils/framer';
 import { apiGet, apiPost, apiPut, ApiError } from '../../utils/api';
 import { useAuth, hasRole } from '../../shell/AuthContext';
 import type { Order } from './types';
@@ -8,8 +8,8 @@ import { CATALOG } from './catalog';
 import { formatPrice } from './useCart';
 
 const statusBadgeClass: Record<string, string> = {
-  submitted: 'bg-emerald-500/20 text-emerald-400',
-  failed: 'bg-red-500/20 text-red-400',
+  submitted: 'bg-ow-success/20 text-ow-success',
+  failed: 'bg-ow-danger/20 text-ow-danger',
 };
 
 interface PrintFileStatus {
@@ -76,7 +76,7 @@ function PrintArtworkSection() {
         the previous file.
       </p>
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+        <div className="mb-4 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
           {error}
         </div>
       )}
@@ -88,11 +88,11 @@ function PrintArtworkSection() {
               <p className="text-xs text-secondary-500 font-mono truncate">{f.s3_key}</p>
             </div>
             {f.uploaded ? (
-              <span className="text-xs text-emerald-400 whitespace-nowrap">
+              <span className="text-xs text-ow-success whitespace-nowrap">
                 ✓ uploaded{f.last_modified ? ` ${formatDate(f.last_modified)}` : ''}
               </span>
             ) : (
-              <span className="text-xs text-amber-400 whitespace-nowrap">missing</span>
+              <span className="text-xs text-ow-accent-3 whitespace-nowrap">missing</span>
             )}
             <input
               ref={(el) => { inputs.current[f.product_id] = el; }}
@@ -179,7 +179,7 @@ function GelatoUidsSection() {
         docs/store-setup.md). Orders fail until every SKU sold has one.
       </p>
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+        <div className="mb-4 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
           {error}
         </div>
       )}
@@ -202,7 +202,7 @@ function GelatoUidsSection() {
         <button className="btn-primary text-sm px-4 py-2" disabled={saving || !dirty} onClick={() => void save()}>
           {saving ? 'Saving…' : 'Save UIDs'}
         </button>
-        {saved && <span className="text-xs text-emerald-400">✓ saved</span>}
+        {saved && <span className="text-xs text-ow-success">✓ saved</span>}
       </div>
     </section>
   );
@@ -301,7 +301,7 @@ export default function AdminOrdersPage() {
       </h2>
 
       {error && (
-        <div className="mb-6 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
+        <div className="mb-6 p-3 rounded-lg bg-ow-accent-3/10 border border-ow-accent-3/30 text-ow-accent-3 text-sm">
           {error}
           <button onClick={() => setError(null)} className="ml-3 underline">
             dismiss

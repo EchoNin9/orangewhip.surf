@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import {
   PhotoIcon,
   ArrowLeftIcon,
@@ -44,7 +44,7 @@ const DEFAULT_HERO: HeroBranding = {
   heroImageOpacity: 25,
   palette: "sunset",
   showGrain: true,
-  marqueeItems: ['New single "Sundowner" out now', "Summer tour on sale", "Merch restocked"],
+  marqueeItems: ["Surf-psych from East Van", "Bring earplugs", "Join the mailing list"],
 };
 
 /* ------------------------------------------------------------------ */
@@ -128,6 +128,8 @@ export function BrandingAdminPage() {
         aboutText2: branding.aboutText2 ?? "",
         bookingEmail: branding.bookingEmail ?? "",
       });
+      /* AppLayout reads the palette once per load — apply the saved one now */
+      document.documentElement.dataset.owPalette = branding.palette ?? "sunset";
       setSuccess("Branding saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -136,11 +138,13 @@ export function BrandingAdminPage() {
     }
   };
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = async (original: File) => {
     setUploading(true);
     setError(null);
     setSuccess(null);
     try {
+      // Hero is the page's largest image (LCP) — shrink before upload
+      const file = await shrinkImage(original);
       const { uploadUrl, s3Key } = await apiPost<{
         uploadUrl: string;
         s3Key: string;
@@ -246,7 +250,7 @@ export function BrandingAdminPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
+        <div className="mb-6 p-4 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger">
           {error}
         </div>
       )}
@@ -285,7 +289,7 @@ export function BrandingAdminPage() {
                   type="button"
                   onClick={handleDeleteImage}
                   disabled={deleting}
-                  className="btn-secondary text-sm text-red-400 border-red-500/50 hover:border-red-500"
+                  className="btn-secondary text-sm text-ow-danger border-ow-danger/50 hover:border-ow-danger"
                 >
                   {deleting ? "Removing..." : "Remove"}
                 </button>
@@ -380,7 +384,7 @@ export function BrandingAdminPage() {
             onChange={(e) => update({ marqueeItems: e.target.value.split("\n") })}
             rows={4}
             className="input-field font-mono text-sm"
-            placeholder={'New single "Sundowner" out now'}
+            placeholder="Surf-psych from East Van"
           />
         </div>
 
@@ -446,7 +450,7 @@ export function BrandingAdminPage() {
                   <button
                     type="button"
                     onClick={handleRemoveAboutImage}
-                    className="text-sm text-red-400 hover:text-red-300"
+                    className="text-sm text-ow-danger hover:text-ow-danger"
                   >
                     Remove
                   </button>
@@ -807,7 +811,7 @@ function AlbumEditor() {
               <button
                 type="button"
                 onClick={() => up({ tracks: album.tracks.filter((_, j) => j !== i) })}
-                className="px-2 py-1 text-secondary-400 hover:text-red-400"
+                className="px-2 py-1 text-secondary-400 hover:text-ow-danger"
               >
                 ✕
               </button>
@@ -825,12 +829,38 @@ function AlbumEditor() {
         </button>
       </div>
 
-      {err && <p className="text-sm text-red-400">{err}</p>}
-      {msg && <p className="text-sm text-green-400">{msg}</p>}
+      {err && <p className="text-sm text-ow-danger">{err}</p>}
+      {msg && <p className="text-sm text-ow-success">{msg}</p>}
 
       <button type="button" onClick={save} disabled={saving} className="btn-primary">
         {saving ? "Saving..." : "Save Album"}
       </button>
     </div>
   );
+}
+
+/**
+ * Downscale a photo to at most `maxDim` px on its long edge and re-encode it
+ * (WebP, JPEG where the browser can't encode WebP). Returns the original when
+ * it's already small or the browser can't decode it.
+ * ponytail: client-side only; a server-side variant pipeline would also cover
+ * images uploaded before this existed — re-upload those once.
+ */
+async function shrinkImage(file: File, maxDim = 1920, quality = 0.82): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const encode = (type: string) => new Promise<Blob | null>((res) => canvas.toBlob(res, type, quality));
+    let blob = await encode("image/webp");
+    if (!blob || blob.type !== "image/webp") blob = await encode("image/jpeg");
+    if (!blob || blob.size >= file.size) return file;
+    const ext = blob.type === "image/webp" ? "webp" : "jpg";
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + "." + ext, { type: blob.type });
+  } catch {
+    return file;
+  }
 }

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Tab } from "@headlessui/react";
 import { MagnifyingGlassIcon, PlayIcon, MusicalNoteIcon } from "@heroicons/react/24/solid";
 import { TrashIcon } from "@heroicons/react/24/outline";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { apiGet, apiDelete, searchCache } from "../../utils/api";
 import { EmptyState } from "../../shell/EmptyState";
 import { useAuth, hasRole } from "../../shell/AuthContext";
@@ -118,8 +118,8 @@ function MediaCard({
     >
       <Link
         to={`/media/${item.id}`}
-        className={`card block overflow-hidden group transition-all duration-300 hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5 ${
-          selected ? "ring-2 ring-red-500 border-red-500/50" : ""
+        className={`card block overflow-hidden group transition-colors duration-200 hover:border-primary-500/60 hover:bg-ow-surface-hover ${
+          selected ? "ring-2 ring-ow-danger border-ow-danger/50" : ""
         }`}
       >
         {/* Thumbnail */}
@@ -134,8 +134,8 @@ function MediaCard({
               }}
               className={`absolute top-2 left-2 z-10 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
                 selected
-                  ? "bg-red-500 border-red-500 text-white"
-                  : "bg-secondary-900/80 border-secondary-500 hover:border-red-400"
+                  ? "bg-ow-danger border-ow-danger text-ow-on-accent"
+                  : "bg-secondary-900/80 border-secondary-500 hover:border-ow-danger"
               }`}
             >
               {selected && (
@@ -178,8 +178,8 @@ function MediaCard({
             <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${
               hasThumb ? "bg-black/30 opacity-0 group-hover:opacity-100" : "opacity-100"
             }`}>
-              <div className="w-12 h-12 rounded-full bg-primary-500/90 flex items-center justify-center shadow-lg group-hover:bg-primary-500 group-hover:scale-110 transition-all">
-                <PlayIcon className="w-6 h-6 text-white ml-0.5" />
+              <div className="w-12 h-12 rounded-full bg-primary-500/90 flex items-center justify-center group-hover:bg-primary-500 group-hover:scale-110 transition-all">
+                <PlayIcon className="w-6 h-6 text-ow-on-accent ml-0.5" />
               </div>
             </div>
           )}
@@ -201,9 +201,9 @@ function MediaCard({
 
         {/* Content */}
         <div className="p-4">
-          <h3 className="text-sm font-semibold text-white group-hover:text-primary-400 transition-colors truncate">
+          <h2 className="text-sm font-semibold text-ow-text group-hover:text-primary-400 transition-colors truncate">
             {item.title}
-          </h3>
+          </h2>
           <div className="mt-1 flex items-center gap-3 text-xs text-secondary-400">
             {item.filesize != null && <span>{formatBytes(item.filesize)}</span>}
             {item.addedBy && <span>by {item.addedBy}</span>}
@@ -386,15 +386,15 @@ export default function MediaPage() {
               localStorage.setItem("ow-media-tab", TABS[i].type);
             }}
           >
-            <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-xl p-1 min-w-[18rem] max-w-sm">
+            <Tab.List className="flex gap-1 bg-secondary-800/50 rounded-full p-1 min-w-[18rem] max-w-sm">
               {TABS.map((tab) => (
                 <Tab
                   key={tab.type}
                   className={({ selected }) =>
-                    `flex-1 min-w-[5.5rem] py-2.5 px-4 text-sm font-medium rounded-lg transition-colors outline-none whitespace-nowrap ${
+                    `flex-1 min-w-[5.5rem] py-2.5 px-4 text-sm font-medium rounded-full transition-colors whitespace-nowrap ${
                       selected
-                        ? "bg-primary-500 text-white shadow"
-                        : "text-secondary-400 hover:text-white hover:bg-secondary-700/50"
+                        ? "bg-primary-500 text-ow-on-accent"
+                        : "text-secondary-400 hover:text-ow-text hover:bg-secondary-700/50"
                     }`
                   }
                 >
@@ -409,7 +409,7 @@ export default function MediaPage() {
             type="button"
             onClick={handleBulkDelete}
             disabled={deleting}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-ow-on-accent bg-ow-danger transition-opacity hover:opacity-90 rounded-full transition-colors disabled:opacity-50"
           >
             <TrashIcon className="w-4 h-4" />
             Delete {selectedIds.size} media item{selectedIds.size === 1 ? "" : "s"}
@@ -424,12 +424,14 @@ export default function MediaPage() {
           <input
             type="text"
             placeholder="Search media..."
+            aria-label="Search media"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input-field pl-10"
           />
         </div>
         <select
+          aria-label="Filter by category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           className="input-field sm:w-48"
@@ -455,7 +457,7 @@ export default function MediaPage() {
       {/* Error */}
       {error && !loading && (
         <div className="text-center py-16">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-ow-danger mb-4">{error}</p>
           <button onClick={fetchMedia} className="btn-secondary text-sm">
             Retry
           </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment, useRef, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { Dialog, Transition, Switch } from "@headlessui/react";
 import {
   PlusIcon,
@@ -288,7 +288,7 @@ export function PressAdminPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-6 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
           {error}
           <button onClick={() => setError(null)} className="ml-3 underline">
             dismiss
@@ -328,7 +328,7 @@ export function PressAdminPage() {
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                       card.public
-                        ? "bg-green-500/20 text-green-400"
+                        ? "bg-ow-success/20 text-ow-success"
                         : "bg-secondary-600/30 text-secondary-500"
                     }`}
                   >
@@ -374,7 +374,7 @@ export function PressAdminPage() {
                   <button
                     onClick={() => setDeleteId(card.id)}
                     title="Delete"
-                    className="p-2 rounded-lg text-secondary-400 hover:text-red-400 hover:bg-secondary-700 transition-colors"
+                    className="p-2 rounded-lg text-secondary-400 hover:text-ow-danger hover:bg-secondary-700 transition-colors"
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
@@ -508,7 +508,7 @@ export function PressAdminPage() {
                               <button
                                 type="button"
                                 onClick={() => removeAttachment(att.id)}
-                                className="p-1 text-secondary-500 hover:text-red-400 transition-colors"
+                                className="p-1 text-secondary-500 hover:text-ow-danger transition-colors"
                               >
                                 <XMarkIcon className="w-4 h-4" />
                               </button>
@@ -566,7 +566,7 @@ export function PressAdminPage() {
                               <button
                                 type="button"
                                 onClick={() => removeLink(idx)}
-                                className="p-1.5 text-secondary-500 hover:text-red-400 transition-colors"
+                                className="p-1.5 text-secondary-500 hover:text-ow-danger transition-colors"
                               >
                                 <XMarkIcon className="w-4 h-4" />
                               </button>
@@ -654,7 +654,7 @@ export function PressAdminPage() {
                     </button>
                     <button
                       onClick={confirmDelete}
-                      className="inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-sm transition-colors"
+                      className="inline-flex items-center justify-center px-6 py-3 bg-ow-danger hover:bg-ow-danger/85 text-ow-on-accent font-semibold rounded-lg text-sm transition-colors"
                     >
                       Delete
                     </button>

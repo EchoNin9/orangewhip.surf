@@ -73,7 +73,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                 leaveFrom="translate-x-0"
                 leaveTo="translate-x-full"
               >
-                <Dialog.Panel className="pointer-events-auto w-screen max-w-md bg-secondary-900 border-l border-secondary-800 shadow-2xl flex flex-col h-full">
+                <Dialog.Panel className="pointer-events-auto w-screen max-w-md bg-secondary-900 border-l border-secondary-800 flex flex-col h-full">
                   {/* Header */}
                   <div className="flex items-center justify-between px-5 py-4 border-b border-secondary-800">
                     <Dialog.Title className="text-lg font-display font-bold text-secondary-100 flex items-center gap-2">
@@ -83,7 +83,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                     <button
                       type="button"
                       onClick={onClose}
-                      className="p-1 rounded-lg text-secondary-400 hover:text-white hover:bg-secondary-800 transition-colors"
+                      className="p-2.5 -m-1.5 rounded-full text-secondary-400 hover:text-ow-text hover:bg-secondary-800 transition-colors"
                     >
                       <XMarkIcon className="w-6 h-6" />
                     </button>
@@ -121,7 +121,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                                   onClick={() =>
                                     removeItem(item.product_id, item.variant_id)
                                   }
-                                  className="text-secondary-500 hover:text-red-400 transition-colors"
+                                  className="text-secondary-500 hover:text-ow-danger transition-colors"
                                   aria-label="Remove item"
                                 >
                                   <TrashIcon className="w-4 h-4" />
@@ -164,7 +164,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                                     onClick={() =>
                                       removeItem(item.product_id, item.variant_id)
                                     }
-                                    className="text-secondary-500 hover:text-red-400 transition-colors p-1 -m-1"
+                                    className="text-secondary-500 hover:text-ow-danger transition-colors p-1 -m-1"
                                     aria-label="Remove item"
                                   >
                                     <TrashIcon className="w-4 h-4" />
@@ -224,7 +224,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                   {items.length > 0 && (
                     <div className="border-t border-secondary-800 px-5 py-4 space-y-4 bg-secondary-900">
                       {error && (
-                        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                        <div className="p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-xs">
                           {error}
                         </div>
                       )}

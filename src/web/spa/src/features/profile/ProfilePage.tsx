@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { CameraIcon } from "@heroicons/react/24/outline";
 import { apiGet, apiPost, apiPut } from "../../utils/api";
 import { useAuth, type UserRole } from "../../shell/AuthContext";
@@ -33,9 +33,9 @@ const USER_HANDLE_REGEX = /^[a-zA-Z0-9 _-]*$/;
 /* ------------------------------------------------------------------ */
 
 const roleBadgeClass: Record<UserRole, string> = {
-  admin: "bg-red-500/20 text-red-400",
-  manager: "bg-purple-500/20 text-purple-400",
-  editor: "bg-blue-500/20 text-blue-400",
+  admin: "bg-ow-danger/20 text-ow-danger",
+  manager: "bg-ow-accent-2/20 text-ow-accent-2",
+  editor: "bg-ow-accent-3/20 text-ow-accent-3",
   band: "bg-primary-500/20 text-primary-400",
   guest: "bg-secondary-600/30 text-secondary-400",
 };
@@ -177,12 +177,12 @@ export function ProfilePage() {
         </h1>
 
         {error && (
-          <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <div className="mb-6 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-6 p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+          <div className="mb-6 p-3 rounded-lg bg-ow-success/10 border border-ow-success/30 text-ow-success text-sm">
             Profile saved successfully!
           </div>
         )}
@@ -208,9 +208,10 @@ export function ProfilePage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={photoUploading}
-                className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                aria-label="Change profile photo"
+                className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity disabled:opacity-50"
               >
-                <CameraIcon className="w-8 h-8 text-white" />
+                <CameraIcon aria-hidden="true" className="w-8 h-8 text-ow-text" />
               </button>
               <input
                 ref={fileInputRef}

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { Bars3Icon, XMarkIcon, UserCircleIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
 import { useAuth, canEditContent, canManageMedia, isMember } from "./AuthContext";
 import { useImpersonation } from "./ImpersonationContext";
@@ -60,8 +59,11 @@ export const socialLinks = [
   { name: "SoundCloud", href: "https://soundcloud.com/adam-jinks/sets/orange-whip", Icon: SoundCloudIcon },
 ];
 
+/* Route nav matches the homepage anchors' type (homeAnchorClass); the current page stays accent */
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `transition-colors duration-200 ${isActive ? "text-primary-400 font-semibold" : "text-secondary-300 hover:text-white"}`;
+  `relative before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] font-grotesk font-semibold text-sm uppercase tracking-[0.06em] transition-colors duration-200 ${
+    isActive ? "text-ow-accent" : "text-ow-text hover:text-ow-accent"
+  }`;
 
 /* OW redesign homepage nav (OW-4): section anchors, no Tickets button (intentionally removed).
    #media/#merch/#about sections land with OW-8/9/10/11. */
@@ -73,7 +75,7 @@ const homeAnchors = [
 ];
 
 const homeAnchorClass =
-  "font-grotesk font-semibold text-sm uppercase tracking-[0.06em] text-ow-text hover:text-ow-accent transition-colors duration-200";
+  "relative before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] font-grotesk font-semibold text-sm uppercase tracking-[0.06em] text-ow-text hover:text-ow-accent transition-colors duration-200";
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -98,35 +100,35 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isHome
-          ? "backdrop-blur-[14px] bg-[oklch(0.16_0.018_45/0.72)] border-b border-ow-hairline"
+          ? "backdrop-blur-[14px] bg-ow-glass border-b border-ow-hairline"
           : scrolled
-            ? "bg-secondary-900/95 backdrop-blur-sm shadow-lg"
-            : "bg-secondary-900"
+            ? "bg-ow-glass backdrop-blur-[14px] border-b border-ow-hairline"
+            : "bg-ow-bg border-b border-ow-hairline"
       }`}
     >
       {/* Impersonation banner */}
       {isImpersonating && (
-        <div className="bg-amber-500/20 border-b border-amber-500/40 px-4 py-1.5 flex items-center justify-center gap-3 text-sm">
-          <span className="text-amber-300 font-medium">Impersonating another user</span>
+        <div className="bg-ow-accent-3/20 border-b border-ow-accent-3/40 px-4 py-1.5 flex items-center justify-center gap-3 text-sm">
+          <span className="text-ow-accent-3 font-medium">Impersonating another user</span>
           <button
             onClick={() => {
               stopImpersonation();
               window.location.reload();
             }}
-            className="text-amber-400 hover:text-amber-200 underline font-semibold"
+            className="text-ow-accent-3 hover:text-ow-text underline font-semibold"
           >
             Stop impersonation
           </button>
         </div>
       )}
       {/* Social bar */}
-      <div className={`border-b ${scrolled || !isHome ? "border-secondary-800" : "border-white/10"}`}>
+      <div className="border-b border-ow-hairline">
         <div className="container-max flex items-center justify-between gap-4 py-1.5">
           {user ? (
             <div className="flex items-center gap-3 min-w-0">
               <Link
                 to="/profile"
-                className="text-sm text-secondary-400 hover:text-primary-400 transition-colors truncate max-w-[180px]"
+                className="text-sm text-ow-dim hover:text-ow-accent transition-colors truncate max-w-[180px]"
               >
                 {user.userHandle?.trim() || user.displayName || user.email}
               </Link>
@@ -137,7 +139,7 @@ export function Header() {
                     sessionStorage.setItem('ows_view_as_guest', (!viewAsGuest).toString());
                     window.location.reload();
                   }}
-                  className="text-xs text-secondary-500 hover:text-primary-400 transition-colors whitespace-nowrap"
+                  className="text-xs text-ow-dimmer hover:text-ow-accent transition-colors whitespace-nowrap"
                 >
                   {sessionStorage.getItem('ows_view_as_guest') === 'true'
                     ? 'View as member'
@@ -154,7 +156,7 @@ export function Header() {
               key={name}
               href={href}
               title={name}
-              className="text-secondary-400 hover:text-primary-400 transition-colors"
+              className="relative text-ow-dim hover:text-ow-accent transition-colors before:absolute before:-inset-x-2 before:-inset-y-3.5 before:content-['']"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -198,31 +200,36 @@ export function Header() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="relative p-1.5 text-secondary-300 hover:text-primary-400 transition-colors"
+            className="relative p-1.5 text-ow-text hover:text-ow-accent transition-colors before:absolute before:-inset-1.5 before:content-['']"
             aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
           >
             <ShoppingBagIcon className="w-5 h-5" />
             {itemCount > 0 && (
-              <span className="absolute -top-0.5 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+              <span className="absolute -top-0.5 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-ow-accent text-ow-on-accent text-[10px] font-bold flex items-center justify-center tabular-nums">
                 {itemCount > 99 ? "99+" : itemCount}
               </span>
             )}
           </button>
 
           {user ? (
-            <div className="flex items-center gap-4 ml-4 pl-4 border-l border-secondary-700">
+            <div className="flex items-center gap-4 ml-4 pl-4 border-l border-ow-hairline">
               {showAdminLink && (
                 <NavLink to="/admin" className={navLinkClass}>Admin</NavLink>
               )}
               <NavLink to="/profile" className={navLinkClass}>
                 <UserCircleIcon className="w-5 h-5" />
               </NavLink>
-              <button onClick={signOut} className="text-secondary-400 hover:text-red-400 transition-colors text-xs">
+              <button onClick={signOut} className="text-ow-dim hover:text-ow-accent transition-colors text-xs">
                 Sign Out
               </button>
             </div>
           ) : (
-            <NavLink to="/login" className="btn-primary text-xs !px-4 !py-1.5 ml-4">Sign In</NavLink>
+            <NavLink
+              to="/login"
+              className="ml-4 inline-flex items-center justify-center rounded-full border-[1.5px] border-ow-ghost-border px-4 py-1.5 font-grotesk text-xs font-bold uppercase tracking-[0.06em] text-ow-text transition-[border-color,box-shadow] duration-200 hover:border-ow-accent hover:shadow-[0_0_14px_-2px_var(--ow-accent)]"
+            >
+              Sign In
+            </NavLink>
           )}
         </div>
 
@@ -231,12 +238,12 @@ export function Header() {
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="relative p-2 text-secondary-300 hover:text-white"
+            className="relative p-2 text-ow-text hover:text-ow-accent before:absolute before:-inset-0.5 before:content-['']"
             aria-label={`Open cart (${itemCount} item${itemCount === 1 ? "" : "s"})`}
           >
             <ShoppingBagIcon className="w-6 h-6" />
             {itemCount > 0 && (
-              <span className="absolute top-1 right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+              <span className="absolute top-1 right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-ow-accent text-ow-on-accent text-[10px] font-bold flex items-center justify-center tabular-nums">
                 {itemCount > 99 ? "99+" : itemCount}
               </span>
             )}
@@ -245,7 +252,7 @@ export function Header() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className={`p-2 text-secondary-300 hover:text-white ${
+            className={`relative p-2 text-ow-text hover:text-ow-accent before:absolute before:-inset-0.5 before:content-[''] ${
               isHome ? "border border-ow-hairline-strong rounded-[10px] text-ow-text" : ""
             }`}
           >
@@ -254,16 +261,13 @@ export function Header() {
         </div>
       </nav>
 
-      {/* Mobile menu — smooth accordion */}
-      <AnimatePresence>
+      {/* Mobile menu — CSS entrance (ow-menu-in), motion-safe */}
         {mobileOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className={`overflow-hidden border-t border-secondary-800 bg-secondary-900/95 backdrop-blur-sm ${
-              isHome ? "ow:hidden" : "md:hidden"
+          <div
+            className={`ow-menu-in overflow-hidden border-t ${
+              isHome
+                ? "ow:hidden border-ow-hairline bg-ow-glass-strong backdrop-blur-[14px]"
+                : "md:hidden border-ow-hairline bg-ow-glass-strong backdrop-blur-[14px]"
             }`}
           >
             <div className="container-max py-4 space-y-2">
@@ -297,9 +301,11 @@ export function Header() {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `block px-3 py-2 rounded-md transition-colors ${
-                      isActive ? "bg-secondary-800 text-primary-400" : "text-secondary-300 hover:bg-secondary-800 hover:text-white"
-                    }`
+                    isHome
+                      ? `block py-3 ${homeAnchorClass}`
+                      : `block px-3 py-2 rounded-full transition-colors ${
+                          isActive ? "bg-ow-surface-hover text-ow-accent" : "text-ow-text hover:bg-ow-surface hover:text-ow-accent"
+                        }`
                   }
                   onClick={() => setMobileOpen(false)}
                 >
@@ -309,15 +315,18 @@ export function Header() {
               {user && (
                 <button
                   onClick={() => { signOut(); setMobileOpen(false); }}
-                  className="block w-full text-left px-3 py-2 rounded-md text-red-400 hover:bg-secondary-800 transition-colors"
+                  className={
+                    isHome
+                      ? `block w-full py-3 text-left ${homeAnchorClass}`
+                      : "block w-full text-left px-3 py-2 rounded-full text-ow-dim hover:bg-ow-surface hover:text-ow-accent transition-colors"
+                  }
                 >
                   Sign Out
                 </button>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
 
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
     </header>

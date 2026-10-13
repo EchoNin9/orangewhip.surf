@@ -1,18 +1,9 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiGet } from "../utils/api";
 import { socialLinks } from "./Header";
 
 /* OW redesign footer (OW-12, docs/ow-redesign-2 §9) */
-export function Footer() {
-  const [bookingEmail, setBookingEmail] = useState("hello@orangewhip.surf");
-
-  /* Same admin-editable setting as the About Booking button (OW-20) */
-  useEffect(() => {
-    apiGet<{ bookingEmail?: string }>("/branding")
-      .then((b) => b.bookingEmail && setBookingEmail(b.bookingEmail))
-      .catch(() => {});
-  }, []);
+/* bookingEmail: same admin-editable setting as the About Booking button (OW-20), fetched in AppLayout */
+export function Footer({ bookingEmail }: { bookingEmail: string }) {
 
   return (
     <footer className="border-t border-ow-hairline bg-ow-bg font-grotesk">
@@ -21,14 +12,14 @@ export function Footer() {
           <Link to="/" className="font-cooper text-[32px] font-semibold italic leading-none text-ow-accent">
             Orange Whip
           </Link>
-          <nav aria-label="Social links" className="flex flex-wrap gap-x-6 gap-y-2">
+          <nav aria-label="Social links" className="flex flex-wrap gap-x-6">
             {socialLinks.map(({ name, href }) => (
               <a
                 key={name}
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sm font-semibold uppercase text-ow-dim transition-colors hover:text-ow-accent"
+                className="inline-flex min-h-11 items-center text-sm font-semibold uppercase text-ow-dim transition-colors hover:text-ow-accent"
               >
                 {name}
               </a>
@@ -37,7 +28,7 @@ export function Footer() {
         </div>
         <p className="mt-6 text-[13px] text-ow-dimmer">
           © {new Date().getFullYear()} Orange Whip · Vancouver, BC · Booking:{" "}
-          <a href={`mailto:${bookingEmail}`} className="hover:text-ow-accent">
+          <a href={`mailto:${bookingEmail}`} className="relative text-ow-dim hover:text-ow-accent before:absolute before:-inset-x-1 before:-inset-y-3.5 before:content-['']">
             {bookingEmail}
           </a>
         </p>

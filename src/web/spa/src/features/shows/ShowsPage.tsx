@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { apiGet } from "../../utils/api";
 import { parseDate } from "../../utils/date";
 import { EmptyState } from "../../shell/EmptyState";
@@ -102,7 +102,7 @@ function ShowCard({ show, index }: { show: Show; index: number }) {
     >
       <Link
         to={`/shows/${show.id}`}
-        className={`card block overflow-hidden group transition-all duration-300 hover:border-primary-500/60 hover:shadow-lg hover:shadow-primary-500/5 hover:-translate-y-0.5 ${
+        className={`card block overflow-hidden group transition-colors duration-200 hover:border-primary-500/60 hover:bg-ow-surface-hover ${
           today ? "border-2 border-primary-500 ring-2 ring-primary-500/30" : ""
         }`}
       >
@@ -124,7 +124,7 @@ function ShowCard({ show, index }: { show: Show; index: number }) {
             </div>
           )}
           {today && (
-            <span className="absolute top-3 right-3 px-3 py-1 bg-primary-500 text-white text-xs font-bold rounded-full uppercase tracking-wider shadow-lg">
+            <span className="absolute top-3 right-3 px-3 py-1 bg-primary-500 text-ow-on-accent text-xs font-bold rounded-full uppercase tracking-wider">
               TODAY!
             </span>
           )}
@@ -132,7 +132,7 @@ function ShowCard({ show, index }: { show: Show; index: number }) {
 
         {/* Content */}
         <div className="p-5">
-          <h3 className="text-lg font-display font-bold text-white group-hover:text-primary-400 transition-colors truncate">
+          <h3 className="text-lg font-display font-bold text-ow-text group-hover:text-primary-400 transition-colors truncate">
             {show.title}
           </h3>
           <p className="mt-1 text-sm text-primary-400 font-medium">
@@ -168,7 +168,7 @@ function ShowSection({
   if (shows.length === 0) {
     return (
       <section className="mb-12">
-        <h2 className="text-2xl font-display font-bold text-white mb-6">{title}</h2>
+        <h2 className="text-2xl font-display font-bold text-ow-text mb-6">{title}</h2>
         <p className="text-secondary-400 text-center py-12">{emptyMsg}</p>
       </section>
     );
@@ -176,7 +176,7 @@ function ShowSection({
 
   return (
     <section className="mb-12">
-      <h2 className="text-2xl font-display font-bold text-white mb-6">{title}</h2>
+      <h2 className="text-2xl font-display font-bold text-ow-text mb-6">{title}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {shows.map((s, i) => (
           <ShowCard key={s.id} show={s} index={i} />
@@ -245,7 +245,7 @@ export default function ShowsPage() {
 
       {error && (
         <div className="text-center py-16">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-ow-danger mb-4">{error}</p>
           <button onClick={() => window.location.reload()} className="btn-secondary text-sm">
             Retry
           </button>

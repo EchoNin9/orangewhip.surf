@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { Dialog } from "@headlessui/react";
+import { motion, AnimatePresence } from "@/utils/framer";
 import {
   PencilSquareIcon,
   TrashIcon,
@@ -83,21 +84,20 @@ function MediaPickerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+    <Dialog open onClose={onClose} className="relative z-50">
+      <div className="fixed inset-0 bg-black/60" aria-hidden="true" />
 
-      {/* Modal */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative bg-secondary-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col"
-      >
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+      <Dialog.Panel className="relative bg-secondary-800 rounded-[18px] border border-ow-hairline-strong w-full max-w-3xl max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-secondary-700">
-          <h3 className="text-lg font-display font-bold text-white">Select Media</h3>
-          <button onClick={onClose} className="text-secondary-400 hover:text-white">
-            <XMarkIcon className="w-5 h-5" />
+          <Dialog.Title className="text-lg font-display font-bold text-ow-text">Select Media</Dialog.Title>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close media picker"
+            className="-m-2.5 p-2.5 text-secondary-400 hover:text-ow-text"
+          >
+            <XMarkIcon aria-hidden="true" className="w-5 h-5" />
           </button>
         </div>
 
@@ -132,7 +132,7 @@ function MediaPickerModal({
                   )}
                   {selected.has(m.id) && (
                     <div className="absolute top-1 right-1 w-5 h-5 bg-primary-500 rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-3 h-3 text-ow-on-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
@@ -151,8 +151,9 @@ function MediaPickerModal({
             Confirm ({selected.size})
           </button>
         </div>
-      </motion.div>
-    </div>
+      </Dialog.Panel>
+      </div>
+    </Dialog>
   );
 }
 
@@ -302,7 +303,7 @@ function ShowForm({
                 onClick={() =>
                   update({ mediaIds: form.mediaIds.filter((x) => x !== mid) })
                 }
-                className="text-secondary-500 hover:text-red-400"
+                className="text-secondary-500 hover:text-ow-danger"
               >
                 <XMarkIcon className="w-3 h-3" />
               </button>
@@ -502,7 +503,7 @@ export default function ShowsAdminPage() {
 
       {error && (
         <div className="text-center py-8">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-ow-danger mb-4">{error}</p>
           <button onClick={fetchData} className="btn-secondary text-sm">
             Retry
           </button>
@@ -596,7 +597,7 @@ export default function ShowsAdminPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleDelete(show.id)}
-                          className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-500"
+                          className="px-2 py-1 text-xs bg-ow-danger text-ow-on-accent rounded hover:bg-ow-danger/85"
                         >
                           Confirm
                         </button>
@@ -610,7 +611,7 @@ export default function ShowsAdminPage() {
                     ) : (
                       <button
                         onClick={() => setConfirmDelete(show.id)}
-                        className="p-2 rounded-lg text-secondary-400 hover:text-red-400 hover:bg-secondary-700/50 transition-colors"
+                        className="p-2 rounded-lg text-secondary-400 hover:text-ow-danger hover:bg-secondary-700/50 transition-colors"
                         title="Delete"
                       >
                         <TrashIcon className="w-5 h-5" />

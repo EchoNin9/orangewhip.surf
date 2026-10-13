@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { Dialog, Transition } from "@headlessui/react";
 import {
   TrashIcon,
@@ -35,9 +35,9 @@ interface ManagedUser {
 const ALL_COGNITO_ROLES: UserRole[] = ["admin", "manager", "editor", "band"];
 
 const roleBadgeClass: Record<string, string> = {
-  admin: "bg-red-500/20 text-red-400",
-  manager: "bg-purple-500/20 text-purple-400",
-  editor: "bg-blue-500/20 text-blue-400",
+  admin: "bg-ow-danger/20 text-ow-danger",
+  manager: "bg-ow-accent-2/20 text-ow-accent-2",
+  editor: "bg-ow-accent-3/20 text-ow-accent-3",
   band: "bg-primary-500/20 text-primary-400",
 };
 
@@ -236,7 +236,7 @@ export function UsersPage() {
       </motion.h1>
 
       {error && (
-        <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-6 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
           {error}
           <button onClick={() => setError(null)} className="ml-3 underline">
             dismiss
@@ -263,7 +263,7 @@ export function UsersPage() {
                       {u.displayName || u.email}
                     </span>
                     {u.markedForDeletion && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-ow-accent-3/20 text-ow-accent-3 px-2 py-0.5 rounded">
                         Marked for deletion
                       </span>
                     )}
@@ -303,7 +303,7 @@ export function UsersPage() {
                           {g}
                           <button
                             onClick={() => removeCognitoGroup(u, g)}
-                            className="hover:text-red-400 transition-colors"
+                            className="hover:text-ow-danger transition-colors"
                             title={`Remove ${g}`}
                           >
                             <XMarkIcon className="w-3 h-3" />
@@ -340,7 +340,7 @@ export function UsersPage() {
                           {g}
                           <button
                             onClick={() => removeCustomGroup(u, g)}
-                            className="hover:text-red-400 transition-colors"
+                            className="hover:text-ow-danger transition-colors"
                             title={`Remove from ${g}`}
                           >
                             <XMarkIcon className="w-3 h-3" />
@@ -377,7 +377,7 @@ export function UsersPage() {
                   <button
                     onClick={() => setDeleteTarget(u)}
                     title={canAdminister(user!) ? "Delete user" : "Mark for deletion"}
-                    className="p-2 rounded-lg text-secondary-400 hover:text-red-400 hover:bg-secondary-700 transition-colors"
+                    className="p-2 rounded-lg text-secondary-400 hover:text-ow-danger hover:bg-secondary-700 transition-colors"
                   >
                     <TrashIcon className="w-5 h-5" />
                   </button>
@@ -561,7 +561,7 @@ export function UsersPage() {
                     </button>
                     <button
                       onClick={confirmDeleteUser}
-                      className="inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-sm transition-colors"
+                      className="inline-flex items-center justify-center px-6 py-3 bg-ow-danger hover:bg-ow-danger/85 text-ow-on-accent font-semibold rounded-lg text-sm transition-colors"
                     >
                       {canAdminister(user!) ? "Delete User" : "Mark for Deletion"}
                     </button>
