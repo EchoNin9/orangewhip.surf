@@ -305,49 +305,62 @@ function MediaSection() {
           {tracks.map((t, i) => {
             const isCurrent = i === current;
             const pct = isCurrent && time.total ? (time.at / time.total) * 100 : 0;
-            const row = (
-              <>
-                <span className="w-5 shrink-0 font-anton text-[15px] text-ow-accent-3">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                {/* Only playable rows show play/pause (and hover); inert rows keep the slot in a mixed list so titles align */}
-                <span
-                  aria-hidden="true"
-                  className={`w-4 shrink-0 text-ow-accent ${t.mediaId ? "" : anyPlayable ? "invisible" : "hidden"} ${
-                    loadingIdx === i ? "motion-safe:animate-pulse" : ""
-                  }`}
-                >
-                  {isCurrent && playing ? <PauseIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
-                </span>
-                <span className={`min-w-0 flex-1 truncate text-base font-semibold ${isCurrent ? "text-ow-accent" : "text-ow-text"}`}>
-                  {t.title}
-                </span>
-                <span className="text-sm tabular-nums text-ow-dim">
-                  {isCurrent && time.at > 0 ? `${clock(time.at)}${time.total ? ` / ${clock(time.total)}` : ""}` : t.duration}
-                </span>
-                {/* Progress fills the row's bottom hairline */}
-                {isCurrent && (
-                  <span aria-hidden="true" className="absolute -bottom-px left-0 h-0.5 bg-ow-accent" style={{ width: `${pct}%` }} />
-                )}
-              </>
-            );
             const id = t.mediaId;
+            const number = (
+              <span className="w-5 shrink-0 font-anton text-[15px] text-ow-accent-3">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+            );
+            /* Only playable rows show play/pause; inert rows keep the slot in a mixed list so titles align */
+            const icon = (
+              <span
+                aria-hidden="true"
+                className={`w-4 shrink-0 text-ow-accent ${id ? "" : anyPlayable ? "invisible" : "hidden"} ${
+                  loadingIdx === i ? "motion-safe:animate-pulse" : ""
+                }`}
+              >
+                {isCurrent && playing ? <PauseIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
+              </span>
+            );
+            const titleClass = `min-w-0 flex-1 truncate text-base font-semibold ${isCurrent ? "text-ow-accent" : "text-ow-text"}`;
+            // Full-row-height hit areas: number + arrow play inline, the title opens the media item
+            const STRETCH = "-my-3.5 flex items-center self-stretch py-3.5";
             return (
               <li key={i}>
-                {id ? (
-                  <button
-                    type="button"
-                    onClick={() => void toggle(i)}
-                    onPointerEnter={() => void fetchUrl(id).catch(() => {})}
-                    onFocus={() => void fetchUrl(id).catch(() => {})}
-                    aria-label={`${isCurrent && playing ? "Pause" : "Play"} ${t.title}`}
-                    className={`${TRACK_ROW} relative w-full text-left transition-colors hover:bg-ow-surface ${isCurrent ? "bg-ow-surface" : ""}`}
-                  >
-                    {row}
-                  </button>
-                ) : (
-                  <div className={TRACK_ROW}>{row}</div>
-                )}
+                <div className={`${TRACK_ROW} relative ${id ? "transition-colors hover:bg-ow-surface" : ""} ${isCurrent ? "bg-ow-surface" : ""}`}>
+                  {id ? (
+                    <button
+                      type="button"
+                      onClick={() => void toggle(i)}
+                      onPointerEnter={() => void fetchUrl(id).catch(() => {})}
+                      onFocus={() => void fetchUrl(id).catch(() => {})}
+                      aria-label={`${isCurrent && playing ? "Pause" : "Play"} ${t.title}`}
+                      className={`${STRETCH} -ml-2 shrink-0 gap-4 pl-2 pr-1`}
+                    >
+                      {number}
+                      {icon}
+                    </button>
+                  ) : (
+                    <>
+                      {number}
+                      {icon}
+                    </>
+                  )}
+                  {id ? (
+                    <Link to={`/media/${id}`} className={`${STRETCH} ${titleClass} transition-colors hover:text-ow-accent`}>
+                      <span className="truncate">{t.title}</span>
+                    </Link>
+                  ) : (
+                    <span className={titleClass}>{t.title}</span>
+                  )}
+                  <span className="text-sm tabular-nums text-ow-dim">
+                    {isCurrent && time.at > 0 ? `${clock(time.at)}${time.total ? ` / ${clock(time.total)}` : ""}` : t.duration}
+                  </span>
+                  {/* Progress fills the row's bottom hairline */}
+                  {isCurrent && (
+                    <span aria-hidden="true" className="absolute -bottom-px left-0 h-0.5 bg-ow-accent" style={{ width: `${pct}%` }} />
+                  )}
+                </div>
               </li>
             );
           })}
