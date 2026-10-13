@@ -92,7 +92,7 @@ function PrintArtworkSection() {
                 ✓ uploaded{f.last_modified ? ` ${formatDate(f.last_modified)}` : ''}
               </span>
             ) : (
-              <span className="text-xs text-amber-400 whitespace-nowrap">missing</span>
+              <span className="text-xs text-ow-accent-3 whitespace-nowrap">missing</span>
             )}
             <input
               ref={(el) => { inputs.current[f.product_id] = el; }}
@@ -301,7 +301,7 @@ export default function AdminOrdersPage() {
       </h2>
 
       {error && (
-        <div className="mb-6 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
+        <div className="mb-6 p-3 rounded-lg bg-ow-accent-3/10 border border-ow-accent-3/30 text-ow-accent-3 text-sm">
           {error}
           <button onClick={() => setError(null)} className="ml-3 underline">
             dismiss

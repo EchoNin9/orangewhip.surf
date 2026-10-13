@@ -250,7 +250,7 @@ export function UpdatesAdminPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-6 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
           {error}
           <button onClick={() => setError(null)} className="ml-3 underline">
             dismiss
@@ -288,7 +288,7 @@ export function UpdatesAdminPage() {
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                       u.visible
-                        ? "bg-green-500/20 text-green-400"
+                        ? "bg-ow-success/20 text-ow-success"
                         : "bg-secondary-600/30 text-secondary-500"
                     }`}
                   >
@@ -339,7 +339,7 @@ export function UpdatesAdminPage() {
                   <button
                     onClick={() => setDeleteId(u.id)}
                     title="Delete"
-                    className="p-2 rounded-lg text-secondary-400 hover:text-red-400 hover:bg-secondary-700 transition-colors"
+                    className="p-2 rounded-lg text-secondary-400 hover:text-ow-danger hover:bg-secondary-700 transition-colors"
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
@@ -671,7 +671,7 @@ export function UpdatesAdminPage() {
                     </button>
                     <button
                       onClick={confirmDelete}
-                      className="inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-sm transition-colors"
+                      className="inline-flex items-center justify-center px-6 py-3 bg-ow-danger hover:bg-ow-danger/85 text-ow-on-accent font-semibold rounded-lg text-sm transition-colors"
                     >
                       Delete
                     </button>

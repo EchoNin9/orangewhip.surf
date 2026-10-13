@@ -256,7 +256,7 @@ export default function VenuesAdminPage() {
 
       {error && (
         <div className="text-center py-8">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-ow-danger mb-4">{error}</p>
           <button onClick={fetchVenues} className="btn-secondary text-sm">
             Retry
           </button>
@@ -361,7 +361,7 @@ export default function VenuesAdminPage() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleDelete(venue.id)}
-                      className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-500"
+                      className="px-2 py-1 text-xs bg-ow-danger text-ow-on-accent rounded hover:bg-ow-danger/85"
                     >
                       Confirm
                     </button>
@@ -375,7 +375,7 @@ export default function VenuesAdminPage() {
                 ) : (
                   <button
                     onClick={() => setConfirmDelete(venue.id)}
-                    className="p-2 rounded-lg text-secondary-400 hover:text-red-400 hover:bg-secondary-700/50 transition-colors"
+                    className="p-2 rounded-lg text-secondary-400 hover:text-ow-danger hover:bg-secondary-700/50 transition-colors"
                     title="Delete"
                   >
                     <TrashIcon className="w-5 h-5" />

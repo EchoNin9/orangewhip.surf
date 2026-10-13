@@ -250,7 +250,7 @@ export function BrandingAdminPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
+        <div className="mb-6 p-4 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger">
           {error}
         </div>
       )}
@@ -289,7 +289,7 @@ export function BrandingAdminPage() {
                   type="button"
                   onClick={handleDeleteImage}
                   disabled={deleting}
-                  className="btn-secondary text-sm text-red-400 border-red-500/50 hover:border-red-500"
+                  className="btn-secondary text-sm text-ow-danger border-ow-danger/50 hover:border-ow-danger"
                 >
                   {deleting ? "Removing..." : "Remove"}
                 </button>
@@ -450,7 +450,7 @@ export function BrandingAdminPage() {
                   <button
                     type="button"
                     onClick={handleRemoveAboutImage}
-                    className="text-sm text-red-400 hover:text-red-300"
+                    className="text-sm text-ow-danger hover:text-ow-danger"
                   >
                     Remove
                   </button>
@@ -811,7 +811,7 @@ function AlbumEditor() {
               <button
                 type="button"
                 onClick={() => up({ tracks: album.tracks.filter((_, j) => j !== i) })}
-                className="px-2 py-1 text-secondary-400 hover:text-red-400"
+                className="px-2 py-1 text-secondary-400 hover:text-ow-danger"
               >
                 ✕
               </button>
@@ -829,8 +829,8 @@ function AlbumEditor() {
         </button>
       </div>
 
-      {err && <p className="text-sm text-red-400">{err}</p>}
-      {msg && <p className="text-sm text-green-400">{msg}</p>}
+      {err && <p className="text-sm text-ow-danger">{err}</p>}
+      {msg && <p className="text-sm text-ow-success">{msg}</p>}
 
       <button type="button" onClick={save} disabled={saving} className="btn-primary">
         {saving ? "Saving..." : "Save Album"}

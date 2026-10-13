@@ -416,7 +416,7 @@ function UploadTab({ categories }: { categories: Category[] }) {
 
                     {/* Uploaded check */}
                     {q.uploaded && (
-                      <div className="absolute top-1 right-7 bg-green-500 text-white rounded-full p-0.5">
+                      <div className="absolute top-1 right-7 bg-ow-success text-ow-on-accent rounded-full p-0.5">
                         <CheckIcon className="w-3 h-3" />
                       </div>
                     )}
@@ -426,7 +426,7 @@ function UploadTab({ categories }: { categories: Category[] }) {
                       type="button"
                       onClick={() => removeFile(q.id)}
                       disabled={uploading}
-                      className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                      className="absolute top-1 right-1 bg-ow-danger/80 hover:bg-ow-danger text-ow-on-accent rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
                     >
                       <XMarkIcon className="w-3 h-3" />
                     </button>
@@ -565,9 +565,9 @@ function UploadTab({ categories }: { categories: Category[] }) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="card p-4 border-green-500/30 bg-green-900/20"
+            className="card p-4 border-ow-success/30 bg-ow-success/10"
           >
-            <p className="text-green-400 text-sm flex items-center gap-2">
+            <p className="text-ow-success text-sm flex items-center gap-2">
               <CheckIcon className="w-5 h-5" />
               Media uploaded successfully!
             </p>
@@ -583,8 +583,8 @@ function UploadTab({ categories }: { categories: Category[] }) {
 
       {/* Error */}
       {error && (
-        <div className="card p-4 border-red-500/30 bg-red-900/20">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="card p-4 border-ow-danger/30 bg-ow-danger/10">
+          <p className="text-ow-danger text-sm">{error}</p>
         </div>
       )}
     </div>
@@ -722,7 +722,7 @@ function CategoriesTab() {
                   <button
                     onClick={() => handleUpdate(cat.id)}
                     disabled={saving}
-                    className="p-1.5 rounded text-green-400 hover:bg-secondary-700/50"
+                    className="p-1.5 rounded text-ow-success hover:bg-secondary-700/50"
                   >
                     <CheckIcon className="w-4 h-4" />
                   </button>
@@ -745,7 +745,7 @@ function CategoriesTab() {
                   </button>
                   <button
                     onClick={() => handleDelete(cat.id)}
-                    className="p-1.5 rounded text-secondary-400 hover:text-red-400 hover:bg-secondary-700/50 transition-colors"
+                    className="p-1.5 rounded text-secondary-400 hover:text-ow-danger hover:bg-secondary-700/50 transition-colors"
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
@@ -1119,7 +1119,7 @@ export default function MediaAdminPage() {
                           }
                         }}
                         disabled={editSaving}
-                        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors disabled:opacity-50"
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-ow-on-accent bg-ow-danger hover:bg-ow-danger/85 rounded-lg transition-colors disabled:opacity-50"
                       >
                         <TrashIcon className="w-4 h-4" />
                         Delete
@@ -1179,7 +1179,7 @@ export default function MediaAdminPage() {
                                   setEditThumbKey("__remove__");
                                 }}
                                 disabled={editSaving}
-                                className="block text-xs text-red-400 hover:text-red-300 transition-colors"
+                                className="block text-xs text-ow-danger hover:text-ow-danger transition-colors"
                               >
                                 Remove cover art
                               </button>
@@ -1264,7 +1264,7 @@ export default function MediaAdminPage() {
                                   type="button"
                                   onClick={(ev) => { ev.stopPropagation(); removeExistingFile(f.s3Key); }}
                                   disabled={editSaving}
-                                  className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="absolute top-1 right-1 bg-ow-danger/80 hover:bg-ow-danger text-ow-on-accent rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                   <XMarkIcon className="w-3 h-3" />
                                 </button>
@@ -1315,7 +1315,7 @@ export default function MediaAdminPage() {
                                 type="button"
                                 onClick={() => removeNewFile(q.id)}
                                 disabled={editSaving}
-                                className="absolute top-1 right-1 bg-red-500/80 hover:bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute top-1 right-1 bg-ow-danger/80 hover:bg-ow-danger text-ow-on-accent rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                               >
                                 <XMarkIcon className="w-3 h-3" />
                               </button>
@@ -1372,12 +1372,12 @@ export default function MediaAdminPage() {
                           <label className="block text-sm font-medium text-secondary-300 mb-1">
                             <PhotoIcon className="w-4 h-4 inline mr-1" />
                             Thumbnail
-                            {isMandatory && <span className="text-red-400 ml-1">*</span>}
+                            {isMandatory && <span className="text-ow-danger ml-1">*</span>}
                           </label>
                           <select
                             value={editThumbKey}
                             onChange={(e) => setEditThumbKey(e.target.value)}
-                            className={`input-field ${isMandatory && !editThumbKey ? "border-red-500/50" : ""}`}
+                            className={`input-field ${isMandatory && !editThumbKey ? "border-ow-danger/50" : ""}`}
                             required={isMandatory}
                           >
                             {!isMandatory && <option value="">Auto (first image)</option>}
@@ -1473,7 +1473,7 @@ export default function MediaAdminPage() {
 
                     {/* Error */}
                     {editError && (
-                      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                      <div className="p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
                         {editError}
                       </div>
                     )}

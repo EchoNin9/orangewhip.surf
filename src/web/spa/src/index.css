@@ -173,6 +173,8 @@
     to { transform: translateX(-50%); }
   }
   .ow-marquee { animation: ow-marquee 26s linear infinite; }
+  /* WCAG 2.2.2: hover (or a held tap) pauses the strip */
+  .ow-marquee:hover, .ow-marquee:active { animation-play-state: paused; }
 }
 
 @layer utilities {

@@ -61,7 +61,7 @@ export const socialLinks = [
 
 /* Route nav matches the homepage anchors' type (homeAnchorClass); the current page stays accent */
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `font-grotesk font-semibold text-sm uppercase tracking-[0.06em] transition-colors duration-200 ${
+  `relative before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] font-grotesk font-semibold text-sm uppercase tracking-[0.06em] transition-colors duration-200 ${
     isActive ? "text-ow-accent" : "text-ow-text hover:text-ow-accent"
   }`;
 
@@ -75,7 +75,7 @@ const homeAnchors = [
 ];
 
 const homeAnchorClass =
-  "font-grotesk font-semibold text-sm uppercase tracking-[0.06em] text-ow-text hover:text-ow-accent transition-colors duration-200";
+  "relative before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] font-grotesk font-semibold text-sm uppercase tracking-[0.06em] text-ow-text hover:text-ow-accent transition-colors duration-200";
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -108,14 +108,14 @@ export function Header() {
     >
       {/* Impersonation banner */}
       {isImpersonating && (
-        <div className="bg-amber-500/20 border-b border-amber-500/40 px-4 py-1.5 flex items-center justify-center gap-3 text-sm">
-          <span className="text-amber-300 font-medium">Impersonating another user</span>
+        <div className="bg-ow-accent-3/20 border-b border-ow-accent-3/40 px-4 py-1.5 flex items-center justify-center gap-3 text-sm">
+          <span className="text-ow-accent-3 font-medium">Impersonating another user</span>
           <button
             onClick={() => {
               stopImpersonation();
               window.location.reload();
             }}
-            className="text-amber-400 hover:text-amber-200 underline font-semibold"
+            className="text-ow-accent-3 hover:text-ow-text underline font-semibold"
           >
             Stop impersonation
           </button>

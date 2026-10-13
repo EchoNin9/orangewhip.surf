@@ -201,9 +201,9 @@ function MediaCard({
 
         {/* Content */}
         <div className="p-4">
-          <h3 className="text-sm font-semibold text-ow-text group-hover:text-primary-400 transition-colors truncate">
+          <h2 className="text-sm font-semibold text-ow-text group-hover:text-primary-400 transition-colors truncate">
             {item.title}
-          </h3>
+          </h2>
           <div className="mt-1 flex items-center gap-3 text-xs text-secondary-400">
             {item.filesize != null && <span>{formatBytes(item.filesize)}</span>}
             {item.addedBy && <span>by {item.addedBy}</span>}

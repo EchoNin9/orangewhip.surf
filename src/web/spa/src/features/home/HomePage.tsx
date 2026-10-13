@@ -296,7 +296,7 @@ function MediaSection() {
         <div>
           <div className="ow-hatch aspect-square overflow-hidden rounded-2xl border border-ow-hairline">
             {coverUrl && (
-              <img src={coverUrl} alt={`${albumTitle} album art`} className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+              <img src={coverUrl} alt={`${albumTitle} album art`} loading="lazy" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
             )}
           </div>
           <div className="mt-4 font-cooper text-[22px] font-semibold italic text-ow-accent">
@@ -568,7 +568,7 @@ function AboutSection({ hero }: { hero: HeroBranding }) {
         {/* Portrait admin-uploadable (OW-22); hatch placeholder when unset */}
         <div className="ow-hatch aspect-[4/5] overflow-hidden rounded-[18px] border border-ow-hairline">
           {hero.aboutImageUrl && (
-            <img src={hero.aboutImageUrl} alt="Band portrait" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+            <img src={hero.aboutImageUrl} alt="Band portrait" loading="lazy" className="h-full w-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
           )}
         </div>
       </div>

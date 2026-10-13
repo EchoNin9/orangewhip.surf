@@ -171,7 +171,7 @@ export function ApiKeysPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-6 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
           {error}
           <button onClick={() => setError(null)} className="ml-3 underline">
             dismiss
@@ -181,8 +181,8 @@ export function ApiKeysPage() {
 
       {/* ── Newly created key banner ── */}
       {newKey && (
-        <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-          <p className="text-sm font-semibold text-green-400 mb-2">
+        <div className="mb-6 p-4 rounded-lg bg-ow-success/10 border border-ow-success/30">
+          <p className="text-sm font-semibold text-ow-success mb-2">
             API Key Created &mdash; copy it now! You won&rsquo;t see it again.
           </p>
           <div className="flex items-center gap-2">
@@ -195,7 +195,7 @@ export function ApiKeysPage() {
               title="Copy to clipboard"
             >
               {copied ? (
-                <CheckIcon className="w-5 h-5 text-green-400" />
+                <CheckIcon className="w-5 h-5 text-ow-success" />
               ) : (
                 <ClipboardDocumentIcon className="w-5 h-5" />
               )}
@@ -243,7 +243,7 @@ export function ApiKeysPage() {
               <button
                 onClick={() => setRevokeTarget(k)}
                 title="Revoke key"
-                className="p-2 rounded-lg text-secondary-400 hover:text-red-400 hover:bg-secondary-700 transition-colors flex-shrink-0"
+                className="p-2 rounded-lg text-secondary-400 hover:text-ow-danger hover:bg-secondary-700 transition-colors flex-shrink-0"
               >
                 <TrashIcon className="w-5 h-5" />
               </button>
@@ -375,7 +375,7 @@ export function ApiKeysPage() {
                     </button>
                     <button
                       onClick={confirmRevoke}
-                      className="inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-sm transition-colors"
+                      className="inline-flex items-center justify-center px-6 py-3 bg-ow-danger hover:bg-ow-danger/85 text-ow-on-accent font-semibold rounded-lg text-sm transition-colors"
                     >
                       Revoke
                     </button>

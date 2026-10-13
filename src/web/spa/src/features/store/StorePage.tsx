@@ -48,9 +48,9 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         </div>
 
         <div className="p-5">
-          <h3 className="text-lg font-display font-bold text-ow-text group-hover:text-primary-400 transition-colors truncate">
+          <h2 className="text-lg font-display font-bold text-ow-text group-hover:text-primary-400 transition-colors truncate">
             {product.title}
-          </h3>
+          </h2>
           <p className="mt-1 text-sm text-primary-400 font-medium">
             {formatPrice(product.price_cents, product.currency)}
           </p>

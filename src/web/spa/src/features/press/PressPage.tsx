@@ -276,9 +276,9 @@ export function PressPage() {
               {/* Attachments */}
               {(card.attachments ?? []).length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-secondary-500 mb-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-secondary-500 mb-2">
                     Downloads
-                  </h4>
+                  </h3>
                   <div className="flex flex-wrap gap-2">
                     {(card.attachments ?? []).map((att) => (
                       <a
@@ -299,9 +299,9 @@ export function PressPage() {
               {/* External links */}
               {(card.links ?? []).length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-secondary-500 mb-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-secondary-500 mb-2">
                     Links
-                  </h4>
+                  </h3>
                   <div className="flex flex-wrap gap-2">
                     {(card.links ?? []).map((link, i) => (
                       <a
