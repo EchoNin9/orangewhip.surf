@@ -17,6 +17,12 @@
     --ow-hairline-strong: oklch(0.95 0.015 80 / 0.18);
     --ow-surface: oklch(0.95 0.015 80 / 0.035);
     --ow-surface-hover: oklch(0.95 0.015 80 / 0.07);
+    /* Status + glass (audit 2026-10-13): warm status hues, named glass fills */
+    --ow-danger: oklch(0.7 0.17 32);
+    --ow-success: oklch(0.78 0.15 145);
+    --ow-glass: oklch(0.16 0.018 45 / 0.72);
+    --ow-glass-strong: oklch(0.16 0.018 45 / 0.92);
+    --ow-ghost-border: oklch(0.95 0.015 80 / 0.3);
     /* Sunset (default palette) */
     --ow-accent: oklch(0.72 0.2 50);
     --ow-accent-2: oklch(0.68 0.21 0);
@@ -34,9 +40,6 @@
     --ow-accent-3: oklch(0.76 0.19 48);
   }
 
-  html {
-    @apply scroll-smooth;
-  }
 
   /* Keyboard focus in the palette, not UA blue. Components with their own
      focus ring (focus:outline-none + focus:ring) keep theirs. */
@@ -104,7 +107,7 @@
   /* Ghost pill (button-outline) */
   .btn-secondary {
     @apply inline-flex items-center justify-center px-6 py-3 rounded-full
-           border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] text-ow-text
+           border-[1.5px] border-ow-ghost-border text-ow-text
            font-grotesk text-sm font-bold uppercase tracking-[0.03em]
            transition-colors duration-200 hover:border-ow-accent
            disabled:opacity-50 disabled:cursor-not-allowed;
@@ -129,6 +132,20 @@
 
 /* ── OW redesign page chrome animations (OW-3) — motion-safe only ── */
 @media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+
+  /* Route change + mobile menu entrances (CSS, so framer stays off the homepage path) */
+  @keyframes ow-page-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  .ow-page-in { animation: ow-page-in 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+  @keyframes ow-menu-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+  }
+  .ow-menu-in { animation: ow-menu-in 0.2s ease-out; }
+
   @keyframes ow-blob-drift-1 {
     0%, 100% { transform: translate(0, 0) scale(1); }
     50% { transform: translate(60px, -40px) scale(1.15); }

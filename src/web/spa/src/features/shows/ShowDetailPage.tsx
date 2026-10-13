@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/utils/framer";
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
 import { parseDate } from "../../utils/date";
@@ -87,14 +87,14 @@ function MediaCarousel({ media }: { media: ShowMediaItem[] }) {
         <>
           <button
             onClick={() => paginate(-1)}
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary-900/70 text-ow-text hover:bg-primary-500/80 transition-colors"
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-secondary-900/70 text-ow-text hover:bg-primary-500/80 transition-colors"
             aria-label="Previous"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => paginate(1)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-secondary-900/70 text-ow-text hover:bg-primary-500/80 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-secondary-900/70 text-ow-text hover:bg-primary-500/80 transition-colors"
             aria-label="Next"
           >
             <ChevronRightIcon className="w-5 h-5" />
@@ -104,12 +104,12 @@ function MediaCarousel({ media }: { media: ShowMediaItem[] }) {
 
       {/* Dots */}
       {media.length > 1 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-3.5">
           {media.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent([i, i > current ? 1 : -1])}
-              className={`w-2.5 h-2.5 rounded-full transition-colors ${
+              className={`relative w-2.5 h-2.5 rounded-full transition-colors before:absolute before:-inset-[7px] before:content-[''] ${
                 i === current ? "bg-primary-500" : "bg-secondary-400/50 hover:bg-secondary-300"
               }`}
               aria-label={`Go to slide ${i + 1}`}
@@ -192,7 +192,7 @@ export default function ShowDetailPage() {
 
       {error && (
         <div className="text-center py-16">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-ow-danger mb-4">{error}</p>
           <Link to="/shows" className="btn-secondary text-sm">
             Back to Shows
           </Link>

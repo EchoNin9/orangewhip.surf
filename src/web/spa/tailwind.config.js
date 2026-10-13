@@ -4,6 +4,9 @@ const tint = (toward, pct) => {
   return `color-mix(in oklch, ${base} calc(<alpha-value> * 100%), transparent)`;
 };
 
+/** A CSS-var colour that still supports opacity modifiers (text-ow-danger/70). */
+const alpha = (v) => `color-mix(in oklch, var(${v}) calc(<alpha-value> * 100%), transparent)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -29,6 +32,11 @@ export default {
           'hairline-strong': 'var(--ow-hairline-strong)',
           surface: 'var(--ow-surface)',
           'surface-hover': 'var(--ow-surface-hover)',
+          danger: alpha('--ow-danger'),
+          success: alpha('--ow-success'),
+          glass: 'var(--ow-glass)',
+          'glass-strong': 'var(--ow-glass-strong)',
+          'ghost-border': 'var(--ow-ghost-border)',
         },
         // Legacy scales, re-pointed at the OW system (route migration, step C).
         // primary-* follows the live palette: --ow-accent mixed toward white/black,
@@ -52,7 +60,7 @@ export default {
           200: '#e4ddd2',
           300: '#d1c9be',
           400: '#a9a094',
-          500: '#7c7368',
+          500: '#8e8479', // 5.3:1 on bg, 4.95:1 on cards (AA)
           600: '#5e534a',
           700: '#483d36',
           800: '#2a1f19',

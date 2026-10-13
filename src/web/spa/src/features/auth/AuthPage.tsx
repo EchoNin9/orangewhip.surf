@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { useAuth } from "../../shell/AuthContext";
 
 /* ------------------------------------------------------------------ */
@@ -146,7 +146,7 @@ export function AuthPage() {
 
         {/* ── Error banner ── */}
         {error && (
-          <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <div className="mb-6 p-3 rounded-lg bg-ow-danger/10 border border-ow-danger/30 text-ow-danger text-sm">
             {error}
           </div>
         )}
@@ -154,14 +154,15 @@ export function AuthPage() {
         {/* ── Sign In form ── */}
         {tab === "signin" && (
           <form onSubmit={handleSignIn} className="space-y-5">
-            <h2 className="text-2xl font-display font-bold text-secondary-100">
+            <h1 className="text-2xl font-display font-bold text-secondary-100">
               Welcome Back
-            </h2>
+            </h1>
             <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-1.5">
+              <label htmlFor="auth-field-1" className="block text-sm font-medium text-secondary-300 mb-1.5">
                 Email
               </label>
               <input
+                id="auth-field-1"
                 type="email"
                 required
                 value={email}
@@ -171,10 +172,11 @@ export function AuthPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-1.5">
+              <label htmlFor="auth-field-2" className="block text-sm font-medium text-secondary-300 mb-1.5">
                 Password
               </label>
               <input
+                id="auth-field-2"
                 type="password"
                 required
                 value={password}
@@ -192,14 +194,15 @@ export function AuthPage() {
         {/* ── Sign Up form ── */}
         {tab === "signup" && step === "form" && (
           <form onSubmit={handleSignUp} className="space-y-5">
-            <h2 className="text-2xl font-display font-bold text-secondary-100">
+            <h1 className="text-2xl font-display font-bold text-secondary-100">
               Create Account
-            </h2>
+            </h1>
             <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-1.5">
+              <label htmlFor="auth-field-3" className="block text-sm font-medium text-secondary-300 mb-1.5">
                 Email
               </label>
               <input
+                id="auth-field-3"
                 type="email"
                 required
                 value={email}
@@ -209,10 +212,11 @@ export function AuthPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-1.5">
+              <label htmlFor="auth-field-4" className="block text-sm font-medium text-secondary-300 mb-1.5">
                 Password
               </label>
               <input
+                id="auth-field-4"
                 type="password"
                 required
                 value={password}
@@ -222,10 +226,11 @@ export function AuthPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-1.5">
+              <label htmlFor="auth-field-5" className="block text-sm font-medium text-secondary-300 mb-1.5">
                 Confirm Password
               </label>
               <input
+                id="auth-field-5"
                 type="password"
                 required
                 value={confirmPassword}
@@ -243,18 +248,19 @@ export function AuthPage() {
         {/* ── Confirmation code ── */}
         {tab === "signup" && step === "confirm" && (
           <form onSubmit={handleConfirm} className="space-y-5">
-            <h2 className="text-2xl font-display font-bold text-secondary-100">
+            <h1 className="text-2xl font-display font-bold text-secondary-100">
               Confirm Your Email
-            </h2>
+            </h1>
             <p className="text-sm text-secondary-400">
               We sent a verification code to <strong className="text-secondary-200">{email}</strong>.
               Enter it below to activate your account.
             </p>
             <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-1.5">
+              <label htmlFor="auth-field-6" className="block text-sm font-medium text-secondary-300 mb-1.5">
                 Verification Code
               </label>
               <input
+                id="auth-field-6"
                 type="text"
                 required
                 value={code}

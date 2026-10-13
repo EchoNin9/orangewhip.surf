@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import {
   ArrowTopRightOnSquareIcon,
   DocumentArrowDownIcon,
@@ -168,7 +168,7 @@ export function PressPage() {
   if (error) {
     return (
       <div className="container-max section-padding text-center">
-        <p className="text-red-400">Failed to load press materials: {error}</p>
+        <p className="text-ow-danger">Failed to load press materials: {error}</p>
       </div>
     );
   }
@@ -207,7 +207,7 @@ export function PressPage() {
                 key={name}
                 href={href}
                 title={name}
-                className="text-secondary-300 hover:text-primary-400 transition-colors"
+                className="relative text-secondary-300 hover:text-primary-400 transition-colors before:absolute before:-inset-1.5 before:content-['']"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -286,7 +286,7 @@ export function PressPage() {
                         href={att.url}
                         download={att.filename}
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 text-sm bg-secondary-800 hover:bg-secondary-700 text-secondary-200 px-3 py-1.5 rounded-lg transition-colors"
+                        className="inline-flex items-center gap-1.5 text-sm bg-secondary-800 hover:bg-secondary-700 text-secondary-200 px-3 py-1.5 rounded-full transition-colors"
                       >
                         <DocumentArrowDownIcon className="w-4 h-4 text-primary-400" />
                         {att.filename}

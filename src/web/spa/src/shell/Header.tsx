@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { Bars3Icon, XMarkIcon, UserCircleIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
 import { useAuth, canEditContent, canManageMedia, isMember } from "./AuthContext";
 import { useImpersonation } from "./ImpersonationContext";
@@ -101,9 +100,9 @@ export function Header() {
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
         isHome
-          ? "backdrop-blur-[14px] bg-[oklch(0.16_0.018_45/0.72)] border-b border-ow-hairline"
+          ? "backdrop-blur-[14px] bg-ow-glass border-b border-ow-hairline"
           : scrolled
-            ? "bg-[oklch(0.16_0.018_45/0.72)] backdrop-blur-[14px] border-b border-ow-hairline"
+            ? "bg-ow-glass backdrop-blur-[14px] border-b border-ow-hairline"
             : "bg-ow-bg border-b border-ow-hairline"
       }`}
     >
@@ -227,7 +226,7 @@ export function Header() {
           ) : (
             <NavLink
               to="/login"
-              className="ml-4 inline-flex items-center justify-center rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] px-4 py-1.5 font-grotesk text-xs font-bold uppercase tracking-[0.06em] text-ow-text transition-[border-color,box-shadow] duration-200 hover:border-ow-accent hover:shadow-[0_0_14px_-2px_var(--ow-accent)]"
+              className="ml-4 inline-flex items-center justify-center rounded-full border-[1.5px] border-ow-ghost-border px-4 py-1.5 font-grotesk text-xs font-bold uppercase tracking-[0.06em] text-ow-text transition-[border-color,box-shadow] duration-200 hover:border-ow-accent hover:shadow-[0_0_14px_-2px_var(--ow-accent)]"
             >
               Sign In
             </NavLink>
@@ -262,18 +261,13 @@ export function Header() {
         </div>
       </nav>
 
-      {/* Mobile menu — smooth accordion */}
-      <AnimatePresence>
+      {/* Mobile menu — CSS entrance (ow-menu-in), motion-safe */}
         {mobileOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className={`overflow-hidden border-t ${
+          <div
+            className={`ow-menu-in overflow-hidden border-t ${
               isHome
-                ? "ow:hidden border-ow-hairline bg-[oklch(0.16_0.018_45/0.92)] backdrop-blur-[14px]"
-                : "md:hidden border-ow-hairline bg-[oklch(0.16_0.018_45/0.92)] backdrop-blur-[14px]"
+                ? "ow:hidden border-ow-hairline bg-ow-glass-strong backdrop-blur-[14px]"
+                : "md:hidden border-ow-hairline bg-ow-glass-strong backdrop-blur-[14px]"
             }`}
           >
             <div className="container-max py-4 space-y-2">
@@ -331,9 +325,8 @@ export function Header() {
                 </button>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
 
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
     </header>

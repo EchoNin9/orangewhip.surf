@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { apiGet, ApiError } from "../../utils/api";
 
 /* ------------------------------------------------------------------ */

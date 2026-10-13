@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { apiGet } from "../../utils/api";
 import { parseDate } from "../../utils/date";
 import { EmptyState } from "../../shell/EmptyState";
@@ -245,7 +245,7 @@ export default function ShowsPage() {
 
       {error && (
         <div className="text-center py-16">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-ow-danger mb-4">{error}</p>
           <button onClick={() => window.location.reload()} className="btn-secondary text-sm">
             Retry
           </button>

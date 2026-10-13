@@ -67,12 +67,12 @@ export class ErrorBoundary extends Component<Props, State> {
             
             {/* Display error details in development */}
             {this.state.error && (
-              <div className="text-left mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
-                <p className="text-xs font-mono text-red-400 mb-2">
+              <div className="text-left mb-6 p-4 bg-ow-danger/10 border border-ow-danger/30 rounded-lg">
+                <p className="text-xs font-mono text-ow-danger mb-2">
                   <strong>Error:</strong> {this.state.error.message}
                 </p>
-                <details className="text-xs font-mono text-red-300/70">
-                  <summary className="cursor-pointer hover:text-red-300">Stack trace</summary>
+                <details className="text-xs font-mono text-ow-danger/70">
+                  <summary className="cursor-pointer hover:text-ow-danger">Stack trace</summary>
                   <pre className="mt-2 text-[10px] overflow-auto max-h-40">
                     {this.state.error.stack}
                   </pre>

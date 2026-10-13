@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
-import { motion } from "framer-motion";
+import { motion } from "@/utils/framer";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { apiGet } from "../../utils/api";
@@ -91,7 +91,7 @@ export function UpdatesPage() {
   if (error) {
     return (
       <div className="container-max section-padding text-center">
-        <p className="text-red-400">Failed to load updates: {error}</p>
+        <p className="text-ow-danger">Failed to load updates: {error}</p>
       </div>
     );
   }

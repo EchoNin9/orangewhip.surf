@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, Fragment, type FormEvent, type DragEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Tab, Dialog, Transition } from "@headlessui/react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/utils/framer";
 import {
   CloudArrowUpIcon,
   LinkIcon,

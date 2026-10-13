@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from '@/utils/framer';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useCart } from './useCart';
 

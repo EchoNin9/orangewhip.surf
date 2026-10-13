@@ -533,7 +533,7 @@ function MerchSection() {
 /* ── About section (OW-11) ── */
 
 const ABOUT_PILL =
-  "rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] px-6 py-3 font-grotesk text-[13px] font-bold uppercase tracking-[0.06em] text-ow-text transition-colors hover:border-ow-accent";
+  "rounded-full border-[1.5px] border-ow-ghost-border px-6 py-3 font-grotesk text-[13px] font-bold uppercase tracking-[0.06em] text-ow-text transition-colors hover:border-ow-accent";
 
 function AboutSection({ hero }: { hero: HeroBranding }) {
   return (
@@ -749,7 +749,7 @@ export function HomePage() {
   /* ── Render ── */
 
   return (
-    <div className="relative bg-ow-bg">
+    <main className="relative bg-ow-bg">
       {/* ── Hero (OW-5) — pinned; the rest of the page scrolls over it (OW-19) ── */}
       <section className="sticky top-0 z-0 -mt-[88px] h-[100svh] overflow-hidden">
         {/* Full-bleed photo layer — hidden entirely when no image is set */}
@@ -820,7 +820,7 @@ export function HomePage() {
             </CtaLink>
             <CtaLink
               href={hero.heroButton2Href}
-              className="rounded-full border-[1.5px] border-[oklch(0.95_0.015_80/0.3)] px-8 py-4 font-grotesk text-base font-bold uppercase tracking-[0.03em] text-ow-text transition-all duration-200 hover:-translate-y-0.5 hover:border-ow-accent-3"
+              className="rounded-full border-[1.5px] border-ow-ghost-border px-8 py-4 font-grotesk text-base font-bold uppercase tracking-[0.03em] text-ow-text transition-all duration-200 hover:-translate-y-0.5 hover:border-ow-accent-3"
             >
               {hero.heroButton2Text}
             </CtaLink>
@@ -1110,7 +1110,7 @@ export function HomePage() {
       </Transition>
       </div>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -1168,7 +1168,7 @@ function NowPlaying({
   onJump: () => void;
 }) {
   return (
-    <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-full border border-ow-hairline-strong bg-[oklch(0.16_0.018_45/0.72)] p-1.5 font-grotesk backdrop-blur-[14px] sm:left-auto sm:right-6 sm:w-[360px]">
+    <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-full border border-ow-hairline-strong bg-ow-glass p-1.5 font-grotesk backdrop-blur-[14px] sm:left-auto sm:right-6 sm:w-[360px]">
       <button
         type="button"
         onClick={onToggle}

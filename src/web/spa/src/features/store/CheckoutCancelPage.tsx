@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from '@/utils/framer';
 import { ShoppingBagIcon } from '@heroicons/react/24/outline';
 
 export default function CheckoutCancelPage() {

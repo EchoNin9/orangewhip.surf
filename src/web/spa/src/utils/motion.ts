@@ -1,4 +1,4 @@
-import type { Variants } from "framer-motion";
+import type { Variants } from "@/utils/framer";
 
 /* Shared easing curve — smooth deceleration */
 export const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];

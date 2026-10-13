@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from '@/utils/framer';
 import { OptimizedImg } from '../../utils/OptimizedImg';
 import { CATALOG } from './catalog';
 import type { Product } from './catalog';
